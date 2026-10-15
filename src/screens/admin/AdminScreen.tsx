@@ -4,13 +4,15 @@ import { IDLE_LOCK_MS } from '../../domain/admin';
 import { DataPanel, SecurityPanel } from './DataSecurityPanels';
 import { ItemsPanel } from './ItemsPanel';
 import { LockScreen } from './LockScreen';
+import { PetPanel } from './PetPanel';
 import { LearningPanel, SoundPanel } from './SettingsPanels';
 import { SharePanel } from './SharePanel';
 import './admin.css';
 
-type Menu = 'items' | 'share' | 'learning' | 'sound' | 'data' | 'security';
+type Menu = 'pet' | 'items' | 'share' | 'learning' | 'sound' | 'data' | 'security';
 
 const MENUS: { key: Menu; icon: string; title: string; desc: string }[] = [
+  { key: 'pet', icon: '🐾', title: '펫 관리', desc: '새 펫 시작하기, 도감 졸업 조건' },
   { key: 'items', icon: '🛒', title: '상점 아이템 관리', desc: '가격·효과 바꾸기, 새 아이템, 판매 중지' },
   { key: 'share', icon: '🔗', title: '상점 설정 공유', desc: '다른 기기로 보내기·불러오기' },
   { key: 'learning', icon: '📚', title: '학습 설정', desc: '답 입력 방식, 12·13단 도전 모드' },
@@ -84,6 +86,7 @@ export function AdminScreen() {
           ))}
         </div>
       )}
+      {menu === 'pet' && <PetPanel />}
       {menu === 'items' && <ItemsPanel />}
       {menu === 'share' && <SharePanel />}
       {menu === 'learning' && <LearningPanel />}

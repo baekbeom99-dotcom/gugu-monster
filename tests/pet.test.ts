@@ -184,5 +184,7 @@ describe('조사', () => {
     expect(josa('별', '이', '가')).toBe('별이');
     expect(josa('뒤뚱이', '은', '는')).toBe('뒤뚱이는');
     expect(josa('Momo', '이', '가')).toBe('Momo가');
+    expect(josa('별', '으로', '로')).toBe('별로');
+    expect(josa('펫', '으로', '로')).toBe('펫으로');
   });
 });

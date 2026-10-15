@@ -4,6 +4,7 @@ import { TabBar } from './components/TabBar';
 import { TopBar } from './components/TopBar';
 import { BattleScreen } from './screens/BattleScreen';
 import { DevGallery } from './screens/DevGallery';
+import { DexScreen } from './screens/DexScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
 import { HatchScreen } from './screens/HatchScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
@@ -11,16 +12,17 @@ import { PetScreen } from './screens/PetScreen';
 import { RecordsScreen } from './screens/RecordsScreen';
 import { AdminScreen } from './screens/admin/AdminScreen';
 import { ShopScreen } from './screens/ShopScreen';
+import { needsHatch } from './domain/pet';
 import { useGameStore } from './store/useGameStore';
 import { useSessionStore } from './store/useSessionStore';
 
 /** 알을 고르기 전이면 온보딩으로, 첫 탐험을 마친 알은 부화 화면으로 보낸다. */
 function OnboardingGuard() {
-  const species = useGameStore((s) => s.pet.species);
-  const stage = useGameStore((s) => s.pet.stage);
+  const pet = useGameStore((s) => s.pet);
+  const species = pet.species;
   const explorations = useGameStore((s) => s.learning.totalExplorations);
   if (!species) return <Navigate to="/welcome" replace />;
-  if (stage === 'egg' && explorations > 0) return <Navigate to="/hatch" replace />;
+  if (needsHatch(pet, explorations)) return <Navigate to="/hatch" replace />;
   return <Outlet />;
 }
 
@@ -57,6 +59,9 @@ export function App() {
             <Route path="/records" element={<RecordsScreen />} />
             <Route path="/admin" element={<AdminScreen />} />
           </Route>
+        </Route>
+        <Route element={<TabLayout />}>
+          <Route path="/dex" element={<DexScreen />} />
         </Route>
         <Route path="/welcome" element={fullScreen(<OnboardingScreen />)} />
         <Route path="/hatch" element={fullScreen(<HatchScreen />)} />

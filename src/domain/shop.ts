@@ -82,8 +82,8 @@ export function applyItem(pet: PetData, economy: EconomyData, item: ItemDef, now
   const r = applyCare(
     pet,
     item.consumable
-      ? { effects: stats, affection, refuseWhenFull: true }
-      : { effects: stats, affection, cooldownKey: item.id, cooldownMin: item.cooldownMin ?? 30 },
+      ? { effects: stats, affection, refuseWhenFull: true, countKeys: [`item:${item.category}`, ...(item.special ? ['special'] : [])] }
+      : { effects: stats, affection, cooldownKey: item.id, cooldownMin: item.cooldownMin ?? 30, countKeys: [`item:${item.category}`] },
     now,
   );
   if (!r.ok) return r;

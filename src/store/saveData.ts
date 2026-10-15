@@ -1,6 +1,7 @@
 /** 저장 데이터 스키마 — 설계서 11-1 */
 import { defaultCatalog } from '../data/defaultCatalog';
 import { type AdminData, initialAdmin } from '../domain/admin';
+import { type DexEntry, GRADUATION_DAYS_DEFAULT } from '../domain/dex';
 import { initialPet, type PetData } from '../domain/pet';
 import type { CatalogData } from '../domain/shop';
 import { type EconomyData, initialEconomy, initialLearning, type LearningData } from '../domain/progress';
@@ -14,6 +15,8 @@ export interface Settings {
   /** 0~1 */
   volume: number;
   inputMode: 'auto' | 'choice';
+  /** 다 자란 펫이 만족한 상태로 이만큼(일) 지내면 도감으로 졸업 */
+  graduationDays: number;
 }
 
 export interface SaveData {
@@ -27,6 +30,8 @@ export interface SaveData {
   /** 상점 아이템 목록 (관리자가 편집할 수 있다) */
   catalog: CatalogData;
   admin: AdminData;
+  /** 펫 도감: 졸업했거나 관리자가 새 펫을 시작해 떠난 펫들 */
+  dex: DexEntry[];
 }
 
 export function createInitialSave(now: number): SaveData {
@@ -34,12 +39,13 @@ export function createInitialSave(now: number): SaveData {
     schemaVersion: SCHEMA_VERSION,
     createdAt: now,
     lastSeenAt: now,
-    settings: { sound: true, volume: 0.7, inputMode: 'auto' },
+    settings: { sound: true, volume: 0.7, inputMode: 'auto', graduationDays: GRADUATION_DAYS_DEFAULT },
     learning: initialLearning(),
     economy: initialEconomy(),
     pet: initialPet(now),
     catalog: defaultCatalog(),
     admin: initialAdmin(),
+    dex: [],
   };
 }
 
@@ -65,5 +71,6 @@ export function mergeSave(initial: SaveData, persisted: unknown): SaveData {
     pet: { ...initial.pet, ...p.pet },
     catalog: p.catalog?.items?.length ? p.catalog : initial.catalog,
     admin: { ...initial.admin, ...p.admin },
+    dex: Array.isArray(p.dex) ? p.dex : initial.dex,
   };
 }

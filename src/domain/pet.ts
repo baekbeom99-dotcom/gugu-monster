@@ -38,6 +38,24 @@ export interface PetData {
   /** 하루 첫 방문 친밀도 보너스를 받은 날 */
   lastVisitDate: string | null;
   evolutionCards: { stage: Stage; date: string }[];
+  /** 다 자란 뒤 만족도가 높았던 시간의 합(ms) — 도감 졸업 조건. 줄지 않는다. */
+  happyMs: number;
+  /** 돌봄 종류별 횟수 (도감 칭호를 정할 때 쓴다) */
+  careCounts: Record<string, number>;
+  /** 부화할 때의 학습 기록 (이 펫과 함께한 동안의 기록을 계산하는 기준) */
+  lifeStart: LifeSnapshot | null;
+  /** 이 알을 고를 때까지의 탐험 횟수. 그보다 많아지면(탐험 1번 더) 부화한다. */
+  eggBaseExplorations: number;
+  hatchedAt: string | null;
+}
+
+export interface LifeSnapshot {
+  explorations: number;
+  attempts: number;
+  correct: number;
+  overcome: number;
+  mastered: number;
+  studyDays: number;
 }
 
 export const STAT_MIN = 30;
@@ -94,8 +112,57 @@ export function initialPet(now: number): PetData {
     statsUpdatedAt: now,
     lastVisitDate: null,
     evolutionCards: [],
+    happyMs: 0,
+    careCounts: {},
+    lifeStart: null,
+    eggBaseExplorations: 0,
+    hatchedAt: null,
   };
 }
+
+/** 새 알: 지금까지의 탐험 횟수를 기준으로, 탐험을 한 번 더 하면 깨어난다 */
+export function newEgg(now: number, baseExplorations: number): PetData {
+  return { ...initialPet(now), eggBaseExplorations: baseExplorations };
+}
+
+/** 고른 알이 부화할 차례인가 (그 알을 고른 뒤 탐험을 한 번 이상 마쳤다) */
+export function needsHatch(pet: PetData, explorations: number): boolean {
+  return pet.stage === 'egg' && !!pet.species && explorations > (pet.eggBaseExplorations ?? 0);
+}
+
+// ── 만족도 ─────────────────────────────────────
+
+/** 만족도 = 배부름·기분·깨끗함의 평균. 이 값 이상이면 '행복한 상태' */
+export const HAPPY_THRESHOLD = 70;
+
+export function satisfaction(pet: Pick<PetData, StatKey>): number {
+  return (pet.fullness + pet.mood + pet.cleanliness) / 3;
+}
+
+/** 시작 상태에서 hours 시간 동안 줄어든 뒤의 만족도 (하한 30) */
+function satisfactionAfter(pet: Pick<PetData, StatKey>, hours: number): number {
+  const at = (k: StatKey) => (pet[k] < STAT_MIN ? pet[k] : Math.max(STAT_MIN, pet[k] - DECAY_PER_HOUR[k] * hours));
+  return (at('fullness') + at('mood') + at('cleanliness')) / 3;
+}
+
+/**
+ * elapsedMs 동안 만족도가 기준 이상이었던 시간.
+ * 상태는 줄기만 하므로 '기준 아래로 떨어지는 순간'을 이분 탐색으로 찾는다. 24시간이 지나면 더 줄지 않는다.
+ */
+export function happyDurationMs(pet: Pick<PetData, StatKey>, elapsedMs: number): number {
+  const total = Math.min(elapsedMs, MAX_DECAY_HOURS * HOUR_MS);
+  if (total <= 0 || satisfaction(pet) < HAPPY_THRESHOLD) return 0;
+  if (satisfactionAfter(pet, total / HOUR_MS) >= HAPPY_THRESHOLD) return total;
+  let lo = 0;
+  let hi = total / HOUR_MS;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (satisfactionAfter(pet, mid) >= HAPPY_THRESHOLD) lo = mid;
+    else hi = mid;
+  }
+  return Math.round(lo * HOUR_MS);
+}
+
 
 const clampStat = (v: number) => Math.min(STAT_MAX, Math.max(STAT_MIN, v));
 
@@ -108,12 +175,15 @@ export function applyDecay(pet: PetData, now: number): PetData {
   if (pet.stage === 'egg') return { ...pet, statsUpdatedAt: now };
   const hours = Math.min(MAX_DECAY_HOURS, (now - pet.statsUpdatedAt) / HOUR_MS);
   const decay = (key: StatKey) => (pet[key] < STAT_MIN ? pet[key] : clampStat(pet[key] - DECAY_PER_HOUR[key] * hours));
+  // 다 자란 뒤에만 도감 졸업까지의 '행복한 시간'이 쌓인다
+  const happy = pet.stage === 'adult' ? happyDurationMs(pet, now - pet.statsUpdatedAt) : 0;
   return {
     ...pet,
     fullness: decay('fullness'),
     mood: decay('mood'),
     cleanliness: decay('cleanliness'),
     statsUpdatedAt: now,
+    happyMs: (pet.happyMs ?? 0) + happy,
   };
 }
 
@@ -152,6 +222,8 @@ export interface CareSpec {
   cooldownMin?: number;
   /** 이미 가득 찼으면 쓰지 않는다 (아끼는 별로 산 소모품 보호) */
   refuseWhenFull?: boolean;
+  /** 돌봄 종류별 횟수에 더할 키 (도감 칭호용) */
+  countKeys?: string[];
 }
 
 /** 돌봄 한 번: 무료 행동과 아이템이 함께 쓴다. 성장 XP는 하루 10까지. */
@@ -168,6 +240,11 @@ export function applyCare(pet: PetData, spec: CareSpec, now: number): CareResult
     next[key] = clampStat(next[key] + amount);
   }
   next.affection += spec.affection;
+  if (spec.countKeys?.length) {
+    const counts = { ...(next.careCounts ?? {}) };
+    for (const k of spec.countKeys) counts[k] = (counts[k] ?? 0) + 1;
+    next.careCounts = counts;
+  }
   if (spec.cooldownKey && spec.cooldownMin) {
     next.cooldowns = { ...next.cooldowns, [spec.cooldownKey]: now + spec.cooldownMin * MIN_MS };
   }
@@ -176,7 +253,11 @@ export function applyCare(pet: PetData, spec: CareSpec, now: number): CareResult
 
 export function doCare(pet: PetData, action: CareAction, now: number): CareResult {
   const care = CARE[action];
-  const r = applyCare(pet, { effects: care.effects, affection: care.affection, cooldownKey: action, cooldownMin: care.cooldownMin }, now);
+  const r = applyCare(
+    pet,
+    { effects: care.effects, affection: care.affection, cooldownKey: action, cooldownMin: care.cooldownMin, countKeys: [action] },
+    now,
+  );
   if (r.ok && action === 'sleep') return { ok: true, pet: { ...r.pet, sleepingUntil: now + SLEEP_MINUTES * MIN_MS } };
   return r;
 }
@@ -273,10 +354,12 @@ export function chooseEgg(pet: PetData, species: Species): PetData {
   return { ...pet, species };
 }
 
-/** 부화: 아기 단계 + 이름. 상태를 가득 채우고 기념 카드를 남긴다. */
-export function hatch(pet: PetData, name: string, now: number): PetData {
+/** 부화: 아기 단계 + 이름. 상태를 가득 채우고 기념 카드를 남긴다. lifeStart는 이 펫과 함께한 기록의 기준점. */
+export function hatch(pet: PetData, name: string, now: number, lifeStart: LifeSnapshot | null = null): PetData {
   return {
     ...pet,
+    lifeStart,
+    hatchedAt: localDateString(now),
     stage: 'baby',
     name,
     fullness: 70,

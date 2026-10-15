@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { hatArtOf } from '../art/HatSprite';
 import { EggSprite, type PetExpression, PetSprite } from '../art/PetSprite';
 import { Confetti } from '../components/Confetti';
+import { GraduationOverlay } from '../components/GraduationOverlay';
+import { canGraduate, graduationNeedMs, makeTitle } from '../domain/dex';
 import { ItemArt } from '../components/ItemArt';
 import { bagItems, findItem, type ItemCategory, type ItemDef, ownedCount } from '../domain/shop';
 import { playSfx } from '../audio/sfx';
@@ -18,6 +20,8 @@ import {
   cooldownLeft,
   cooldownMinutesLabel,
   growthProgress,
+  HAPPY_THRESHOLD,
+  satisfaction,
   isSleeping,
   neediest,
   type Species,
@@ -101,6 +105,8 @@ export function PetScreen() {
   const care = useGameStore((s) => s.care);
   const wakePet = useGameStore((s) => s.wakePet);
   const catalog = useGameStore((s) => s.catalog);
+  const graduationDays = useGameStore((s) => s.settings.graduationDays);
+  const graduatePet = useGameStore((s) => s.graduatePet);
   const economy = useGameStore((s) => s.economy);
   const { giveItem, wearHat } = useGameStore.getState();
   const [drawer, setDrawer] = useState<DrawerKey | null>(null);
@@ -138,9 +144,13 @@ export function PetScreen() {
         <div className="neo-card room">
           <EggSprite species={pet.species} size={190} className="egg-wobble" />
         </div>
-        <div className="neo-card speech">첫 탐험을 다녀오면 알이 깨어나요!</div>
-        <button type="button" className="explore-cta" onClick={() => navigate('/battle?mode=diagnostic')}>
-          👾 첫 탐험 떠나기
+        <div className="neo-card speech">탐험을 한 번 다녀오면 알이 깨어나요!</div>
+        <button
+          type="button"
+          className="explore-cta"
+          onClick={() => navigate(learning.totalExplorations === 0 ? '/battle?mode=diagnostic' : '/battle?mode=recommended')}
+        >
+          👾 {learning.totalExplorations === 0 ? '첫 탐험 떠나기' : '탐험 떠나기'}
         </button>
       </section>
     );
@@ -255,6 +265,9 @@ export function PetScreen() {
     <section className="pet-home">
       <header className="pet-head">
         <h1 className="pet-name">{pet.name}</h1>
+        <button type="button" className="pet-chip pet-chip--dex" onClick={() => navigate('/dex')}>
+          📖 도감
+        </button>
         <span className="pet-chip">{STAGE_LABELS[stage]}</span>
         <span className="pet-chip pet-chip--love" aria-label={`친밀도 레벨 ${lv}`}>
           ♥ Lv{lv}
@@ -333,7 +346,20 @@ export function PetScreen() {
             )}
           </>
         ) : (
-          <div className="growth__title">다 자랐어요! 특별한 모습은 곧 공개될 거예요 ✨</div>
+          <>
+            <div className="growth__title">도감 졸업까지</div>
+            <GrowthRow
+              label="행복한 시간"
+              have={Math.floor((pet.happyMs ?? 0) / 3_600_000)}
+              need={Math.round(graduationNeedMs(graduationDays) / 3_600_000)}
+              unit="시간"
+            />
+            <p className="growth__hint">
+              배부름·기분·깨끗함을 모두 높게(평균 70 이상) 지켜 주면 행복한 시간이 쌓여요. 지금 만족도{' '}
+              <strong>{Math.round(satisfaction(pet))}</strong>
+              {satisfaction(pet) >= HAPPY_THRESHOLD ? ' 😊' : ' — 조금 더 돌봐 줘요!'}
+            </p>
+          </>
         )}
       </div>
 
@@ -400,6 +426,17 @@ export function PetScreen() {
       )}
 
       {toast && <div className="toast">{toast}</div>}
+      {!evolution && canGraduate(pet, graduationDays) && (
+        <GraduationOverlay
+          species={pet.species}
+          name={pet.name}
+          title={makeTitle(pet, learning)}
+          hat={hatArtOf(findItem(catalog, pet.equippedHat ?? ''))}
+          onConfirm={() => {
+            if (graduatePet(Date.now())) navigate('/welcome', { replace: true });
+          }}
+        />
+      )}
       {evolution && (
         <EvolutionOverlay species={pet.species} stage={evolution as Exclude<Stage, 'egg'>} name={pet.name} onClose={() => setEvolution(null)} />
       )}

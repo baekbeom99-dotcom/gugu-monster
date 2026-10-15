@@ -43,7 +43,12 @@ export function RecordsScreen() {
 
   return (
     <section className="records">
-      <h1 className="records__title">학습 기록</h1>
+      <div className="records__head">
+        <h1 className="records__title">학습 기록</h1>
+        <a className="btn btn--ghost records__dex" href="#/dex">
+          📖 펫 도감
+        </a>
+      </div>
 
       <div className="tiles">
         <Tile tone="yellow" label="오늘 푼 문제" value={summary.todayAttempts} unit="개" sub={`맞힌 문제 ${summary.todayCorrect}개`} />

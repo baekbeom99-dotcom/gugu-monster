@@ -12,7 +12,10 @@ export function OnboardingScreen() {
   const species = useGameStore((s) => s.pet.species);
   const stage = useGameStore((s) => s.pet.stage);
   const chooseEgg = useGameStore((s) => s.chooseEgg);
-  const [step, setStep] = useState<'welcome' | 'choose' | 'ready'>(species ? 'ready' : 'welcome');
+  const dexCount = useGameStore((s) => s.dex.length);
+  const explorations = useGameStore((s) => s.learning.totalExplorations);
+  const returning = dexCount > 0 || explorations > 0;
+  const [step, setStep] = useState<'welcome' | 'choose' | 'ready'>(species ? 'ready' : returning ? 'choose' : 'welcome');
   const [picked, setPicked] = useState<Species | null>(null);
 
   if (stage !== 'egg') return <Navigate to="/pet" replace />;
@@ -44,7 +47,7 @@ export function OnboardingScreen() {
   if (step === 'choose') {
     return (
       <section className="onboarding">
-        <h1 className="onboarding__heading">함께할 알을 골라 줘!</h1>
+        <h1 className="onboarding__heading">{returning ? '새 친구가 될 알을 골라 줘!' : '함께할 알을 골라 줘!'}</h1>
         <div className="egg-choices">
           {SPECIES.map((s) => (
             <button
@@ -78,6 +81,11 @@ export function OnboardingScreen() {
         >
           이 알로 할래!
         </button>
+        {dexCount > 0 && (
+          <button type="button" className="link-button" onClick={() => navigate('/dex')}>
+            📖 도감 보기 ({dexCount}마리)
+          </button>
+        )}
       </section>
     );
   }
@@ -85,16 +93,20 @@ export function OnboardingScreen() {
   return (
     <section className="onboarding">
       {species && <EggSprite species={species} size={180} className="egg-wobble" />}
-      <div className="neo-card speech">알을 따뜻하게 하려면 몬스터를 잡아야 해! 첫 탐험을 떠나 볼까?</div>
+      <div className="neo-card speech">
+        {returning
+          ? '탐험을 한 번 다녀오면 알이 깨어나! 같이 가 볼까?'
+          : '알을 따뜻하게 하려면 몬스터를 잡아야 해! 첫 탐험을 떠나 볼까?'}
+      </div>
       <button
         type="button"
         className="btn btn--primary onboarding__cta"
         onClick={() => {
           playSfx('tap');
-          navigate('/battle?mode=diagnostic');
+          navigate(explorations === 0 ? '/battle?mode=diagnostic' : '/battle?mode=recommended');
         }}
       >
-        첫 탐험 떠나기
+        {explorations === 0 ? '첫 탐험 떠나기' : '탐험 떠나기'}
       </button>
     </section>
   );

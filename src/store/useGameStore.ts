@@ -3,12 +3,14 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { defaultCatalog } from '../data/defaultCatalog';
 import type { AdminData } from '../domain/admin';
 import { deleteItem, moveItem, restoreDefaults, setOnSale, upsertItem } from '../domain/catalogRules';
+import { canGraduate, type DexEntry, lifeSnapshot, sendToDex } from '../domain/dex';
 import { STAR_REWARDS } from '../domain/economy';
 import {
   addAffection,
   addGrowthXp,
   affectionLevel,
   type CareAction,
+  applyDecay,
   checkEvolution,
   chooseEgg,
   doCare,
@@ -57,6 +59,8 @@ interface GameActions {
   /** 먹이·위생용품·장난감을 펫에게 쓴다 */
   giveItem: (id: ItemId, now: number) => ({ ok: true } & PetChange) | { ok: false; reason: string };
   wearHat: (id: ItemId | null) => boolean;
+  /** 졸업 조건을 채웠으면 도감에 넣고 새 알로. 넣은 기록을 돌려준다. */
+  graduatePet: (now: number) => DexEntry | null;
 
   // ── 관리자 모드 ──
   setAdmin: (admin: AdminData) => void;
@@ -72,6 +76,8 @@ interface GameActions {
   replaceSave: (save: unknown) => void;
   /** 전체 초기화 */
   resetAll: () => void;
+  /** 관리자: 지금 펫을 도감에 넣고 새 알을 고르게 한다 (학습 기록·별·가방은 그대로) */
+  startNewPetByAdmin: (now: number) => DexEntry | null;
 }
 
 export type GameStore = SaveData & GameActions;
@@ -150,7 +156,18 @@ export const useGameStore = create<GameStore>()(
       },
       chooseEgg: (species) => set((s) => ({ pet: chooseEgg(s.pet, species) })),
       hatchPet: (name, now) =>
-        set((s) => ({ pet: hatch(s.pet, name, now), economy: addStars(s.economy, STAR_REWARDS.startGift) })),
+        set((s) => ({
+          pet: hatch(s.pet, name, now, lifeSnapshot(s.learning)),
+          economy: addStars(s.economy, STAR_REWARDS.startGift),
+        })),
+      graduatePet: (now) => {
+        const s = get();
+        const pet = applyDecay(s.pet, now);
+        if (!canGraduate(pet, s.settings.graduationDays)) return null;
+        const r = sendToDex(pet, s.learning, now, 'graduated');
+        set({ pet: r.nextPet, dex: r.entry ? [...s.dex, r.entry] : s.dex });
+        return r.entry;
+      },
       care: (action, now) => {
         const s = get();
         const r = doCare(s.pet, action, now);
@@ -202,6 +219,12 @@ export const useGameStore = create<GameStore>()(
           return { ...merged, admin: s.admin, lastSeenAt: Date.now() };
         }),
       resetAll: () => set({ ...createInitialSave(Date.now()) }),
+      startNewPetByAdmin: (now) => {
+        const s = get();
+        const r = sendToDex(applyDecay(s.pet, now), s.learning, now, 'admin');
+        set({ pet: r.nextPet, dex: r.entry ? [...s.dex, r.entry] : s.dex });
+        return r.entry;
+      },
       wearHat: (id) => {
         const s = get();
         if (!canWearHat(s.economy, s.catalog, id)) return false;
@@ -223,6 +246,7 @@ export const useGameStore = create<GameStore>()(
         pet: s.pet,
         catalog: s.catalog,
         admin: s.admin,
+        dex: s.dex,
       }),
       merge: (persisted, current) => ({ ...current, ...mergeSave(createInitialSave(current.createdAt), persisted) }),
     },
