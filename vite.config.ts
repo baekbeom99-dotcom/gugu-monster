@@ -3,7 +3,13 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+declare const process: { env: Record<string, string | undefined> };
+
+// GitHub Pages는 https://<계정>.github.io/<저장소>/ 아래에서 열리므로 배포 때 BASE_PATH로 경로를 넘긴다.
+const base = process.env.BASE_PATH ?? '/';
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     VitePWA({
@@ -31,6 +37,8 @@ export default defineConfig({
         theme_color: '#ffe14d',
         background_color: '#fff1c9',
         display: 'standalone',
+        start_url: base,
+        scope: base,
         orientation: 'portrait',
         icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
       },
