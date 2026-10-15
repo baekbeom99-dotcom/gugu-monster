@@ -1,0 +1,386 @@
+.records {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 4px 8px 0;
+}
+
+.records__title {
+  align-self: flex-start;
+  margin: 0;
+  padding: 4px 16px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--sky);
+  box-shadow: var(--shadow);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 28px;
+  transform: rotate(-2deg);
+}
+
+/* ── 숫자 타일 ── */
+.tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.tile {
+  padding: 10px 14px;
+}
+
+.tile--yellow { background: var(--yellow); }
+.tile--pink { background: var(--pink); }
+.tile--sky { background: var(--sky); }
+.tile--lime { background: var(--lime); }
+
+.tile__label {
+  font-size: 16px;
+}
+
+.tile__value {
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1.1;
+}
+
+.tile__value small {
+  margin-left: 2px;
+  font-family: var(--font-body);
+  font-size: 18px;
+}
+
+.tile__sub {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+/* ── 패널 ── */
+.panel {
+  padding: 14px;
+}
+
+.panel--lime { background: #effcd9; }
+.panel--pink { background: #ffe3f0; }
+
+.panel__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 22px;
+}
+
+.panel__hint {
+  margin: 2px 0 12px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.panel__empty {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+}
+
+/* ── 구구단 지도 (단계: 연습 중은 분홍+!, 나머지는 초록 한 색의 밝기 단계) ── */
+.level--new { background: var(--paper); color: var(--ink-soft); }
+.level--practice { background: var(--pink); color: var(--ink); }
+.level--learning { background: #e7f8c8; color: var(--ink); }
+.level--growing { background: #b8f25c; color: var(--ink); }
+.level--familiar { background: #4fb83a; color: var(--ink); }
+.level--perfect { background: #1f6b2a; color: #fff; }
+
+.map {
+  display: grid;
+  grid-template-columns: 30px repeat(11, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.map__corner,
+.map__head,
+.map__row-head {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 14px;
+}
+
+.map__corner {
+  color: var(--hot-pink);
+}
+
+.map__row-head {
+  font-size: 16px;
+}
+
+.map__row-head--challenge {
+  color: #7a5cff;
+}
+
+.map__cell {
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.map__cell--locked {
+  border: 2px dashed #b9b2a3;
+  background: transparent;
+  cursor: default;
+}
+
+.map__cell--selected {
+  outline: 3px solid var(--hot-pink);
+  outline-offset: 1px;
+  position: relative;
+  z-index: 1;
+}
+
+.map-detail {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--yellow);
+  box-shadow: var(--shadow-sm);
+}
+
+.map-detail__chip {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: var(--border);
+  border-radius: 8px;
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+
+.map-detail__eq {
+  font-family: var(--font-display);
+  font-size: 24px;
+}
+
+.map-detail__sub {
+  font-size: 15px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend__swatch {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  font-family: var(--font-display);
+  font-size: 12px;
+}
+
+/* ── 단별 진행 ── */
+.dan-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dan-progress li {
+  display: grid;
+  grid-template-columns: 40px 1fr 74px;
+  align-items: center;
+  gap: 8px;
+}
+
+.dan-progress__label {
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.dan-progress--locked {
+  opacity: 0.5;
+}
+
+.meter {
+  display: grid;
+  grid-template-columns: repeat(11, 1fr);
+  gap: 2px;
+  height: 20px;
+  padding: 2px;
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  background: var(--paper);
+}
+
+.meter__seg {
+  border-radius: 2px;
+}
+
+.meter__seg--on {
+  background: #4fb83a;
+}
+
+.dan-progress__count {
+  text-align: right;
+  font-family: var(--font-display);
+  font-size: 16px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  background: var(--yellow);
+  font-family: var(--font-body);
+  font-size: 13px;
+  transform: rotate(-3deg);
+}
+
+/* ── 문제 종류별 정답률 ── */
+.type-rates {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.type-rates li {
+  display: grid;
+  grid-template-columns: 84px 1fr 92px;
+  align-items: center;
+  gap: 8px;
+}
+
+.type-rates__label {
+  font-size: 15px;
+}
+
+.type-rates__empty {
+  grid-column: 2 / 4;
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+.bar {
+  height: 18px;
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.bar__fill {
+  display: block;
+  height: 100%;
+  background: var(--sky);
+  border-right: 2.5px solid var(--ink);
+}
+
+.type-rates__value {
+  text-align: right;
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+.type-rates__value small {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* ── 문제 목록 ── */
+.lists {
+  display: grid;
+  gap: 16px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chip {
+  padding: 4px 10px;
+  border: 2.5px solid var(--ink);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 2px 2px 0 var(--ink);
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+/* ── 펫 성장 앨범 ── */
+.album {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  overflow-x: auto;
+  padding: 4px 6px 8px 2px;
+}
+
+.album__card {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 6px 8px 8px;
+  border: var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+.album__card:nth-child(odd) {
+  transform: rotate(-2deg);
+  background: #fff7d6;
+}
+
+.album__card:nth-child(even) {
+  transform: rotate(2deg);
+  background: #e6f6ff;
+}
+
+.album__card figcaption {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+
+.album__card strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 16px;
+}

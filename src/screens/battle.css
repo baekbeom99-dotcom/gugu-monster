@@ -1,0 +1,1056 @@
+/* ── 탐험 선택 ───────────────────────── */
+.explore {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.explore__main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 22px 16px;
+  border: var(--border);
+  border-radius: 14px;
+  background: var(--pink);
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+
+.explore__main:active {
+  transform: translate(7px, 7px);
+  box-shadow: none;
+}
+
+.explore__main-icon {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  border: var(--border);
+  border-radius: 12px;
+  background: var(--paper);
+  font-size: 46px;
+  transform: rotate(-4deg);
+}
+
+.explore__main-title {
+  margin-top: 6px;
+  font-family: var(--font-display);
+  font-size: 34px;
+}
+
+.explore__main-sub {
+  padding: 2px 10px;
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  background: var(--yellow);
+  font-size: 16px;
+  transform: rotate(1.5deg);
+}
+
+.explore__heading {
+  margin: 10px 0 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 24px;
+}
+
+.explore__hint {
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.dan-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.dan-grid--challenge {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.dan-button {
+  min-height: 64px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  font-family: var(--font-display);
+  font-size: 30px;
+  cursor: pointer;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+
+.dan-button:active:not(:disabled) {
+  transform: translate(5px, 5px);
+  box-shadow: none;
+}
+
+.dan-button small {
+  font-family: var(--font-body);
+  font-size: 15px;
+  margin-left: 2px;
+}
+
+.dan-button--mastered {
+  background: var(--lime);
+}
+
+.dan-grid--challenge .dan-button:not(.dan-button--locked) {
+  background: var(--yellow);
+}
+
+.dan-button--locked {
+  background: var(--grey);
+  box-shadow: none;
+  border-style: dashed;
+  cursor: default;
+}
+
+/* ── 전투 ─────────────────────────────── */
+.app--full {
+  position: relative;
+  overflow: hidden;
+}
+
+.battle {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 16px 14px;
+  padding-top: env(safe-area-inset-top);
+}
+
+.battle__top {
+  height: var(--top-h);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.monster-progress {
+  display: flex;
+  gap: 6px;
+}
+
+.pip {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: var(--border);
+  border-radius: 6px;
+  background: var(--paper);
+  font-family: var(--font-display);
+  font-size: 16px;
+}
+
+.pip--captured,
+.pip--sleeping {
+  background: var(--lime);
+  transform: rotate(-6deg);
+}
+
+.pip--current {
+  background: var(--yellow);
+  box-shadow: var(--shadow-sm);
+  transform: rotate(4deg) scale(1.1);
+}
+
+.battle__stage {
+  position: relative;
+  flex: 1;
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: var(--border);
+  border-radius: 14px;
+  background: var(--sky);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.battle__stage--golden {
+  background: var(--violet);
+}
+
+.battle__stage--hint {
+  justify-content: safe center;
+  overflow-y: auto;
+  background: var(--paper);
+}
+
+.stage-tag {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 4px 10px;
+  border: var(--border);
+  border-radius: 6px;
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  font-size: 16px;
+  transform: rotate(-4deg);
+}
+
+.hp {
+  display: flex;
+  gap: 6px;
+  margin-top: 22px;
+}
+
+.hp__cell {
+  width: 30px;
+  height: 18px;
+  border: var(--border);
+  border-radius: 4px;
+  background: var(--red);
+}
+
+.hp__cell--empty {
+  background: var(--paper);
+}
+
+.monster {
+  animation: bob 2s steps(4) infinite;
+}
+
+.monster--hit {
+  animation: hit 0.4s steps(4);
+}
+
+.monster--dodge {
+  animation: dodge 0.5s steps(5);
+}
+
+.monster--capture {
+  animation: capture 1.2s ease-in-out forwards;
+}
+
+.float-stars {
+  position: absolute;
+  top: 38%;
+  right: 18%;
+  padding: 2px 10px;
+  border: var(--border);
+  border-radius: 6px;
+  background: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 24px;
+  animation: float-up 0.9s ease-out forwards;
+}
+
+.critical,
+.combo {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  border: var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-sm);
+  font-size: 16px;
+}
+
+.critical {
+  background: var(--red);
+  transform: rotate(5deg);
+  animation: pop 0.4s ease-out;
+}
+
+.combo {
+  background: var(--pink);
+  transform: rotate(5deg);
+}
+
+.battle__question {
+  flex-shrink: 0;
+  padding: 12px 8px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.question {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 48px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.question--stack {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.question__given {
+  font-family: var(--font-body);
+  font-size: 20px;
+  color: var(--ink-soft);
+}
+
+.question--sequence {
+  gap: 2px;
+  font-size: 34px;
+  flex-wrap: wrap;
+}
+
+.seq-comma {
+  margin-right: 6px;
+  color: var(--ink-soft);
+}
+
+.op {
+  color: var(--hot-pink);
+}
+
+.blank {
+  min-width: 80px;
+  padding: 6px 10px;
+  border: var(--border);
+  border-radius: 8px;
+  background: var(--yellow);
+  text-align: center;
+  animation: blink 1s steps(2) infinite;
+}
+
+.question--sequence .blank {
+  min-width: 64px;
+}
+
+.blank--filled {
+  background: var(--lime);
+  animation: none;
+}
+
+.battle__input {
+  flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 0 5px 5px 0;
+}
+
+.choice {
+  min-height: 74px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  font-family: var(--font-display);
+  font-size: 36px;
+  cursor: pointer;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+
+.choice--c0 { background: var(--pink); }
+.choice--c1 { background: var(--lime); }
+.choice--c2 { background: var(--sky); }
+.choice--c3 { background: var(--orange); }
+
+/* 누르면 그림자 속으로 들어간다 */
+.choice:active:not(:disabled) {
+  transform: translate(5px, 5px);
+  box-shadow: none;
+}
+
+.choice:disabled {
+  cursor: default;
+}
+
+.choice--glow {
+  background: var(--yellow);
+  outline: 4px dashed var(--ink);
+  outline-offset: 4px;
+  animation: glow 0.8s steps(2) infinite;
+}
+
+.choice--dim {
+  background: var(--paper);
+  color: #a39b8c;
+  box-shadow: var(--shadow-sm);
+}
+
+.choice--nudge {
+  animation: nudge 0.35s steps(4);
+}
+
+.hint-instruction {
+  margin: 0 0 10px;
+  text-align: center;
+  font-size: 18px;
+}
+
+.hint-instruction::before {
+  content: '👇 ';
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 0 4px 4px 0;
+}
+
+.key {
+  min-height: 54px;
+  border: var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 4px 4px 0 var(--ink);
+  font-family: var(--font-display);
+  font-size: 28px;
+  cursor: pointer;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+
+.key:active:not(:disabled) {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+
+.key:disabled {
+  opacity: 0.45;
+}
+
+.key--ok {
+  background: var(--ink);
+  color: var(--yellow);
+  box-shadow: 4px 4px 0 var(--hot-pink);
+  font-size: 22px;
+}
+
+.key--erase {
+  background: var(--grey);
+}
+
+/* ── 동료(알) ─────────────────────────── */
+.buddy {
+  flex-shrink: 0;
+  align-self: flex-end;
+  min-height: 56px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.buddy__pet {
+  display: block;
+  line-height: 0;
+}
+
+.buddy__bubble {
+  max-width: 230px;
+  padding: 8px 12px;
+  border: var(--border);
+  border-radius: 10px 10px 2px 10px;
+  background: var(--paper);
+  box-shadow: 4px 4px 0 var(--ink);
+  font-size: 17px;
+  animation: pop 0.25s ease-out;
+}
+
+.buddy--cheer .buddy__pet {
+  animation: hop 0.5s steps(4);
+}
+
+.buddy--party .buddy__pet {
+  animation: hop 0.4s steps(4) 3;
+}
+
+.buddy--worry .buddy__pet {
+  animation: wiggle 0.5s steps(4);
+}
+
+.result__pet {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.result__xp {
+  padding: 2px 10px;
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  background: var(--lime);
+  font-size: 17px;
+  transform: rotate(-3deg);
+}
+
+.banner--evolve {
+  background: var(--pink);
+}
+
+/* ── 힌트 ─────────────────────────────── */
+.hint {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 10px;
+}
+
+.hint__equation {
+  padding: 4px 14px;
+  border: var(--border);
+  border-radius: 8px;
+  background: var(--yellow);
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-display);
+  font-size: 30px;
+  transform: rotate(-2deg);
+}
+
+.hint__equation strong {
+  font-weight: 400;
+  color: var(--hot-pink);
+}
+
+.dots {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dots__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  animation: appear 0.25s steps(3) forwards;
+}
+
+.dots__group {
+  display: flex;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+}
+
+.dot {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--orange);
+}
+
+.dots__count {
+  min-width: 34px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: #1f7fd6;
+}
+
+.split {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  font-size: 22px;
+}
+
+.split__card {
+  padding: 10px 18px;
+  border: var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-display);
+}
+
+.split__card strong {
+  font-weight: 400;
+}
+
+.split__card--ten {
+  background: var(--sky);
+  transform: rotate(-2deg);
+}
+
+.split__card--rest {
+  background: var(--orange);
+  transform: rotate(2deg);
+}
+
+.split__plus {
+  font-family: var(--font-display);
+  font-size: 28px;
+}
+
+.split__sum {
+  margin-top: 4px;
+  font-size: 20px;
+}
+
+.split__sum strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  color: var(--hot-pink);
+}
+
+.hop {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 22px 8px;
+  padding-top: 18px;
+}
+
+.hop__stone {
+  position: relative;
+  min-width: 50px;
+  padding: 8px;
+  border: var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 20px;
+  opacity: 0;
+  animation: appear 0.25s steps(3) forwards;
+}
+
+.hop__stone--goal {
+  background: var(--yellow);
+}
+
+.hop__arc {
+  position: absolute;
+  top: -22px;
+  left: -10px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: #1f7fd6;
+}
+
+.rule-card {
+  margin-top: 12px;
+  padding: 18px 22px;
+  border: var(--border);
+  border-radius: 12px;
+  background: var(--lime);
+  box-shadow: var(--shadow);
+  text-align: center;
+  transform: rotate(-1.5deg);
+}
+
+.rule-card__title {
+  margin-bottom: 10px;
+  font-size: 22px;
+}
+
+.rule-card__ex {
+  font-family: var(--font-display);
+  font-size: 28px;
+}
+
+/* ── 결과 ─────────────────────────────── */
+.result {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 24px 16px 20px;
+}
+
+.result__title {
+  margin: 0;
+  padding: 6px 20px;
+  border: var(--border);
+  border-radius: 10px;
+  background: var(--yellow);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 40px;
+  transform: rotate(-3deg);
+}
+
+.result__note {
+  margin: 0;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.result__monsters {
+  display: flex;
+  gap: 8px;
+}
+
+.result__monster {
+  padding: 2px;
+  border: var(--border);
+  border-radius: 12px;
+  background: var(--sky);
+  box-shadow: var(--shadow-sm);
+  animation: hop 0.5s steps(4) both;
+}
+
+.result__monster:nth-child(2) {
+  background: var(--pink);
+  transform: rotate(3deg);
+}
+
+.result__monster:nth-child(3) {
+  background: var(--lime);
+  transform: rotate(-3deg);
+}
+
+.banner {
+  width: 100%;
+  padding: 12px;
+  border: var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 22px;
+  animation: pop 0.4s ease-out;
+}
+
+.banner--master {
+  background: var(--lime);
+}
+
+.banner--challenge {
+  background: var(--violet);
+}
+
+.result__lines {
+  width: 100%;
+  margin: 0;
+  padding: 8px 16px;
+  list-style: none;
+  border: var(--border);
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.result__lines li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 2.5px dashed var(--ink);
+}
+
+.result__lines strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 20px;
+}
+
+.result__total {
+  border-bottom: none !important;
+  font-size: 22px;
+}
+
+.result__total strong {
+  padding: 0 8px;
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  background: var(--yellow);
+  font-size: 24px !important;
+}
+
+.result__actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: auto;
+  padding: 0 5px 5px 0;
+}
+
+/* ── 키프레임: 부드러운 이징보다 뚝뚝 끊기는 움직임 ── */
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes hit {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-14px, 4px) rotate(-8deg); }
+  50% { transform: translate(12px, -4px) rotate(6deg); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes dodge {
+  0%, 100% { transform: translateX(0); }
+  40% { transform: translateX(70px) rotate(10deg); }
+}
+@keyframes capture {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.15) rotate(-8deg); }
+  60% { transform: scale(1.1) rotate(8deg); opacity: 1; }
+  100% { transform: scale(0.3) translateY(-60px); opacity: 0; }
+}
+@keyframes float-up {
+  from { transform: translateY(0) rotate(-6deg); opacity: 1; }
+  to { transform: translateY(-50px) rotate(-6deg); opacity: 0; }
+}
+@keyframes pop {
+  0% { scale: 0.7; }
+  70% { scale: 1.1; }
+  100% { scale: 1; }
+}
+@keyframes blink {
+  50% { background: var(--paper); }
+}
+@keyframes glow {
+  50% { outline-color: transparent; }
+}
+@keyframes nudge {
+  0%, 100% { translate: 0; }
+  33% { translate: -6px 0; }
+  66% { translate: 6px 0; }
+}
+@keyframes hop {
+  0%, 100% { translate: 0; }
+  40% { translate: 0 -14px; }
+}
+@keyframes wiggle {
+  0%, 100% { rotate: 0deg; }
+  25% { rotate: -10deg; }
+  75% { rotate: 10deg; }
+}
+@keyframes appear {
+  from { opacity: 0; translate: 0 6px; }
+  to { opacity: 1; translate: 0; }
+}
+
+.sparkle {
+  animation: blink-opacity 1s steps(2) infinite;
+}
+.sparkle--late {
+  animation-delay: 0.5s;
+}
+@keyframes blink-opacity {
+  50% { opacity: 0.2; }
+}
+
+.result__actions--single {
+  grid-template-columns: 1fr;
+}
+
+.result__say {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* ── 높이가 낮은 화면 (작은 폰·가로 화면): 입력 버튼이 화면 밖으로 밀리지 않게 ── */
+.battle {
+  overflow-y: auto;
+}
+
+.monster svg {
+  width: auto;
+  height: clamp(96px, 24vh, 190px);
+}
+
+@media (max-height: 760px) {
+  .battle {
+    gap: 8px;
+  }
+
+  .battle__stage {
+    min-height: 150px;
+  }
+
+  .hp {
+    margin-top: 30px;
+  }
+
+  .buddy {
+    min-height: 44px;
+  }
+
+  .buddy__pet svg {
+    width: 48px;
+    height: 48px;
+  }
+
+  .buddy__bubble {
+    padding: 5px 10px;
+    font-size: 15px;
+  }
+
+  .battle__question {
+    padding: 8px;
+  }
+
+  .question {
+    font-size: 40px;
+  }
+
+  .choice {
+    min-height: 64px;
+    font-size: 32px;
+  }
+
+  .key {
+    min-height: 46px;
+    font-size: 24px;
+  }
+
+  .keypad {
+    gap: 8px;
+  }
+}
+
+@media (max-height: 620px) {
+  .battle__top {
+    height: 52px;
+  }
+
+  .battle {
+    gap: 6px;
+  }
+
+  .battle__stage {
+    min-height: 120px;
+  }
+
+  .hp {
+    margin-top: 26px;
+  }
+
+  .hp__cell {
+    width: 24px;
+    height: 14px;
+  }
+
+  .question {
+    font-size: 34px;
+  }
+
+  .question--sequence {
+    font-size: 28px;
+  }
+
+  .blank {
+    min-width: 64px;
+    padding: 4px 8px;
+  }
+
+  .choices {
+    gap: 10px;
+  }
+
+  .choice {
+    min-height: 56px;
+    font-size: 28px;
+  }
+
+  .key {
+    min-height: 40px;
+    font-size: 22px;
+  }
+
+  .keypad {
+    gap: 6px;
+  }
+
+  .hint-instruction {
+    margin-bottom: 6px;
+    font-size: 16px;
+  }
+}
+
+/* 이름표와 겹치지 않게 체력은 오른쪽 위, 콤보·크리티컬 스티커는 오른쪽 아래 */
+.battle__stage .hp {
+  position: absolute;
+  top: 16px;
+  right: 14px;
+  margin: 0;
+}
+
+.critical,
+.combo {
+  top: auto;
+  bottom: 12px;
+}
+
+/* 가로로 눕힌 폰: 왼쪽 몬스터(+응원하는 펫), 오른쪽 문제·답 */
+@media (orientation: landscape) and (max-height: 500px) {
+  .app--full {
+    max-width: 780px;
+  }
+
+  .battle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto 1fr;
+    column-gap: 16px;
+    align-content: start;
+  }
+
+  .battle__top {
+    grid-column: 1 / -1;
+  }
+
+  .battle__stage {
+    grid-column: 1;
+    grid-row: 2 / span 2;
+    min-height: 0;
+    margin-bottom: 8px;
+  }
+
+  /* 펫은 몬스터 칸 오른쪽 아래에 겹쳐 앉는다 */
+  .buddy {
+    grid-column: 1;
+    grid-row: 3;
+    align-self: end;
+    justify-self: end;
+    z-index: 1;
+    margin: 0 10px 16px 0;
+  }
+
+  .battle__question {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .battle__input {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .question__given {
+    font-size: 16px;
+  }
+
+  .question {
+    font-size: 32px;
+  }
+}

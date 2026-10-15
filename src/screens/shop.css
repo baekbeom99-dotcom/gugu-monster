@@ -1,0 +1,265 @@
+.shop {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 4px 8px 0;
+}
+
+.shop__title {
+  align-self: flex-start;
+  margin: 0;
+  padding: 4px 16px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--orange);
+  box-shadow: var(--shadow);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 28px;
+  transform: rotate(-2deg);
+}
+
+.shop-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.shop-tab {
+  min-height: 46px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.shop-tab--on {
+  background: var(--ink);
+  color: var(--yellow);
+  box-shadow: 3px 3px 0 var(--hot-pink);
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.shop-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px 10px;
+  cursor: pointer;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+
+.shop-card:active {
+  transform: translate(5px, 5px);
+  box-shadow: none;
+}
+
+.shop-card--owned {
+  background: #effcd9;
+}
+
+.shop-card__name {
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+
+.shop-card__count {
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  padding: 1px 7px;
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  background: var(--lime);
+  font-size: 13px;
+  transform: rotate(4deg);
+}
+
+.item-art {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: var(--border);
+  border-radius: 12px;
+  line-height: 1;
+}
+
+.effect-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.effect {
+  padding: 0 6px;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  background: var(--paper);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.price {
+  margin-top: 2px;
+  padding: 2px 12px;
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  background: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.price--short {
+  background: var(--grey);
+  color: var(--ink-soft);
+}
+
+.price--owned {
+  background: var(--lime);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.shop-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  background: #ffe3f0;
+  text-align: center;
+}
+
+.shop-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.shop-modal .modal__body {
+  margin: 4px 0 10px;
+}
+
+.shop-modal .modal__actions {
+  width: 100%;
+}
+
+/* ── 펫 화면 아이템 서랍 ── */
+.drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(17, 17, 17, 0.4);
+}
+
+.drawer__sheet {
+  width: min(600px, 100%);
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+  border-top: var(--border);
+  border-radius: 18px 18px 0 0;
+  background: var(--paper);
+  animation: sheet-up 0.25s steps(4);
+}
+
+.drawer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.drawer__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 24px;
+}
+
+.drawer__list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 0 5px 5px 0;
+}
+
+.bag-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px 8px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  font-size: 15px;
+  cursor: pointer;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+
+.bag-item:active {
+  transform: translate(5px, 5px);
+  box-shadow: none;
+}
+
+.bag-item--free {
+  background: #fff7d6;
+}
+
+.bag-item--worn {
+  background: var(--lime);
+}
+
+.bag-item--waiting {
+  background: var(--grey);
+  box-shadow: var(--shadow-sm);
+}
+
+.bag-item--tutorial {
+  outline: 4px dashed var(--ink);
+  outline-offset: 4px;
+}
+
+.bag-item__tag {
+  position: absolute;
+  top: -10px;
+  right: -6px;
+  padding: 0 6px;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  background: var(--paper);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.drawer__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+@keyframes sheet-up {
+  from { translate: 0 100%; }
+  to { translate: 0; }
+}
