@@ -2,6 +2,9 @@
 
 구구단을 풀어 몬스터를 잡고, 모은 별로 나만의 펫을 키우는 초등 3학년용 학습 웹앱.
 
+**바로 해 보기:** https://baekbeom99-dotcom.github.io/gugu-monster/
+(휴대폰에서 열고 '홈 화면에 추가'하면 앱처럼 쓸 수 있고, 한 번 열면 인터넷 없이도 돼요)
+
 - 기획 초안: [PROJECT_PLAN.md](PROJECT_PLAN.md)
 - MVP 설계서: [MVP_DESIGN.md](MVP_DESIGN.md)
 
@@ -14,6 +17,11 @@ npm test         # 단위·시뮬레이션 테스트 (Vitest)
 npm run e2e      # 화면 전체 흐름 테스트 (Playwright, 이 PC의 Microsoft Edge 사용)
 npm run build    # 타입 검사 + 배포용 빌드(dist/, PWA 포함)
 ```
+
+## 배포
+
+`main`에 올리면 GitHub Actions가 테스트 → 빌드 → GitHub Pages 배포를 자동으로 한다 (`.github/workflows/deploy.yml`).
+Pages 주소가 `/<저장소 이름>/` 아래라서 빌드 때 `BASE_PATH`로 경로를 넘긴다.
 
 ## 구조
 
