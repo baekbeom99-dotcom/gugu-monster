@@ -17,14 +17,16 @@ import {
   extendPlan,
   finishHint,
   isFirstAttempt,
-  MONSTER_HP,
   needsMoreQuestions,
+  NORMAL_RULES,
+  TRIAL_RULES,
 } from '../domain/battle';
 import { ALL_DANS, type Dan, getFact } from '../domain/facts';
 import { inputModeForBox } from '../domain/mastery';
 import { generateQuestion } from '../domain/questionGen';
 import type { Rng } from '../domain/random';
-import { type ExploreMode, type LearnerSnapshot, planExploration } from '../domain/scheduler';
+import { DAN_TRIAL_MASTER_MS, type TrialOutcome } from '../domain/progress';
+import { DAN_TRIAL_SIZE, type ExploreMode, type LearnerSnapshot, planExploration } from '../domain/scheduler';
 import { affectionLevel } from '../domain/pet';
 import { type ExplorationOutcome, useGameStore } from '../store/useGameStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -51,7 +53,12 @@ export function battleUrl(mode: ExploreMode): string {
 
 function snapshot(): LearnerSnapshot {
   const { learning } = useGameStore.getState();
-  return { facts: learning.facts, danRecent: learning.danRecent, challengeUnlocked: learning.challengeUnlocked };
+  return {
+    facts: learning.facts,
+    danRecent: learning.danRecent,
+    challengeUnlocked: learning.challengeUnlocked,
+    boosted: learning.boosted,
+  };
 }
 
 export function BattleScreen() {
@@ -77,10 +84,14 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
   const navigate = useNavigate();
   const stars = useGameStore((s) => s.economy.stars);
   const forceChoice = useGameStore((s) => s.settings.inputMode === 'choice');
-  const { recordAnswer, recordCapture, finishExploration } = useGameStore.getState();
+  const { recordAnswer, recordCapture, finishExploration, finishDanTrial } = useGameStore.getState();
+  // 단 골라 탐험 = 단 도전: 그 단 11문제를 모두 맞힐 때까지, 시간을 잰다
+  const trialDan = mode.kind === 'dan' ? mode.dan : null;
 
   const [startedAt] = useState(() => Date.now());
-  const [battle, setBattle] = useState<BattleState>(() => createBattle(planExploration(snapshot(), mode, Date.now(), rng), rng));
+  const [battle, setBattle] = useState<BattleState>(() =>
+    createBattle(planExploration(snapshot(), mode, Date.now(), rng), rng, trialDan !== null ? TRIAL_RULES : NORMAL_RULES),
+  );
   const [anim, setAnim] = useState<Anim>(null);
   const [message, setMessage] = useState<string | null>(() =>
     affectionLevel(useGameStore.getState().pet.affection) >= SPECIAL_CHEER_LEVEL ? '우리 둘이면 문제없어! 가자!' : line('start'),
@@ -89,6 +100,11 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
   const [typed, setTyped] = useState('');
   const [tally, setTally] = useState<Tally>({ correct: 0, correctStars: 0, captureStars: 0, overcome: 0, overcomeStars: 0, slept: 0, xp: 0 });
   const [finish, setFinish] = useState<ExplorationOutcome | null>(null);
+  const [trial, setTrial] = useState<TrialOutcome | null>(null);
+  /** 단 도전 시간: 문제가 답을 기다린 시간 + 힌트를 본 시간의 합 (공격·포획 연출 시간은 빼고) */
+  const trialMs = useRef(0);
+  const hintAt = useRef<number | null>(null);
+  const [, forceTick] = useState(0);
   const [confirmQuit, setConfirmQuit] = useState(false);
   const shownAt = useRef(performance.now());
 
@@ -106,15 +122,22 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
     setTyped('');
   }, [questionKey]);
 
-  // 오답이 많아 문제를 다 썼는데 몬스터가 남았으면 더 붙인다.
+  // 단 도전 시계: 0.1초마다 다시 그린다
   useEffect(() => {
-    if (!needsMoreQuestions(battle)) return;
+    if (trialDan === null || battle.phase === 'done') return;
+    const t = setInterval(() => forceTick((n) => n + 1), 100);
+    return () => clearInterval(t);
+  }, [trialDan, battle.phase]);
+
+  // 오답이 많아 문제를 다 썼는데 몬스터가 남았으면 더 붙인다 (단 도전은 맞힐 때까지 다시 내므로 해당 없음).
+  useEffect(() => {
+    if (trialDan !== null || !needsMoreQuestions(battle)) return;
     const extraMode: ExploreMode = mode.kind === 'diagnostic' ? { kind: 'recommended' } : mode;
     const extra = planExploration(snapshot(), extraMode, Date.now(), rng)
       .slice(0, 3)
       .map((it) => ({ ...it, isConfidence: false }));
     setBattle((b) => extendPlan(b, extra));
-  }, [battle, mode]);
+  }, [battle, mode, trialDan]);
 
   // 전투 종료 정산 (잠든 몬스터도 포획으로 인정)
   useEffect(() => {
@@ -125,18 +148,23 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
       setTally((t) => ({ ...t, captureStars: t.captureStars + sleepStars, slept: sleeping.length }));
       setMessage(line('sleep'));
     }
+    const trialResult = trialDan !== null ? finishDanTrial(trialDan, trialMs.current, Date.now()) : null;
+    if (trialResult) setTrial(trialResult);
     const outcome = finishExploration(true, Date.now());
     setTally((t) => ({ ...t, xp: t.xp + outcome.xp }));
     if (outcome.evolvedTo) useSessionStore.getState().set({ pendingEvolution: outcome.evolvedTo });
     if (outcome.levelUp) useSessionStore.getState().set({ pendingLevelUp: outcome.levelUp });
     setFinish(outcome);
-    playSfx(outcome.newlyMastered.length > 0 || outcome.challengeJustUnlocked || outcome.evolvedTo ? 'fanfare' : 'star');
-  }, [battle, finish, anim, recordCapture, finishExploration]);
+    playSfx(
+      outcome.newlyMastered.length > 0 || outcome.challengeJustUnlocked || outcome.evolvedTo || trialResult?.justMastered ? 'fanfare' : 'star',
+    );
+  }, [battle, finish, anim, recordCapture, finishExploration, finishDanTrial, trialDan]);
 
   const submit = (value: number) => {
     if (!item || !question || !fact || anim || battle.phase !== 'question') return;
     const correct = value === question.answer;
     const ms = Math.round(performance.now() - shownAt.current);
+    trialMs.current += ms;
     const res = recordAnswer({
       factId: item.factId,
       type: item.type,
@@ -147,6 +175,7 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
       firstAttemptInBattle: isFirstAttempt(battle, item.factId),
       battleStartedAt: startedAt,
       now: Date.now(),
+      source: trialDan !== null ? 'trial' : 'normal',
     });
     const next = answer(battle, correct, ms, rng);
     const monster = battle.current;
@@ -158,6 +187,7 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
       setBuddyMood('worry');
       setMessage(line('wrong'));
       setAnim({ type: 'dodge', monster, critical: false, stars: 0 });
+      hintAt.current = performance.now();
       setBattle(next);
       setTimeout(() => setAnim(null), 500);
       return;
@@ -195,6 +225,10 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
   };
 
   const onHintPick = () => {
+    if (hintAt.current !== null) {
+      trialMs.current += performance.now() - hintAt.current;
+      hintAt.current = null;
+    }
     playSfx('correct');
     setBuddyMood('cheer');
     setMessage(line('hintDone'));
@@ -212,6 +246,7 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
         monsters={battle.monsters}
         tally={tally}
         finish={finish}
+        trial={trial && trialDan !== null ? { ...trial, dan: trialDan } : null}
         onAgain={onAgain}
         onPet={() => navigate(useGameStore.getState().pet.stage === 'egg' ? '/hatch' : '/pet', { replace: true })}
       />
@@ -224,6 +259,10 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
     anim?.type === 'hit' ? 'hit' : anim?.type === 'capture' ? 'happy' : shown.status === 'sleeping' ? 'sleep' : 'idle';
   const hp = anim?.type === 'capture' ? 0 : shown.hp;
   const inHint = battle.phase === 'hint';
+  // 지금까지 잰 시간 + 지금 기다리는 중인 시간
+  const waitingSince = inHint ? hintAt.current : !anim && battle.phase === 'question' ? shownAt.current : null;
+  const liveMs = trialMs.current + (waitingSince !== null ? performance.now() - waitingSince : 0);
+  const solved = battle.correctCount;
 
   return (
     <div className="battle">
@@ -231,6 +270,14 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
         <button type="button" className="icon-button" aria-label="탐험 그만하기" onClick={() => setConfirmQuit(true)}>
           ✕
         </button>
+        {trialDan !== null ? (
+          <div className={`trial-clock ${liveMs > DAN_TRIAL_MASTER_MS ? 'trial-clock--over' : ''}`} aria-label={`걸린 시간 ${(liveMs / 1000).toFixed(1)}초, ${solved}문제 맞힘`}>
+            <span>⏱ {(liveMs / 1000).toFixed(1)}초</span>
+            <small>
+              {solved}/{DAN_TRIAL_SIZE}
+            </small>
+          </div>
+        ) : (
         <div className="monster-progress" aria-label="몬스터 진행">
           {battle.monsters.map((m, i) => (
             <span key={i} className={`pip pip--${m.status} ${i === shownIndex ? 'pip--current' : ''}`}>
@@ -238,6 +285,7 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
             </span>
           ))}
         </div>
+        )}
         <div className="stars" aria-label={`보유 별 ${stars}개`}>
           <span aria-hidden>★</span>
           <strong>{stars}</strong>
@@ -251,7 +299,7 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
           <>
             <span className="stage-tag">{shown.golden ? `황금 ${MONSTER_NAMES[shown.kind]}` : MONSTER_NAMES[shown.kind]}</span>
             <div className="hp" aria-label={`몬스터 체력 ${hp}`}>
-              {Array.from({ length: MONSTER_HP }, (_, i) => (
+              {Array.from({ length: battle.rules.hp[shownIndex] }, (_, i) => (
                 <span key={i} className={i < hp ? 'hp__cell' : 'hp__cell hp__cell--empty'} />
               ))}
             </div>

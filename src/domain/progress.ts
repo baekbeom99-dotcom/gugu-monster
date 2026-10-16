@@ -28,7 +28,24 @@ export interface LearningData {
   totalOvercome: number;
   /** 날짜별 푼 문제 수 (최근 DAILY_HISTORY_DAYS일) */
   dailyAttempts: { date: string; attempts: number; correct: number }[];
+  /** 단 도전(단 골라 탐험) 기록: 최고 기록과 MASTER */
+  danTrials: Partial<Record<Dan, DanTrialRecord>>;
+  /** 단 도전에서 틀려 추천 탐험에 더 자주 낼 사실 → 남은 횟수 */
+  boosted: Partial<Record<FactId, number>>;
 }
+
+export interface DanTrialRecord {
+  /** 11문제를 모두 맞히는 데 걸린 가장 짧은 시간(ms) */
+  bestMs: number | null;
+  plays: number;
+  master: boolean;
+  masteredAt: string | null;
+}
+
+/** 단 도전: 11문제를 이 시간 안에 모두 맞히면 MASTER */
+export const DAN_TRIAL_MASTER_MS = 33_000;
+/** 단 도전에서 틀린 사실은 추천 탐험에서 이만큼 맞힐 때까지 더 자주 나온다 */
+export const BOOST_COUNT = 3;
 
 export interface EconomyData {
   stars: number;
@@ -58,6 +75,8 @@ export function initialLearning(): LearningData {
     overcomeLog: [],
     totalOvercome: 0,
     dailyAttempts: [],
+    danTrials: {},
+    boosted: {},
   };
 }
 
@@ -80,6 +99,8 @@ export interface AnswerInput {
   firstAttemptInBattle: boolean;
   battleStartedAt: number;
   now: number;
+  /** trial: 단 도전(단 골라 탐험), normal: 추천·진단 탐험 */
+  source?: 'trial' | 'normal';
 }
 
 export interface AnswerOutcome {
@@ -134,11 +155,60 @@ export function recordAnswer(learning: LearningData, economy: EconomyData, input
       : learning.overcomeLog,
     totalOvercome: learning.totalOvercome + (overcome ? 1 : 0),
     dailyAttempts: bumpDaily(learning.dailyAttempts, today, input.correct),
+    boosted: updateBoost(learning.boosted ?? {}, fact.id, input),
   };
 
   const stars = (input.correct ? STAR_REWARDS.correct : 0) + (overcome ? STAR_REWARDS.overcome : 0);
   const xp = GROWTH_XP.attempt + (input.correct ? GROWTH_XP.correctBonus : 0) + (overcome ? GROWTH_XP.overcome : 0);
   return { learning: nextLearning, economy: addStars(economy, stars), overcome, stars, xp };
+}
+
+/** 단 도전에서 틀리면 부스트를 걸고, 추천 탐험에서 처음 만나 맞히면 하나씩 줄인다 */
+function updateBoost(boosted: Partial<Record<FactId, number>>, id: FactId, input: AnswerInput): Partial<Record<FactId, number>> {
+  if (input.source === 'trial') {
+    return input.correct ? boosted : { ...boosted, [id]: BOOST_COUNT };
+  }
+  const left = boosted[id] ?? 0;
+  if (left <= 0 || !input.correct || input.isRetry) return boosted;
+  const next = { ...boosted };
+  if (left <= 1) delete next[id];
+  else next[id] = left - 1;
+  return next;
+}
+
+export interface TrialOutcome {
+  learning: LearningData;
+  economy: EconomyData;
+  timeMs: number;
+  record: DanTrialRecord;
+  newBest: boolean;
+  /** 이번에 처음 MASTER가 됐다 */
+  justMastered: boolean;
+  bonus: number;
+}
+
+/** 단 도전을 끝까지 마쳤을 때: 최고 기록, MASTER(33초 안), 처음 MASTER면 보너스 별 */
+export function finishDanTrial(learning: LearningData, economy: EconomyData, args: { dan: Dan; timeMs: number; now: number }): TrialOutcome {
+  const prev: DanTrialRecord = learning.danTrials?.[args.dan] ?? { bestMs: null, plays: 0, master: false, masteredAt: null };
+  const newBest = prev.bestMs === null || args.timeMs < prev.bestMs;
+  const fast = args.timeMs <= DAN_TRIAL_MASTER_MS;
+  const justMastered = fast && !prev.master;
+  const record: DanTrialRecord = {
+    bestMs: newBest ? args.timeMs : prev.bestMs,
+    plays: prev.plays + 1,
+    master: prev.master || fast,
+    masteredAt: justMastered ? localDateString(args.now) : prev.masteredAt,
+  };
+  const bonus = justMastered ? (isChallengeDan(args.dan) ? STAR_REWARDS.trialMasterChallenge : STAR_REWARDS.trialMaster) : 0;
+  return {
+    learning: { ...learning, danTrials: { ...learning.danTrials, [args.dan]: record } },
+    economy: addStars(economy, bonus),
+    timeMs: args.timeMs,
+    record,
+    newBest,
+    justMastered,
+    bonus,
+  };
 }
 
 function bumpDaily(days: LearningData['dailyAttempts'], today: string, correct: boolean): LearningData['dailyAttempts'] {

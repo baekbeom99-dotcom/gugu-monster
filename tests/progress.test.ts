@@ -3,6 +3,9 @@ import { BASE_DANS, factsOfDan } from '../src/domain/facts';
 import { DAY_MS } from '../src/domain/mastery';
 import {
   type AnswerInput,
+  BOOST_COUNT,
+  DAN_TRIAL_MASTER_MS,
+  finishDanTrial,
   finishExploration,
   initialEconomy,
   initialLearning,
@@ -101,5 +104,44 @@ describe('탐험 종료', () => {
     for (const f of factsOfDan(12)) learning.facts[f.id].box = 5;
     const r = finishExploration(learning, initialEconomy(), { completed: false, now: NOW });
     expect(r.bonuses).toEqual([{ label: '12단 마스터', stars: 40 }]);
+  });
+});
+
+
+describe('단 도전 기록', () => {
+  it('33초 안에 모두 맞히면 MASTER + 보너스 별 30 (처음 한 번만), 최고 기록 갱신', () => {
+    const slow = finishDanTrial(initialLearning(), initialEconomy(), { dan: 7, timeMs: 40_000, now: NOW });
+    expect(slow).toMatchObject({ newBest: true, justMastered: false, bonus: 0 });
+    expect(slow.record).toMatchObject({ bestMs: 40_000, master: false, plays: 1 });
+
+    const fast = finishDanTrial(slow.learning, slow.economy, { dan: 7, timeMs: DAN_TRIAL_MASTER_MS, now: NOW });
+    expect(fast).toMatchObject({ newBest: true, justMastered: true, bonus: 30 });
+    expect(fast.economy.stars).toBe(30);
+    expect(fast.record.masteredAt).toBe('2026-10-15');
+
+    const again = finishDanTrial(fast.learning, fast.economy, { dan: 7, timeMs: 31_000, now: NOW });
+    expect(again).toMatchObject({ newBest: true, justMastered: false, bonus: 0 });
+    expect(again.record).toMatchObject({ master: true, bestMs: 31_000, plays: 3 });
+
+    const worse = finishDanTrial(again.learning, again.economy, { dan: 7, timeMs: 50_000, now: NOW });
+    expect(worse.newBest).toBe(false);
+    expect(worse.record.master).toBe(true);
+  });
+
+  it('12·13단 MASTER 보너스는 50', () => {
+    expect(finishDanTrial(initialLearning(), initialEconomy(), { dan: 13, timeMs: 20_000, now: NOW }).bonus).toBe(50);
+  });
+
+  it('단 도전에서 틀리면 부스트, 추천 탐험에서 처음 만나 맞힐 때마다 하나씩 줄어든다', () => {
+    let l = recordAnswer(initialLearning(), initialEconomy(), input({ correct: false, source: 'trial' })).learning;
+    expect(l.boosted['7x8']).toBe(BOOST_COUNT);
+    // 단 도전 안에서 다시 맞혀도 부스트는 그대로
+    l = recordAnswer(l, initialEconomy(), input({ correct: true, source: 'trial', isRetry: true })).learning;
+    expect(l.boosted['7x8']).toBe(BOOST_COUNT);
+    // 추천 탐험: 재출제 정답은 세지 않고, 처음 만나 맞히면 줄어든다
+    l = recordAnswer(l, initialEconomy(), input({ correct: true, isRetry: true })).learning;
+    expect(l.boosted['7x8']).toBe(BOOST_COUNT);
+    for (let i = 0; i < BOOST_COUNT; i++) l = recordAnswer(l, initialEconomy(), input({ correct: true })).learning;
+    expect(l.boosted['7x8']).toBeUndefined();
   });
 });

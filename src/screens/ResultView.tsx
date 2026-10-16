@@ -5,6 +5,8 @@ import { hatArtOf } from '../art/HatSprite';
 import { EggSprite, PetSprite } from '../art/PetSprite';
 import { findItem } from '../domain/shop';
 import type { MonsterSlot } from '../domain/battle';
+import type { Dan } from '../domain/facts';
+import { DAN_TRIAL_MASTER_MS, type TrialOutcome } from '../domain/progress';
 import { josa } from '../domain/korean';
 import { STAGE_LABELS } from '../domain/pet';
 import { useGameStore, type ExplorationOutcome } from '../store/useGameStore';
@@ -24,11 +26,15 @@ interface Props {
   monsters: MonsterSlot[];
   tally: Tally;
   finish: ExplorationOutcome;
+  /** 단 도전 결과 (단 골라 탐험일 때만) */
+  trial?: (TrialOutcome & { dan: Dan }) | null;
   onAgain: () => void;
   onPet: () => void;
 }
 
-export function ResultView({ monsters, tally, finish, onAgain, onPet }: Props) {
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}초`;
+
+export function ResultView({ monsters, tally, finish, trial, onAgain, onPet }: Props) {
   const pet = useGameStore((s) => s.pet);
   const catalog = useGameStore((s) => s.catalog);
   const isEgg = pet.stage === 'egg';
@@ -38,10 +44,15 @@ export function ResultView({ monsters, tally, finish, onAgain, onPet }: Props) {
     { label: `몬스터 친구 ${monsters.length}마리`, stars: tally.captureStars },
     ...(tally.overcome > 0 ? [{ label: `어려웠던 문제 극복 ${tally.overcome}개`, stars: tally.overcomeStars }] : []),
     ...finish.bonuses,
+    ...(trial && trial.bonus > 0 ? [{ label: `${trial.dan}단 MASTER 보너스`, stars: trial.bonus }] : []),
   ];
   const total = lines.reduce((sum, l) => sum + l.stars, 0);
-  const bigMoment = finish.newlyMastered.length > 0 || finish.challengeJustUnlocked || !!finish.evolvedTo;
-  const petLine = finish.challengeJustUnlocked
+  const bigMoment = finish.newlyMastered.length > 0 || finish.challengeJustUnlocked || !!finish.evolvedTo || !!trial?.justMastered;
+  const petLine = trial?.justMastered
+    ? `${trial.dan}단 11문제를 33초 안에! MASTER야!`
+    : trial && trial.newBest && trial.record.plays > 1
+      ? '최고 기록이야! 점점 빨라지고 있어!'
+      : finish.challengeJustUnlocked
     ? '우리 더 강해졌어! 황금 몬스터도 잡자!'
     : finish.newlyMastered.length > 0
       ? `${finish.newlyMastered.join('·')}단 마스터! 최고야!`
@@ -54,7 +65,21 @@ export function ResultView({ monsters, tally, finish, onAgain, onPet }: Props) {
   return (
     <div className="result">
       {bigMoment && <Confetti />}
-      <h1 className="result__title">탐험 성공!</h1>
+      <h1 className="result__title">{trial ? `${trial.dan}단 도전 완료!` : '탐험 성공!'}</h1>
+      {trial && (
+        <div className={`neo-card trial-result ${trial.record.master ? 'trial-result--master' : ''}`}>
+          <span className="trial-result__label">11문제 모두 맞힌 시간</span>
+          <strong className="trial-result__time">⏱ {seconds(trial.timeMs)}</strong>
+          <span className="trial-result__sub">
+            {trial.newBest ? '최고 기록!' : `최고 기록 ${seconds(trial.record.bestMs ?? trial.timeMs)}`}
+            {' · '}
+            {trial.timeMs <= DAN_TRIAL_MASTER_MS
+              ? 'MASTER 기준(33초) 통과'
+              : `MASTER까지 ${seconds(trial.timeMs - DAN_TRIAL_MASTER_MS)} 더 빠르게!`}
+          </span>
+        </div>
+      )}
+      {trial?.justMastered && <div className="banner banner--master">🏆 {trial.dan}단 MASTER 달성!</div>}
       {tally.slept > 0 && <p className="result__note">몬스터가 지쳐서 잠들었어요. 우리가 이겼어요!</p>}
 
       <div className="result__monsters">

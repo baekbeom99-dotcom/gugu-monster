@@ -1,12 +1,24 @@
 /** 전투 상태 머신 — 설계서 4-1, 4-3. 실패 상태가 없다. */
 import { type Dan, type FactId, getFact } from './facts';
 import { pickOne, type Rng, shuffle } from './random';
-import { insertRetry, type PlannedItem, QUESTIONS_PER_MONSTER } from './scheduler';
+import { insertRetry, type PlannedItem, type RetryOptions } from './scheduler';
 
 export const MONSTER_COUNT = 3;
 export const MONSTER_HP = 3;
 /** 이만큼 풀면 남은 몬스터는 '지쳐서 잠들어' 포획 처리 */
 export const MAX_ATTEMPTS = 14;
+
+/** 전투 규칙: 몬스터별 체력, 시도 상한, 재출제 방식 */
+export interface BattleRules {
+  hp: number[];
+  /** 이만큼 풀면 남은 몬스터가 잠든다 (null이면 끝까지) */
+  attemptLimit: number | null;
+  retry: RetryOptions;
+}
+
+export const NORMAL_RULES: BattleRules = { hp: [MONSTER_HP, MONSTER_HP, MONSTER_HP], attemptLimit: MAX_ATTEMPTS, retry: {} };
+/** 단 도전: 11문제를 모두 맞혀야 끝난다 (4+4+3 = 11번 공격) */
+export const TRIAL_RULES: BattleRules = { hp: [4, 4, 3], attemptLimit: null, retry: { unlimited: true, type: 'product' } };
 export const CRITICAL_MS = 3000;
 export const COMBO_STEP = 3;
 
@@ -35,6 +47,7 @@ export interface LastHit {
 }
 
 export interface BattleState {
+  rules: BattleRules;
   plan: PlannedItem[];
   index: number;
   monsters: MonsterSlot[];
@@ -49,21 +62,23 @@ export interface BattleState {
   last: LastHit | null;
 }
 
-export function createBattle(plan: PlannedItem[], rng: Rng): BattleState {
+export function createBattle(plan: PlannedItem[], rng: Rng, rules: BattleRules = NORMAL_RULES): BattleState {
+  const starts = rules.hp.map((_, m) => rules.hp.slice(0, m).reduce((a, b) => a + b, 0));
   const kinds = shuffle(rng, MONSTER_KINDS);
-  const monsters: MonsterSlot[] = Array.from({ length: MONSTER_COUNT }, (_, m) => {
-    const group = plan.slice(m * QUESTIONS_PER_MONSTER, (m + 1) * QUESTIONS_PER_MONSTER).map((it) => getFact(it.factId));
+  const monsters: MonsterSlot[] = Array.from({ length: rules.hp.length }, (_, m) => {
+    const group = plan.slice(starts[m], starts[m] + rules.hp[m]).map((it) => getFact(it.factId));
     const golden = group.some((f) => f.isChallenge);
     const dans = group.length > 0 ? group.map((f) => f.a) : [2 as Dan];
     return {
       kind: kinds[m],
       dan: golden ? group.find((f) => f.isChallenge)!.a : pickOne(rng, dans),
       golden,
-      hp: MONSTER_HP,
+      hp: rules.hp[m],
       status: m === 0 ? 'active' : 'waiting',
     };
   });
   return {
+    rules,
     plan,
     index: 0,
     monsters,
@@ -102,7 +117,7 @@ export function answer(state: BattleState, correct: boolean, ms: number, rng: Rn
   if (!correct) {
     return {
       ...state,
-      plan: insertRetry(state.plan, state.index, rng),
+      plan: insertRetry(state.plan, state.index, rng, state.rules.retry),
       attempts,
       combo: 0,
       phase: 'hint',
@@ -150,7 +165,8 @@ export function extendPlan(state: BattleState, items: PlannedItem[]): BattleStat
 
 /** 시도 상한에 닿으면 남은 몬스터는 잠들어 포획된다 (실패 없음). */
 function settleAttemptLimit(state: BattleState): BattleState {
-  if (state.phase !== 'question' || state.attempts < MAX_ATTEMPTS) return state;
+  const limit = state.rules.attemptLimit;
+  if (state.phase !== 'question' || limit === null || state.attempts < limit) return state;
   return {
     ...state,
     monsters: state.monsters.map((m) => (m.status === 'captured' ? m : { ...m, hp: 0, status: 'sleeping' })),

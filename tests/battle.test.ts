@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  TRIAL_RULES,
   answer,
   createBattle,
   currentItem,
@@ -111,5 +112,26 @@ describe('전투', () => {
     expect(s.monsters.map((m) => m.golden)).toEqual([false, true, false]);
     expect(s.monsters[1].dan).toBe(12);
     expect(FACTS.length).toBe(110);
+  });
+
+  it('단 도전: 몬스터 체력 4·4·3, 11번 맞혀야 끝나고, 많이 틀려도 끝나지 않는다', () => {
+    const rng = seededRng(9);
+    const plan: PlannedItem[] = Array.from({ length: 11 }, (_, b) => item(`7x${b}` as PlannedItem['factId']));
+    let s = createBattle(plan, rng, TRIAL_RULES);
+    expect(s.monsters.map((m) => m.hp)).toEqual([4, 4, 3]);
+    // 20번 틀려도 계속 (시도 상한 없음), 재출제는 계속 붙는다
+    for (let i = 0; i < 20; i++) {
+      s = answer(s, false, 3000, rng);
+      s = finishHint(s);
+    }
+    expect(s.phase).toBe('question');
+    expect(s.plan.filter((p) => p.isRetry)).toHaveLength(20);
+    let corrects = 0;
+    while (s.phase !== 'done') {
+      s = answer(s, true, 1000, rng);
+      corrects++;
+    }
+    expect(corrects).toBe(11);
+    expect(s.monsters.every((m) => m.status === 'captured')).toBe(true);
   });
 });

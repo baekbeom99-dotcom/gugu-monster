@@ -1054,3 +1054,92 @@
     font-size: 32px;
   }
 }
+
+/* ── 단 도전 시계·결과 ── */
+.trial-clock {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 12px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--sky);
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trial-clock small {
+  font-size: 14px;
+}
+
+/* 33초를 넘기면 색만 바꾼다 (끝까지 풀 수 있다) */
+.trial-clock--over {
+  background: var(--paper);
+}
+
+.trial-result {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px;
+  background: #e6f6ff;
+}
+
+.trial-result--master {
+  background: var(--yellow);
+}
+
+.trial-result__label {
+  font-size: 15px;
+}
+
+.trial-result__time {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 40px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trial-result__sub {
+  font-size: 14px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+/* ── 단 버튼: MASTER 스티커·최고 기록 ── */
+.dan-button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 4px 2px;
+}
+
+.dan-button__best {
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.1;
+  color: var(--ink-soft);
+}
+
+.master-sticker {
+  position: absolute;
+  top: -11px;
+  right: -8px;
+  padding: 0 5px;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  background: var(--hot-pink);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  transform: rotate(8deg);
+  box-shadow: 2px 2px 0 var(--ink);
+}

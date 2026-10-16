@@ -19,19 +19,27 @@ export function ExploreScreen() {
     navigate(battleUrl(mode));
   };
 
-  const danButton = (dan: Dan, locked: boolean) => (
-    <button
-      key={dan}
-      type="button"
-      className={`dan-button ${learning.masteredDans.includes(dan) ? 'dan-button--mastered' : ''} ${locked ? 'dan-button--locked' : ''}`}
-      disabled={locked}
-      onClick={() => go({ kind: 'dan', dan })}
-      aria-label={locked ? `${dan}단 (잠김)` : `${dan}단`}
-    >
-      {locked ? '🔒' : dan}
-      <small>단</small>
-    </button>
-  );
+  const danButton = (dan: Dan, locked: boolean) => {
+    const record = learning.danTrials?.[dan];
+    const best = record?.bestMs != null ? `${(record.bestMs / 1000).toFixed(1)}초` : null;
+    return (
+      <button
+        key={dan}
+        type="button"
+        className={`dan-button ${learning.masteredDans.includes(dan) ? 'dan-button--mastered' : ''} ${locked ? 'dan-button--locked' : ''}`}
+        disabled={locked}
+        onClick={() => go({ kind: 'dan', dan })}
+        aria-label={locked ? `${dan}단 (잠김)` : `${dan}단${record?.master ? ' MASTER' : ''}${best ? `, 최고 기록 ${best}` : ''}`}
+      >
+        {record?.master && <span className="master-sticker">MASTER</span>}
+        <span className="dan-button__num">
+          {locked ? '🔒' : dan}
+          <small>단</small>
+        </span>
+        {!locked && best && <span className="dan-button__best">⏱ {best}</span>}
+      </button>
+    );
+  };
 
   return (
     <section className="explore">
@@ -51,7 +59,9 @@ export function ExploreScreen() {
 
       {!firstTime && (
         <>
-          <h2 className="explore__heading">단 골라 탐험</h2>
+          <h2 className="explore__heading">
+            단 골라 탐험 <span className="explore__hint">×0~×10 11문제를 모두 맞혀요 · 33초 안이면 MASTER!</span>
+          </h2>
           <div className="dan-grid">{BASE_DANS.map((d) => danButton(d, false))}</div>
           <h2 className="explore__heading">
             도전 탐험 <span className="explore__hint">{learning.challengeUnlocked ? '황금 몬스터 출현!' : '2~9단을 모두 마스터하면 열려요'}</span>

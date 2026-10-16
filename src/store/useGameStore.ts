@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { defaultCatalog } from '../data/defaultCatalog';
+import type { Dan } from '../domain/facts';
 import type { AdminData } from '../domain/admin';
 import { deleteItem, moveItem, restoreDefaults, setOnSale, upsertItem } from '../domain/catalogRules';
 import { canGraduate, type DexEntry, lifeSnapshot, sendToDex } from '../domain/dex';
@@ -27,8 +28,10 @@ import {
   type AnswerInput,
   addStars,
   captureStars,
+  finishDanTrial,
   finishExploration,
   type FinishOutcome,
+  type TrialOutcome,
   type LearningData,
   recordAnswer,
 } from '../domain/progress';
@@ -51,6 +54,8 @@ interface GameActions {
   recordAnswer: (input: AnswerInput) => { stars: number; xp: number; overcome: boolean };
   recordCapture: (golden: boolean) => number;
   finishExploration: (completed: boolean, now: number) => ExplorationOutcome;
+  /** 단 도전을 끝까지 마쳤을 때: 기록·MASTER·보너스 */
+  finishDanTrial: (dan: Dan, timeMs: number, now: number) => TrialOutcome;
   chooseEgg: (species: Species) => void;
   hatchPet: (name: string, now: number) => void;
   care: (action: CareAction, now: number) => ({ ok: true } & PetChange) | { ok: false; reason: string };
@@ -153,6 +158,12 @@ export const useGameStore = create<GameStore>()(
         const settled = settlePet(s.pet, pet, r.learning, now);
         set({ learning: r.learning, economy: hats.economy, pet: settled.pet, lastSeenAt: now });
         return { ...r, economy: hats.economy, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp, grantedHats: hats.granted };
+      },
+      finishDanTrial: (dan, timeMs, now) => {
+        const s = get();
+        const r = finishDanTrial(s.learning, s.economy, { dan, timeMs, now });
+        set({ learning: r.learning, economy: r.economy });
+        return r;
       },
       chooseEgg: (species) => set((s) => ({ pet: chooseEgg(s.pet, species) })),
       hatchPet: (name, now) =>

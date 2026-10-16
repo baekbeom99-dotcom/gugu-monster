@@ -1,4 +1,4 @@
-/** 개인화 출제 알고리즘 — 설계서 3-5, 3-7 */
+/** 개인화 출제 알고리즘 — 설계서 3-5, 3-7, 3-8(단 도전) */
 import {
   BASE_DANS,
   CHALLENGE_DANS,
@@ -7,6 +7,7 @@ import {
   type FactId,
   FACTS,
   factId,
+  factsOfDan,
   getFact,
   type Multiplier,
   RULE_MULTIPLIERS,
@@ -19,6 +20,8 @@ export interface LearnerSnapshot {
   facts: Record<FactId, FactStat>;
   danRecent: Partial<Record<Dan, boolean[]>>;
   challengeUnlocked: boolean;
+  /** 단 도전에서 틀려 추천 탐험에 더 자주 낼 사실 (남은 횟수) */
+  boosted?: Partial<Record<FactId, number>>;
 }
 
 export type ExploreMode = { kind: 'recommended' } | { kind: 'dan'; dan: Dan } | { kind: 'diagnostic' };
@@ -36,7 +39,8 @@ export const EXPLORATION_SIZE = 9;
 export const QUESTIONS_PER_MONSTER = 3;
 export const MAX_DAN_SHARE = 0.4;
 export const MAX_CHALLENGE_SHARE = 0.3;
-export const DAN_MODE_SELECTED_SHARE = 0.7;
+/** 단 도전에서 틀린 사실은 추천 탐험 가중치를 이만큼 곱한다 */
+export const BOOST_FACTOR = 3;
 export const MAX_NEW_PER_EXPLORATION = 3;
 export const MAX_RULE_PER_EXPLORATION = 2;
 export const SEQUENCE_CHANCE = 0.5;
@@ -59,8 +63,8 @@ export function dueFactor(stat: FactStat, now: number): number {
   return 1 + Math.min(daysOver, 4) * 0.25;
 }
 
-export function factWeight(fact: Fact, stat: FactStat, recent: readonly boolean[], now: number): number {
-  return BOX_WEIGHT[stat.box] * dueFactor(stat, now) * danFactor(recent) * (fact.isRule ? RULE_FACTOR : 1);
+export function factWeight(fact: Fact, stat: FactStat, recent: readonly boolean[], now: number, boosted = false): number {
+  return BOX_WEIGHT[stat.box] * dueFactor(stat, now) * danFactor(recent) * (fact.isRule ? RULE_FACTOR : 1) * (boosted ? BOOST_FACTOR : 1);
 }
 
 export function availableDans(challengeUnlocked: boolean): Dan[] {
@@ -77,13 +81,14 @@ export function planExploration(
   if (mode.kind === 'diagnostic') return planDiagnostic(rng);
 
   const dans = availableDans(learner.challengeUnlocked);
-  if (mode.kind === 'dan' && !dans.includes(mode.dan)) {
-    throw new Error(`${mode.dan}단은 아직 열리지 않았다`);
+  if (mode.kind === 'dan') {
+    if (!dans.includes(mode.dan)) throw new Error(`${mode.dan}단은 아직 열리지 않았다`);
+    return planDanTrial(mode.dan, rng);
   }
 
   const pool = FACTS.filter((f) => dans.includes(f.a));
   const statOf = (f: Fact) => learner.facts[f.id];
-  const weightOf = (f: Fact) => factWeight(f, statOf(f), learner.danRecent[f.a] ?? [], now);
+  const weightOf = (f: Fact) => factWeight(f, statOf(f), learner.danRecent[f.a] ?? [], now, (learner.boosted?.[f.id] ?? 0) > 0);
 
   const chosen: Fact[] = [];
   const confidence: Fact[] = [];
@@ -91,7 +96,7 @@ export function planExploration(
   /** level 0: 모든 제약 / 1: 신규·규칙 개수 제약 완화 / 2: 단 구성 제약까지 완화 */
   const canAdd = (f: Fact, level: number): boolean => {
     if (chosen.includes(f)) return false;
-    if (level < 2 && !fitsDanComposition(f, chosen, mode)) return false;
+    if (level < 2 && !fitsDanComposition(f, chosen)) return false;
     if (level < 1) {
       if (statOf(f).box === 0 && chosen.filter((c) => statOf(c).box === 0).length >= MAX_NEW_PER_EXPLORATION) {
         return false;
@@ -101,9 +106,11 @@ export function planExploration(
     return true;
   };
 
-  // 0) 오답 복습 슬롯: 지난 탐험에서 틀려 상자 1에 있는 사실은 다음 탐험에 반드시 다시 낸다.
+  // 0) 오답 복습 슬롯: 지난 탐험에서 틀려 상자 1에 있는 사실, 단 도전에서 틀려 부스트가 남은 사실은
+  //    다음 탐험에 반드시 다시 낸다 (부스트는 추천 탐험에서 3번 맞힐 때까지).
+  const boostedNow = (f: Fact) => (learner.boosted?.[f.id] ?? 0) > 0;
   for (let i = 0; i < MAX_REVIEW_SLOTS; i++) {
-    const candidates = pool.filter((f) => isWrongReviewDue(statOf(f), now) && canAdd(f, 0));
+    const candidates = pool.filter((f) => (isWrongReviewDue(statOf(f), now) || boostedNow(f)) && canAdd(f, 0));
     const pick = weightedPick(rng, candidates, weightOf);
     if (!pick) break;
     chosen.push(pick);
@@ -111,8 +118,7 @@ export function planExploration(
 
   // 1) 몬스터마다 자신감 문제 1개씩: 상자 3 이상(4 이상 우선), 복습 시점이 된 것 우선
   //    → 같은 자신감 문제만 계속 나오지 않게 한다.
-  const confidenceWeight = (f: Fact) =>
-    dueFactor(statOf(f), now) * (statOf(f).box >= MASTERY_BOX ? 1 : 0.5) * (mode.kind === 'dan' && f.a === mode.dan ? 3 : 1);
+  const confidenceWeight = (f: Fact) => dueFactor(statOf(f), now) * (statOf(f).box >= MASTERY_BOX ? 1 : 0.5);
   const monsters = EXPLORATION_SIZE / QUESTIONS_PER_MONSTER;
   for (let i = 0; i < monsters; i++) {
     const candidates = pool.filter((f) => statOf(f).box >= CONFIDENCE_MIN_BOX && canAdd(f, 0));
@@ -136,13 +142,7 @@ export function planExploration(
   return assignTypes(ordered, confidence, (f) => statOf(f).box, rng);
 }
 
-function fitsDanComposition(f: Fact, chosen: readonly Fact[], mode: ExploreMode): boolean {
-  if (mode.kind === 'dan') {
-    const selectedMax = Math.round(EXPLORATION_SIZE * DAN_MODE_SELECTED_SHARE);
-    const isSelected = f.a === mode.dan;
-    const count = chosen.filter((c) => (c.a === mode.dan) === isSelected).length;
-    return count < (isSelected ? selectedMax : EXPLORATION_SIZE - selectedMax);
-  }
+function fitsDanComposition(f: Fact, chosen: readonly Fact[]): boolean {
   const perDanMax = Math.floor(EXPLORATION_SIZE * MAX_DAN_SHARE);
   if (chosen.filter((c) => c.a === f.a).length >= perDanMax) return false;
   if (f.isChallenge) {
@@ -210,22 +210,38 @@ export function planDiagnostic(rng: Rng): PlannedItem[] {
   return shuffle(rng, facts).map((id) => ({ factId: id, type: 'product', isRetry: false, isConfidence: false }));
 }
 
+/**
+ * 단 도전 (단 골라 탐험): 그 단의 ×0~×10 11문제를 섞어 '답 구하기'로 낸다.
+ * 시간을 재므로 모든 문제를 같은 유형으로 낸다.
+ */
+export const DAN_TRIAL_SIZE = 11;
+export function planDanTrial(dan: Dan, rng: Rng): PlannedItem[] {
+  return shuffle(rng, factsOfDan(dan)).map((f) => ({ factId: f.id, type: 'product', isRetry: false, isConfidence: false }));
+}
+
 // ── 재출제 큐 ──────────────────────────────────────
 
+export interface RetryOptions {
+  /** 단 도전: 맞힐 때까지 몇 번이든 다시 낸다 */
+  unlimited?: boolean;
+  /** 다시 낼 때 쓸 유형 (없으면 직전과 다른 유형) */
+  type?: QuestionType;
+}
+
 /**
- * currentIndex 문제를 틀렸을 때, 2~3문제 뒤에 다른 유형으로 다시 낸다.
- * 남은 문제가 모자라면 맨 뒤에 붙인다. 이미 MAX_RETRIES번 했으면 그대로 돌려준다.
+ * currentIndex 문제를 틀렸을 때, 2~3문제 뒤에 다시 낸다.
+ * 남은 문제가 모자라면 맨 뒤에 붙인다. 보통은 MAX_RETRIES번까지.
  */
-export function insertRetry(plan: readonly PlannedItem[], currentIndex: number, rng: Rng): PlannedItem[] {
+export function insertRetry(plan: readonly PlannedItem[], currentIndex: number, rng: Rng, opts: RetryOptions = {}): PlannedItem[] {
   const usedRetries = plan.filter((it) => it.isRetry).length;
-  if (usedRetries >= MAX_RETRIES) return [...plan];
+  if (!opts.unlimited && usedRetries >= MAX_RETRIES) return [...plan];
 
   const wrong = plan[currentIndex];
   const fact = getFact(wrong.factId);
   // 틀린 직후 상자는 1이다.
   const retry: PlannedItem = {
     factId: wrong.factId,
-    type: pickQuestionType(rng, fact, 1, wrong.type),
+    type: opts.type ?? pickQuestionType(rng, fact, 1, wrong.type),
     isRetry: true,
     isConfidence: false,
   };

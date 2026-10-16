@@ -13,6 +13,9 @@ export const STAR_REWARDS = {
   challengeDanMaster: 40,
   /** 펫이 부화할 때 주는 시작 선물 */
   startGift: 10,
+  /** 단 도전 MASTER (처음 한 번) */
+  trialMaster: 30,
+  trialMasterChallenge: 50,
 } as const;
 
 /** 펫 성장 XP — 설계서 7-1. 시도만 해도 XP를 줘서 오답이 많아도 비슷하게 자란다. */

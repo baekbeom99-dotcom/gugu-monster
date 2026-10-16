@@ -63,14 +63,28 @@ describe('탐험 문제 구성', () => {
     expect(total).toBeGreaterThan(100);
   });
 
-  it('단 골라 탐험: 선택한 단 6문제 + 다른 단 3문제', () => {
-    for (let seed = 0; seed < 50; seed++) {
-      const plan = planExploration(experienced(), { kind: 'dan', dan: 7 }, NOW, seededRng(seed));
-      expect(facts(plan).filter((f) => f.a === 7)).toHaveLength(6);
+  it('단 골라 탐험(단 도전): 그 단의 ×0~×10 11문제만, 모두 답 구하기', () => {
+    for (const dan of [7, 13] as const) {
+      const l = learner(() => 4, true);
+      const plan = planExploration(l, { kind: 'dan', dan }, NOW, seededRng(dan));
+      expect(plan).toHaveLength(11);
+      expect(facts(plan).every((f) => f.a === dan)).toBe(true);
+      expect(new Set(facts(plan).map((f) => f.b))).toEqual(new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+      expect(plan.every((it) => it.type === 'product')).toBe(true);
     }
-    const l = learner(() => 4, true);
-    const plan = planExploration(l, { kind: 'dan', dan: 13 }, NOW, seededRng(3));
-    expect(facts(plan).filter((f) => f.a === 13)).toHaveLength(6);
+  });
+
+  it('단 도전에서 틀린 사실(부스트)은 추천 탐험에 매번 나온다', () => {
+    const base = learner(() => 3);
+    const boosted = { ...base, boosted: { '7x8': 3 } as LearnerSnapshot['boosted'] };
+    const count = (l: LearnerSnapshot) => {
+      let n = 0;
+      for (let seed = 0; seed < 300; seed++) if (planExploration(l, { kind: 'recommended' }, NOW, seededRng(seed)).some((p) => p.factId === '7x8')) n++;
+      return n;
+    };
+    // 부스트가 남아 있는 동안은 복습 슬롯으로 매번 나온다
+    expect(count(boosted)).toBe(300);
+    expect(count(base)).toBeLessThan(100);
   });
 
   it('몬스터마다(3문제) 자신감 문제가 1개 이상, 시작과 끝은 자신감 문제', () => {
@@ -110,7 +124,7 @@ describe('탐험 문제 구성', () => {
   });
 
   it('완전히 처음인 학생도 9문제를 만든다 (제약 완화)', () => {
-    const plan = planExploration(learner(), { kind: 'dan', dan: 9 }, NOW, seededRng(1));
+    const plan = planExploration(learner(), { kind: 'recommended' }, NOW, seededRng(1));
     expect(plan).toHaveLength(9);
   });
 
@@ -159,6 +173,14 @@ describe('재출제', () => {
     const plan = base();
     const out = insertRetry(plan, 8, seededRng(1));
     expect(out[9].isRetry).toBe(true);
+  });
+
+  it('단 도전에서는 몇 번이든, 같은 유형(답 구하기)으로 다시 낸다', () => {
+    let plan = planExploration(learner(() => 3), { kind: 'dan', dan: 6 }, NOW, seededRng(2));
+    for (let i = 0; i < 8; i++) plan = insertRetry(plan, i, seededRng(i), { unlimited: true, type: 'product' });
+    const retries = plan.filter((it) => it.isRetry);
+    expect(retries).toHaveLength(8);
+    expect(retries.every((it) => it.type === 'product')).toBe(true);
   });
 
   it(`탐험당 최대 ${MAX_RETRIES}번`, () => {
