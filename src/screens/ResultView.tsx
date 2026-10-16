@@ -28,13 +28,17 @@ interface Props {
   finish: ExplorationOutcome;
   /** 단 도전 결과 (단 골라 탐험일 때만) */
   trial?: (TrialOutcome & { dan: Dan }) | null;
+  /** 풀이 시간 (모든 탐험) */
+  solveMs?: number | null;
+  /** 푼 문제 수 (다시 푼 문제 포함) */
+  attempts?: number;
   onAgain: () => void;
   onPet: () => void;
 }
 
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}초`;
 
-export function ResultView({ monsters, tally, finish, trial, onAgain, onPet }: Props) {
+export function ResultView({ monsters, tally, finish, trial, solveMs, attempts, onAgain, onPet }: Props) {
   const pet = useGameStore((s) => s.pet);
   const catalog = useGameStore((s) => s.catalog);
   const isEgg = pet.stage === 'egg';
@@ -73,10 +77,23 @@ export function ResultView({ monsters, tally, finish, trial, onAgain, onPet }: P
           <span className="trial-result__sub">
             {trial.newBest ? '최고 기록!' : `최고 기록 ${seconds(trial.record.bestMs ?? trial.timeMs)}`}
             {' · '}
-            {trial.timeMs <= DAN_TRIAL_MASTER_MS
-              ? 'MASTER 기준(33초) 통과'
-              : `MASTER까지 ${seconds(trial.timeMs - DAN_TRIAL_MASTER_MS)} 더 빠르게!`}
+            {trial.mistakes > 0
+              ? `틀린 문제 ${trial.mistakes}개 — MASTER는 하나도 안 틀려야 해요`
+              : trial.timeMs <= DAN_TRIAL_MASTER_MS
+                ? 'MASTER 기준 통과 (오답 0개 · 33초 안)'
+                : `오답 0개! MASTER까지 ${seconds(trial.timeMs - DAN_TRIAL_MASTER_MS)} 더 빠르게!`}
           </span>
+        </div>
+      )}
+      {!trial && solveMs != null && (
+        <div className="neo-card trial-result">
+          <span className="trial-result__label">풀이에 걸린 시간</span>
+          <strong className="trial-result__time">⏱ {seconds(solveMs)}</strong>
+          {attempts ? (
+            <span className="trial-result__sub">
+              {attempts}문제 · 한 문제에 평균 {seconds(solveMs / attempts)}
+            </span>
+          ) : null}
         </div>
       )}
       {trial?.justMastered && <div className="banner banner--master">🏆 {trial.dan}단 MASTER 달성!</div>}

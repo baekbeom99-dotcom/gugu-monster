@@ -101,7 +101,9 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
   const [tally, setTally] = useState<Tally>({ correct: 0, correctStars: 0, captureStars: 0, overcome: 0, overcomeStars: 0, slept: 0, xp: 0 });
   const [finish, setFinish] = useState<ExplorationOutcome | null>(null);
   const [trial, setTrial] = useState<TrialOutcome | null>(null);
-  /** 단 도전 시간: 문제가 답을 기다린 시간 + 힌트를 본 시간의 합 (공격·포획 연출 시간은 빼고) */
+  /** 탐험을 마쳤을 때의 풀이 시간 (모든 탐험) */
+  const [solveMs, setSolveMs] = useState<number | null>(null);
+  /** 풀이 시간: 문제가 답을 기다린 시간 + 힌트를 본 시간의 합 (공격·포획 연출 시간은 빼고). 모든 탐험에서 잰다. */
   const trialMs = useRef(0);
   const hintAt = useRef<number | null>(null);
   const [, forceTick] = useState(0);
@@ -148,7 +150,10 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
       setTally((t) => ({ ...t, captureStars: t.captureStars + sleepStars, slept: sleeping.length }));
       setMessage(line('sleep'));
     }
-    const trialResult = trialDan !== null ? finishDanTrial(trialDan, trialMs.current, Date.now()) : null;
+    // 틀린 횟수 = 시도 − 정답 (MASTER는 하나도 틀리지 않아야 한다)
+    const mistakes = battle.attempts - battle.correctCount;
+    const trialResult = trialDan !== null ? finishDanTrial(trialDan, trialMs.current, mistakes, Date.now()) : null;
+    setSolveMs(trialMs.current);
     if (trialResult) setTrial(trialResult);
     const outcome = finishExploration(true, Date.now());
     setTally((t) => ({ ...t, xp: t.xp + outcome.xp }));
@@ -247,6 +252,8 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
         tally={tally}
         finish={finish}
         trial={trial && trialDan !== null ? { ...trial, dan: trialDan } : null}
+        solveMs={solveMs}
+        attempts={battle.attempts}
         onAgain={onAgain}
         onPet={() => navigate(useGameStore.getState().pet.stage === 'egg' ? '/hatch' : '/pet', { replace: true })}
       />

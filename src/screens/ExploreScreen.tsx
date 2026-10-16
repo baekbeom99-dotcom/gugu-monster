@@ -60,7 +60,7 @@ export function ExploreScreen() {
       {!firstTime && (
         <>
           <h2 className="explore__heading">
-            단 골라 탐험 <span className="explore__hint">×0~×10 11문제를 모두 맞혀요 · 33초 안이면 MASTER!</span>
+            단 골라 탐험 <span className="explore__hint">×0~×10 11문제 · 하나도 안 틀리고 33초 안이면 MASTER!</span>
           </h2>
           <div className="dan-grid">{BASE_DANS.map((d) => danButton(d, false))}</div>
           <h2 className="explore__heading">

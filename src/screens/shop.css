@@ -263,3 +263,7 @@
   from { translate: 0 100%; }
   to { translate: 0; }
 }
+
+.effect--minus {
+  background: #ffe3e3;
+}

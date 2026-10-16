@@ -110,26 +110,34 @@ describe('탐험 종료', () => {
 
 describe('단 도전 기록', () => {
   it('33초 안에 모두 맞히면 MASTER + 보너스 별 30 (처음 한 번만), 최고 기록 갱신', () => {
-    const slow = finishDanTrial(initialLearning(), initialEconomy(), { dan: 7, timeMs: 40_000, now: NOW });
+    const slow = finishDanTrial(initialLearning(), initialEconomy(), { dan: 7, timeMs: 40_000, mistakes: 0, now: NOW });
     expect(slow).toMatchObject({ newBest: true, justMastered: false, bonus: 0 });
     expect(slow.record).toMatchObject({ bestMs: 40_000, master: false, plays: 1 });
 
-    const fast = finishDanTrial(slow.learning, slow.economy, { dan: 7, timeMs: DAN_TRIAL_MASTER_MS, now: NOW });
+    const fast = finishDanTrial(slow.learning, slow.economy, { dan: 7, timeMs: DAN_TRIAL_MASTER_MS, mistakes: 0, now: NOW });
     expect(fast).toMatchObject({ newBest: true, justMastered: true, bonus: 30 });
     expect(fast.economy.stars).toBe(30);
     expect(fast.record.masteredAt).toBe('2026-10-15');
 
-    const again = finishDanTrial(fast.learning, fast.economy, { dan: 7, timeMs: 31_000, now: NOW });
+    const again = finishDanTrial(fast.learning, fast.economy, { dan: 7, timeMs: 31_000, mistakes: 0, now: NOW });
     expect(again).toMatchObject({ newBest: true, justMastered: false, bonus: 0 });
     expect(again.record).toMatchObject({ master: true, bestMs: 31_000, plays: 3 });
 
-    const worse = finishDanTrial(again.learning, again.economy, { dan: 7, timeMs: 50_000, now: NOW });
+    const worse = finishDanTrial(again.learning, again.economy, { dan: 7, timeMs: 50_000, mistakes: 0, now: NOW });
     expect(worse.newBest).toBe(false);
     expect(worse.record.master).toBe(true);
   });
 
+  it('33초 안이어도 하나라도 틀리면 MASTER가 아니다 (기록은 남는다)', () => {
+    const r = finishDanTrial(initialLearning(), initialEconomy(), { dan: 7, timeMs: 15_000, mistakes: 1, now: NOW });
+    expect(r).toMatchObject({ justMastered: false, bonus: 0, newBest: true, mistakes: 1 });
+    expect(r.record).toMatchObject({ master: false, bestMs: 15_000 });
+    const perfect = finishDanTrial(r.learning, r.economy, { dan: 7, timeMs: 25_000, mistakes: 0, now: NOW });
+    expect(perfect).toMatchObject({ justMastered: true, bonus: 30, newBest: false });
+  });
+
   it('12·13단 MASTER 보너스는 50', () => {
-    expect(finishDanTrial(initialLearning(), initialEconomy(), { dan: 13, timeMs: 20_000, now: NOW }).bonus).toBe(50);
+    expect(finishDanTrial(initialLearning(), initialEconomy(), { dan: 13, timeMs: 20_000, mistakes: 0, now: NOW }).bonus).toBe(50);
   });
 
   it('단 도전에서 틀리면 부스트, 추천 탐험에서 처음 만나 맞힐 때마다 하나씩 줄어든다', () => {

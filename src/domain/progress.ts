@@ -42,7 +42,7 @@ export interface DanTrialRecord {
   masteredAt: string | null;
 }
 
-/** 단 도전: 11문제를 이 시간 안에 모두 맞히면 MASTER */
+/** 단 도전: 11문제를 하나도 틀리지 않고 이 시간 안에 모두 맞히면 MASTER */
 export const DAN_TRIAL_MASTER_MS = 33_000;
 /** 단 도전에서 틀린 사실은 추천 탐험에서 이만큼 맞힐 때까지 더 자주 나온다 */
 export const BOOST_COUNT = 3;
@@ -180,6 +180,8 @@ export interface TrialOutcome {
   learning: LearningData;
   economy: EconomyData;
   timeMs: number;
+  /** 이번 도전에서 틀린 횟수 */
+  mistakes: number;
   record: DanTrialRecord;
   newBest: boolean;
   /** 이번에 처음 MASTER가 됐다 */
@@ -187,11 +189,15 @@ export interface TrialOutcome {
   bonus: number;
 }
 
-/** 단 도전을 끝까지 마쳤을 때: 최고 기록, MASTER(33초 안), 처음 MASTER면 보너스 별 */
-export function finishDanTrial(learning: LearningData, economy: EconomyData, args: { dan: Dan; timeMs: number; now: number }): TrialOutcome {
+/** 단 도전을 끝까지 마쳤을 때: 최고 기록, MASTER(오답 0개 + 33초 안), 처음 MASTER면 보너스 별 */
+export function finishDanTrial(
+  learning: LearningData,
+  economy: EconomyData,
+  args: { dan: Dan; timeMs: number; mistakes: number; now: number },
+): TrialOutcome {
   const prev: DanTrialRecord = learning.danTrials?.[args.dan] ?? { bestMs: null, plays: 0, master: false, masteredAt: null };
   const newBest = prev.bestMs === null || args.timeMs < prev.bestMs;
-  const fast = args.timeMs <= DAN_TRIAL_MASTER_MS;
+  const fast = args.timeMs <= DAN_TRIAL_MASTER_MS && args.mistakes === 0;
   const justMastered = fast && !prev.master;
   const record: DanTrialRecord = {
     bestMs: newBest ? args.timeMs : prev.bestMs,
@@ -204,6 +210,7 @@ export function finishDanTrial(learning: LearningData, economy: EconomyData, arg
     learning: { ...learning, danTrials: { ...learning.danTrials, [args.dan]: record } },
     economy: addStars(economy, bonus),
     timeMs: args.timeMs,
+    mistakes: args.mistakes,
     record,
     newBest,
     justMastered,

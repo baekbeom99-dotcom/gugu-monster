@@ -189,3 +189,23 @@ describe('조사', () => {
     expect(josa('펫', '으로', '로')).toBe('펫으로');
   });
 });
+
+describe('놀기·잠의 대가', () => {
+  it('쓰다듬기·산책: 배부름·깨끗함 −30 (하한 30)', () => {
+    for (const action of ['pet', 'walk'] as const) {
+      const r = doCare(hatched({ fullness: 90, cleanliness: 45, mood: 50 }), action, NOW);
+      if (!r.ok) throw new Error(r.reason);
+      expect(r.pet.fullness).toBe(60);
+      expect(r.pet.cleanliness).toBe(STAT_MIN);
+    }
+  });
+
+  it('잠: 배부름 −50 (하한 30), 기분 +10', () => {
+    const r = doCare(hatched({ fullness: 100, mood: 50 }), 'sleep', NOW);
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.pet.fullness).toBe(50);
+    expect(r.pet.mood).toBe(60);
+    const low = doCare(hatched({ fullness: 60 }), 'sleep', NOW);
+    expect(low.ok && low.pet.fullness).toBe(STAT_MIN);
+  });
+});

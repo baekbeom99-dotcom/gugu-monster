@@ -55,7 +55,7 @@ interface GameActions {
   recordCapture: (golden: boolean) => number;
   finishExploration: (completed: boolean, now: number) => ExplorationOutcome;
   /** 단 도전을 끝까지 마쳤을 때: 기록·MASTER·보너스 */
-  finishDanTrial: (dan: Dan, timeMs: number, now: number) => TrialOutcome;
+  finishDanTrial: (dan: Dan, timeMs: number, mistakes: number, now: number) => TrialOutcome;
   chooseEgg: (species: Species) => void;
   hatchPet: (name: string, now: number) => void;
   care: (action: CareAction, now: number) => ({ ok: true } & PetChange) | { ok: false; reason: string };
@@ -161,9 +161,9 @@ export const useGameStore = create<GameStore>()(
         set({ learning: r.learning, economy: hats.economy, pet: settled.pet, lastSeenAt: now });
         return { ...r, economy: hats.economy, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp, grantedHats: hats.granted };
       },
-      finishDanTrial: (dan, timeMs, now) => {
+      finishDanTrial: (dan, timeMs, mistakes, now) => {
         const s = get();
-        const r = finishDanTrial(s.learning, s.economy, { dan, timeMs, now });
+        const r = finishDanTrial(s.learning, s.economy, { dan, timeMs, mistakes, now });
         set({ learning: r.learning, economy: r.economy });
         return r;
       },

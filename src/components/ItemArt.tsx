@@ -1,6 +1,7 @@
 /** 아이템 그림·효과 표시 (상점·서랍 공통) */
 import { HatIcon, hatArtOf } from '../art/HatSprite';
 import { iconGlyph } from '../data/itemIcons';
+import { PLAY_COST } from '../domain/pet';
 import type { ItemDef } from '../domain/shop';
 
 const TILE_COLORS: Record<ItemDef['category'], string> = {
@@ -22,13 +23,15 @@ export function ItemArt({ item, size = 64 }: { item: ItemDef; size?: number }) {
 const EFFECT_ICONS: Record<string, string> = { fullness: '🍚', mood: '💗', cleanliness: '🫧', affection: '♥' };
 
 export function EffectChips({ item }: { item: ItemDef }) {
-  const entries = Object.entries(item.effects).filter(([, v]) => v);
+  // 장난감은 놀고 나면 배부름·깨끗함이 줄어드는 것도 보여 준다
+  const entries = Object.entries({ ...item.effects, ...(item.category === 'toy' ? PLAY_COST : {}) }).filter(([, v]) => v);
   if (item.category === 'hat') return <span className="effect-chips"><span className="effect">꾸미기</span></span>;
   return (
     <span className="effect-chips">
       {entries.map(([k, v]) => (
-        <span key={k} className={`effect effect--${k}`}>
-          {EFFECT_ICONS[k]}+{v}
+        <span key={k} className={`effect effect--${k} ${(v ?? 0) < 0 ? 'effect--minus' : ''}`}>
+          {EFFECT_ICONS[k]}
+          {(v ?? 0) > 0 ? `+${v}` : v}
         </span>
       ))}
     </span>

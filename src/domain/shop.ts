@@ -1,6 +1,6 @@
 /** 별 상점: 아이템 정의·구매·사용·모자 — 설계서 5-3, 10-3, 11-1 */
 import type { Dan } from './facts';
-import { applyCare, type CareResult, type PetData, type StatKey } from './pet';
+import { applyCare, type CareResult, PLAY_COST, type PetData, type StatKey } from './pet';
 import type { EconomyData } from './progress';
 
 export type ItemId = string;
@@ -83,7 +83,14 @@ export function applyItem(pet: PetData, economy: EconomyData, item: ItemDef, now
     pet,
     item.consumable
       ? { effects: stats, affection, refuseWhenFull: true, countKeys: [`item:${item.category}`, ...(item.special ? ['special'] : [])] }
-      : { effects: stats, affection, cooldownKey: item.id, cooldownMin: item.cooldownMin ?? 30, countKeys: [`item:${item.category}`] },
+      : {
+          // 장난감으로 놀아도 배부름·깨끗함이 줄어든다
+          effects: item.category === 'toy' ? { ...stats, ...PLAY_COST } : stats,
+          affection,
+          cooldownKey: item.id,
+          cooldownMin: item.cooldownMin ?? 30,
+          countKeys: [`item:${item.category}`],
+        },
     now,
   );
   if (!r.ok) return r;

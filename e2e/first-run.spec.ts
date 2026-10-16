@@ -20,6 +20,7 @@ test('처음 시작한 학생이 펫을 부화시키고 돌보고 상점에서 �
   await playExploration(page, { wrongFirst: true });
   await expect(page.locator('.result__title')).toHaveText('탐험 성공!');
   await expect(page.locator('.result__total')).toContainText('+23');
+  await expect(page.locator('.trial-result__label')).toHaveText('풀이에 걸린 시간');
 
   // 부화 → 이름 짓기 → 시작 선물
   await page.getByRole('button', { name: /알이 흔들려요/ }).click();

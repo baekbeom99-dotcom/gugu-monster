@@ -123,3 +123,11 @@ describe('모자', () => {
     expect(bagItems(r.economy, catalog, 'hat').map((i) => i.id)).toEqual(['hat_master_7', 'hat_master_12']);
   });
 });
+
+describe('장난감 놀이의 대가', () => {
+  it('장난감으로 놀면 배부름·깨끗함 −30, 화면에도 표시', () => {
+    const r = applyItem(pet({ fullness: 80, cleanliness: 80, mood: 40 }), { ...rich(), owned: ['toy_ball'] }, item('toy_ball'), NOW);
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.pet).toMatchObject({ fullness: 50, cleanliness: 50, mood: 60 });
+  });
+});

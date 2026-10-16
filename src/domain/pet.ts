@@ -68,13 +68,18 @@ export const MAX_DECAY_HOURS = 24;
 const HOUR_MS = 3_600_000;
 const MIN_MS = 60_000;
 
+/** 놀기(쓰다듬기·산책·장난감)를 하면 배부름·깨끗함이 30 줄어든다 */
+export const PLAY_COST: Partial<Record<StatKey, number>> = { fullness: -30, cleanliness: -30 };
+
 /** 무료 기본 돌봄 (설계서 6-3). 아이템 돌봄은 M5 상점에서 추가된다. */
 export const CARE: Record<CareAction, { label: string; cooldownMin: number; effects: Partial<Record<StatKey, number>>; affection: number }> = {
   feed: { label: '기본 사료', cooldownMin: 120, effects: { fullness: 20 }, affection: 1 },
-  pet: { label: '쓰다듬기', cooldownMin: 10, effects: { mood: 5 }, affection: 1 },
-  walk: { label: '산책하기', cooldownMin: 60, effects: { mood: 15 }, affection: 2 },
+  // 놀고 나면 배고파지고 더러워진다 (하한 30은 그대로)
+  pet: { label: '쓰다듬기', cooldownMin: 10, effects: { mood: 5, ...PLAY_COST }, affection: 1 },
+  walk: { label: '산책하기', cooldownMin: 60, effects: { mood: 15, ...PLAY_COST }, affection: 2 },
   wash: { label: '물로 씻기', cooldownMin: 120, effects: { cleanliness: 20 }, affection: 1 },
-  sleep: { label: '잠재우기', cooldownMin: 240, effects: { mood: 10 }, affection: 1 },
+  // 자고 일어나면 배가 고프다
+  sleep: { label: '잠재우기', cooldownMin: 240, effects: { mood: 10, fullness: -50 }, affection: 1 },
 };
 export const SLEEP_MINUTES = 30;
 export const CARE_XP_PER_ACTION = 1;
