@@ -4,7 +4,7 @@ import { localDateString } from './dates';
 export type Species = 'cat' | 'penguin' | 'dino';
 export type Stage = 'egg' | 'baby' | 'child' | 'adult';
 export type StatKey = 'fullness' | 'mood' | 'cleanliness';
-export type CareAction = 'feed' | 'pet' | 'wash' | 'sleep';
+export type CareAction = 'feed' | 'pet' | 'walk' | 'wash' | 'sleep';
 
 export const SPECIES: readonly Species[] = ['cat', 'penguin', 'dino'];
 export const STAGES: readonly Stage[] = ['egg', 'baby', 'child', 'adult'];
@@ -38,8 +38,10 @@ export interface PetData {
   /** 하루 첫 방문 친밀도 보너스를 받은 날 */
   lastVisitDate: string | null;
   evolutionCards: { stage: Stage; date: string }[];
-  /** 다 자란 뒤 만족도가 높았던 시간의 합(ms) — 도감 졸업 조건. 줄지 않는다. */
-  happyMs: number;
+  /** 이미 친밀도 Lv10으로 졸업해 새 알을 받은 펫인가 (졸업은 한 번만) */
+  graduated: boolean;
+  /** 졸업할 때 받은 칭호 (예: '용감한 탐험가') */
+  title: string | null;
   /** 돌봄 종류별 횟수 (도감 칭호를 정할 때 쓴다) */
   careCounts: Record<string, number>;
   /** 부화할 때의 학습 기록 (이 펫과 함께한 동안의 기록을 계산하는 기준) */
@@ -70,6 +72,7 @@ const MIN_MS = 60_000;
 export const CARE: Record<CareAction, { label: string; cooldownMin: number; effects: Partial<Record<StatKey, number>>; affection: number }> = {
   feed: { label: '기본 사료', cooldownMin: 120, effects: { fullness: 20 }, affection: 1 },
   pet: { label: '쓰다듬기', cooldownMin: 10, effects: { mood: 5 }, affection: 1 },
+  walk: { label: '산책하기', cooldownMin: 60, effects: { mood: 15 }, affection: 2 },
   wash: { label: '물로 씻기', cooldownMin: 120, effects: { cleanliness: 20 }, affection: 1 },
   sleep: { label: '잠재우기', cooldownMin: 240, effects: { mood: 10 }, affection: 1 },
 };
@@ -112,7 +115,8 @@ export function initialPet(now: number): PetData {
     statsUpdatedAt: now,
     lastVisitDate: null,
     evolutionCards: [],
-    happyMs: 0,
+    graduated: false,
+    title: null,
     careCounts: {},
     lifeStart: null,
     eggBaseExplorations: 0,
@@ -130,40 +134,6 @@ export function needsHatch(pet: PetData, explorations: number): boolean {
   return pet.stage === 'egg' && !!pet.species && explorations > (pet.eggBaseExplorations ?? 0);
 }
 
-// ── 만족도 ─────────────────────────────────────
-
-/** 만족도 = 배부름·기분·깨끗함의 평균. 이 값 이상이면 '행복한 상태' */
-export const HAPPY_THRESHOLD = 70;
-
-export function satisfaction(pet: Pick<PetData, StatKey>): number {
-  return (pet.fullness + pet.mood + pet.cleanliness) / 3;
-}
-
-/** 시작 상태에서 hours 시간 동안 줄어든 뒤의 만족도 (하한 30) */
-function satisfactionAfter(pet: Pick<PetData, StatKey>, hours: number): number {
-  const at = (k: StatKey) => (pet[k] < STAT_MIN ? pet[k] : Math.max(STAT_MIN, pet[k] - DECAY_PER_HOUR[k] * hours));
-  return (at('fullness') + at('mood') + at('cleanliness')) / 3;
-}
-
-/**
- * elapsedMs 동안 만족도가 기준 이상이었던 시간.
- * 상태는 줄기만 하므로 '기준 아래로 떨어지는 순간'을 이분 탐색으로 찾는다. 24시간이 지나면 더 줄지 않는다.
- */
-export function happyDurationMs(pet: Pick<PetData, StatKey>, elapsedMs: number): number {
-  const total = Math.min(elapsedMs, MAX_DECAY_HOURS * HOUR_MS);
-  if (total <= 0 || satisfaction(pet) < HAPPY_THRESHOLD) return 0;
-  if (satisfactionAfter(pet, total / HOUR_MS) >= HAPPY_THRESHOLD) return total;
-  let lo = 0;
-  let hi = total / HOUR_MS;
-  for (let i = 0; i < 40; i++) {
-    const mid = (lo + hi) / 2;
-    if (satisfactionAfter(pet, mid) >= HAPPY_THRESHOLD) lo = mid;
-    else hi = mid;
-  }
-  return Math.round(lo * HOUR_MS);
-}
-
-
 const clampStat = (v: number) => Math.min(STAT_MAX, Math.max(STAT_MIN, v));
 
 /**
@@ -175,15 +145,12 @@ export function applyDecay(pet: PetData, now: number): PetData {
   if (pet.stage === 'egg') return { ...pet, statsUpdatedAt: now };
   const hours = Math.min(MAX_DECAY_HOURS, (now - pet.statsUpdatedAt) / HOUR_MS);
   const decay = (key: StatKey) => (pet[key] < STAT_MIN ? pet[key] : clampStat(pet[key] - DECAY_PER_HOUR[key] * hours));
-  // 다 자란 뒤에만 도감 졸업까지의 '행복한 시간'이 쌓인다
-  const happy = pet.stage === 'adult' ? happyDurationMs(pet, now - pet.statsUpdatedAt) : 0;
   return {
     ...pet,
     fullness: decay('fullness'),
     mood: decay('mood'),
     cleanliness: decay('cleanliness'),
     statsUpdatedAt: now,
-    happyMs: (pet.happyMs ?? 0) + happy,
   };
 }
 
@@ -290,16 +257,28 @@ export function visit(pet: PetData, lastSeenAt: number, now: number): VisitResul
   return { pet: next, firstVisitToday, welcomeBack };
 }
 
-export function affectionLevel(affection: number): number {
-  return 1 + AFFECTION_THRESHOLDS.filter((t) => affection >= t).length;
+/** Lv10 다음부터는 레벨마다 친밀도 80씩 더 (레벨은 끝없이 오른다) */
+export const AFFECTION_STEP_AFTER_10 = 80;
+
+/** 이 레벨이 되는 데 필요한 누적 친밀도 (Lv1 = 0) */
+export function affectionForLevel(level: number): number {
+  if (level <= 1) return 0;
+  if (level <= AFFECTION_THRESHOLDS.length + 1) return AFFECTION_THRESHOLDS[level - 2];
+  const last = AFFECTION_THRESHOLDS[AFFECTION_THRESHOLDS.length - 1];
+  return last + (level - (AFFECTION_THRESHOLDS.length + 1)) * AFFECTION_STEP_AFTER_10;
 }
 
-/** 다음 레벨까지 진행률 0~1 (최고 레벨이면 1) */
+export function affectionLevel(affection: number): number {
+  const base = 1 + AFFECTION_THRESHOLDS.filter((t) => affection >= t).length;
+  if (base <= AFFECTION_THRESHOLDS.length) return base;
+  return base + Math.floor((affection - AFFECTION_THRESHOLDS[AFFECTION_THRESHOLDS.length - 1]) / AFFECTION_STEP_AFTER_10);
+}
+
+/** 다음 레벨까지 진행률 0~1 */
 export function affectionProgress(affection: number): number {
   const lv = affectionLevel(affection);
-  if (lv > AFFECTION_THRESHOLDS.length) return 1;
-  const prev = lv === 1 ? 0 : AFFECTION_THRESHOLDS[lv - 2];
-  const next = AFFECTION_THRESHOLDS[lv - 1];
+  const prev = affectionForLevel(lv);
+  const next = affectionForLevel(lv + 1);
   return (affection - prev) / (next - prev);
 }
 

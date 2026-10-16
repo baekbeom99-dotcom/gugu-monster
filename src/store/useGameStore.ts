@@ -4,7 +4,7 @@ import { defaultCatalog } from '../data/defaultCatalog';
 import type { Dan } from '../domain/facts';
 import type { AdminData } from '../domain/admin';
 import { deleteItem, moveItem, restoreDefaults, setOnSale, upsertItem } from '../domain/catalogRules';
-import { canGraduate, type DexEntry, lifeSnapshot, sendToDex } from '../domain/dex';
+import { canGraduate, type DexEntry, lifeSnapshot, sendToDex, type SwapResult, swapWithDex } from '../domain/dex';
 import { STAR_REWARDS } from '../domain/economy';
 import {
   addAffection,
@@ -64,8 +64,10 @@ interface GameActions {
   /** 먹이·위생용품·장난감을 펫에게 쓴다 */
   giveItem: (id: ItemId, now: number) => ({ ok: true } & PetChange) | { ok: false; reason: string };
   wearHat: (id: ItemId | null) => boolean;
-  /** 졸업 조건을 채웠으면 도감에 넣고 새 알로. 넣은 기록을 돌려준다. */
+  /** 친밀도 Lv10(아직 졸업 전)이면 도감에 넣고 새 알로. 넣은 기록을 돌려준다. */
   graduatePet: (now: number) => DexEntry | null;
+  /** 도감의 펫과 자리 바꾸기: 지금 펫은 도감에서 쉬고 고른 펫과 다시 함께한다 */
+  swapPet: (entryId: string, now: number) => SwapResult;
 
   // ── 관리자 모드 ──
   setAdmin: (admin: AdminData) => void;
@@ -174,7 +176,7 @@ export const useGameStore = create<GameStore>()(
       graduatePet: (now) => {
         const s = get();
         const pet = applyDecay(s.pet, now);
-        if (!canGraduate(pet, s.settings.graduationDays)) return null;
+        if (!canGraduate(pet)) return null;
         const r = sendToDex(pet, s.learning, now, 'graduated');
         set({ pet: r.nextPet, dex: r.entry ? [...s.dex, r.entry] : s.dex });
         return r.entry;
@@ -230,6 +232,12 @@ export const useGameStore = create<GameStore>()(
           return { ...merged, admin: s.admin, lastSeenAt: Date.now() };
         }),
       resetAll: () => set({ ...createInitialSave(Date.now()) }),
+      swapPet: (entryId, now) => {
+        const s = get();
+        const r = swapWithDex(applyDecay(s.pet, now), s.dex, entryId, s.learning, now);
+        if (r.ok) set({ pet: r.pet, dex: r.dex });
+        return r;
+      },
       startNewPetByAdmin: (now) => {
         const s = get();
         const r = sendToDex(applyDecay(s.pet, now), s.learning, now, 'admin');

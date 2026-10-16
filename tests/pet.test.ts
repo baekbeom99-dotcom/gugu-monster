@@ -110,12 +110,13 @@ describe('방문', () => {
 });
 
 describe('친밀도 레벨', () => {
-  it('누적 10, 25, 45…에서 레벨업, 최대 Lv10', () => {
+  it('누적 10, 25, 45…에서 레벨업, Lv10 뒤로는 80마다 계속', () => {
     expect(affectionLevel(0)).toBe(1);
     expect(affectionLevel(10)).toBe(2);
     expect(affectionLevel(44)).toBe(3);
     expect(affectionLevel(45)).toBe(4);
-    expect(affectionLevel(9999)).toBe(10);
+    expect(affectionLevel(320)).toBe(10);
+    expect(affectionLevel(9999)).toBe(10 + Math.floor((9999 - 320) / 80));
   });
 });
 

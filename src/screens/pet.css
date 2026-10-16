@@ -584,3 +584,245 @@
   25% { rotate: -10deg; translate: -8px -6px; }
   75% { rotate: 10deg; translate: 8px -6px; }
 }
+
+/* ── 놀기 장면 (산책·장난감마다 다른 움직임) ── */
+.play {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.play-prop {
+  position: absolute;
+  font-size: 46px;
+  line-height: 1;
+}
+
+.play-prop--bounce {
+  left: -12%;
+  bottom: 40px;
+  animation: prop-bounce 2.4s linear forwards;
+}
+
+.play-prop--float {
+  bottom: 30px;
+  font-size: 34px;
+  animation: prop-float 2.2s ease-out forwards;
+}
+
+.play-prop--hug {
+  left: 62%;
+  bottom: 50px;
+  animation: prop-hug 2.4s steps(6) forwards;
+}
+
+.play-prop--fly {
+  left: 10%;
+  bottom: 40px;
+  animation: prop-fly 2.4s ease-in forwards;
+}
+
+.play-trail {
+  position: absolute;
+  left: 30%;
+  bottom: 120px;
+  font-size: 28px;
+  animation: blink-opacity 0.4s steps(2) 6;
+}
+
+.play-prop--spin {
+  left: 68%;
+  bottom: 70px;
+  animation: prop-spin 2.4s linear forwards;
+}
+
+.play-prop--drive {
+  left: -15%;
+  bottom: 22px;
+  font-size: 40px;
+  animation: prop-drive 2.4s steps(12) forwards;
+}
+
+.play-prop--stack {
+  left: 70%;
+  opacity: 0;
+  font-size: 34px;
+  animation: prop-drop 0.5s steps(4) forwards;
+}
+
+.play-prop--beat {
+  left: 66%;
+  bottom: 40px;
+  animation: wiggle 0.3s steps(2) 8;
+}
+
+.play-heart,
+.play-note {
+  position: absolute;
+  bottom: 140px;
+  font-size: 26px;
+  opacity: 0;
+  animation: rise-fade 1.4s ease-out forwards;
+}
+
+.play-note {
+  font-family: var(--font-display);
+  font-size: 30px;
+  color: var(--hot-pink);
+}
+
+/* 산책: 풍경이 뒤로 지나가고 발자국이 찍힌다 */
+.play--walk {
+  background: linear-gradient(#9fe3ff 0 70%, #b8f25c 70%);
+  animation: appear 0.3s steps(3) both;
+}
+
+.walk-sun {
+  position: absolute;
+  top: 70px;
+  right: 18px;
+  font-size: 40px;
+  animation: wiggle 1s steps(2) infinite;
+}
+
+.walk-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 70px;
+  height: 60px;
+  animation: walk-scroll 2.6s linear forwards;
+}
+
+.walk-thing {
+  position: absolute;
+  bottom: 0;
+  font-size: 44px;
+}
+
+.walk-step {
+  position: absolute;
+  bottom: 16px;
+  font-size: 20px;
+  opacity: 0;
+  animation: appear 0.2s steps(2) forwards;
+}
+
+/* 펫의 움직임 */
+.pet-play--walk { animation: pet-walk 0.45s steps(3) 6; }
+.pet-play--pat { animation: hop 0.5s steps(4) 2; }
+.pet-play--bounce { animation: pet-jump 0.6s steps(5) 4; }
+.pet-play--float { animation: pet-float 2.4s ease-in-out; }
+.pet-play--hug { animation: pet-hug 0.6s steps(4) 4; }
+.pet-play--fly { animation: pet-look-up 2.4s steps(8); }
+.pet-play--spin { animation: pet-spin 0.8s steps(8) 3; }
+.pet-play--drive { animation: pet-chase 2.4s steps(10); }
+.pet-play--stack { animation: chomp 0.5s steps(2) 5; }
+.pet-play--beat { animation: dance 0.4s steps(4) 6; }
+
+@keyframes prop-bounce {
+  0% { translate: 0 0; }
+  12% { translate: 15vw -90px; }
+  25% { translate: 30vw 0; }
+  37% { translate: 45vw -70px; }
+  50% { translate: 60vw 0; }
+  62% { translate: 75vw -50px; }
+  75% { translate: 90vw 0; }
+  100% { translate: 120vw -20px; }
+}
+@keyframes prop-float {
+  from { translate: 0 0; opacity: 1; }
+  to { translate: 0 -260px; opacity: 0; }
+}
+@keyframes prop-hug {
+  0% { translate: 60px 0; }
+  40% { translate: -14px 0; }
+  60% { translate: -18px 0; scale: 1.15; }
+  100% { translate: -14px 0; }
+}
+@keyframes prop-fly {
+  0% { translate: 0 0; rotate: 0deg; }
+  60% { translate: 50vw -170px; rotate: 20deg; }
+  100% { translate: 90vw -320px; rotate: 40deg; opacity: 0.2; }
+}
+@keyframes prop-spin {
+  0% { rotate: 0deg; translate: 0 0; }
+  25% { translate: 0 -60px; }
+  50% { translate: 0 0; }
+  75% { translate: 0 -60px; }
+  100% { rotate: 1080deg; translate: 0 0; }
+}
+@keyframes prop-drive {
+  0% { translate: 0 0; scale: 1 1; }
+  48% { translate: 120vw 0; scale: 1 1; }
+  52% { translate: 120vw 0; scale: -1 1; }
+  100% { translate: -10vw 0; scale: -1 1; }
+}
+@keyframes prop-drop {
+  from { translate: 0 -200px; opacity: 1; }
+  to { translate: 0 0; opacity: 1; }
+}
+@keyframes rise-fade {
+  0% { translate: 0 0; opacity: 0; }
+  20% { opacity: 1; }
+  100% { translate: 0 -90px; opacity: 0; }
+}
+@keyframes walk-scroll {
+  from { translate: 30% 0; }
+  to { translate: -60% 0; }
+}
+@keyframes pet-walk {
+  0%, 100% { translate: 0 0; rotate: -3deg; }
+  50% { translate: 0 -8px; rotate: 3deg; }
+}
+@keyframes pet-jump {
+  0%, 100% { translate: 0 0; }
+  45% { translate: 0 -46px; }
+}
+@keyframes pet-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -44px; rotate: -6deg; }
+}
+@keyframes pet-hug {
+  0%, 100% { scale: 1 1; }
+  50% { scale: 1.12 0.9; }
+}
+@keyframes pet-look-up {
+  0% { rotate: 0deg; }
+  30% { rotate: -10deg; translate: 0 -10px; }
+  60% { rotate: -14deg; translate: 0 -24px; }
+  100% { rotate: 0deg; translate: 0 0; }
+}
+@keyframes pet-spin {
+  from { rotate: 0deg; }
+  to { rotate: 360deg; }
+}
+@keyframes pet-chase {
+  0% { translate: 0 0; }
+  45% { translate: 70px 0; }
+  55% { translate: 70px 0; scale: -1 1; }
+  100% { translate: 0 0; scale: -1 1; }
+}
+
+.pet-title {
+  flex-basis: 100%;
+  align-self: flex-start;
+  width: fit-content;
+  padding: 1px 10px;
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  background: var(--yellow);
+  font-size: 15px;
+  transform: rotate(-1.5deg);
+}
+
+/* 산책 풍경은 펫 뒤에, 말풍선은 언제나 맨 위에 */
+.play--walk {
+  z-index: 0;
+}
+
+.speech--room {
+  z-index: 3;
+}

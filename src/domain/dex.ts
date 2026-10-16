@@ -1,33 +1,45 @@
 /**
- * 펫 도감 — 다 자란 펫이 만족한 상태로 일정 기간(기본 2일)을 보내면 '졸업'해 도감에 들어가고, 새 알을 고른다.
- * 도감에 들어갈 때 함께한 동안의 기록으로 칭호를 붙인다. 예) '용감한 탐험가 냥냥이'
- * 칭호는 언제나 칭찬하는 말만 쓴다.
+ * 펫 도감 — 친밀도 Lv10이 된 펫은 칭호를 받고 '졸업'해 도감에 들어가고, 새 알을 고른다.
+ * 도감의 펫을 고르면 지금 펫과 자리를 바꿔 다시 함께 탐험한다 (레벨은 10을 넘어 계속 오른다).
+ * 새 알은 아직 졸업하지 않은 펫이 Lv10이 되었을 때만 받는다 (졸업은 펫마다 한 번).
+ * 칭호는 언제나 칭찬하는 말만 쓴다. 예) '용감한 탐험가 냥냥이'
  */
 import { localDateString } from './dates';
 import { QUESTION_TYPES } from './questionGen';
-import { affectionLevel, type LifeSnapshot, newEgg, type PetData, type Species, type Stage } from './pet';
+import {
+  affectionForLevel,
+  affectionLevel,
+  initialPet,
+  type LifeSnapshot,
+  newEgg,
+  type PetData,
+  type Species,
+  type Stage,
+} from './pet';
 import type { LearningData } from './progress';
 
-export const DAY_MS = 24 * 60 * 60 * 1000;
-export const GRADUATION_DAYS_DEFAULT = 2;
-export const GRADUATION_DAYS_RANGE = { min: 1, max: 14 } as const;
+/** 이 레벨이 되면 졸업 */
+export const GRADUATION_LEVEL = 10;
 
 export interface DexEntry {
   id: string;
   species: Species;
   name: string;
-  /** 수식어 (예: '용감한 탐험가') — 이름 앞에 붙인다 */
-  title: string;
+  /** 졸업 칭호 (예: '용감한 탐험가') — 아직 졸업 전이면 null */
+  title: string | null;
   stage: Exclude<Stage, 'egg'>;
   hatchedAt: string | null;
   leftAt: string;
+  /** 도감에 들어갈 때의 친밀도 레벨 */
   affectionLevel: number;
   /** 함께하는 동안 공부한 날·탐험 횟수 */
   studyDays: number;
   explorations: number;
   hat: string | null;
-  /** graduated: 졸업, admin: 관리자가 새 펫을 시작 */
-  reason: 'graduated' | 'admin';
+  /** graduated: Lv10 졸업, admin: 관리자가 새 펫 시작, resting: 다른 펫과 자리를 바꿔 쉬는 중 */
+  reason: 'graduated' | 'admin' | 'resting';
+  /** 다시 데려올 때 쓰는 펫 전체 상태 (예전 버전 기록에는 없을 수 있다) */
+  pet?: PetData;
 }
 
 export function lifeSnapshot(learning: LearningData): LifeSnapshot {
@@ -64,12 +76,12 @@ function seedOf(text: string): number {
 
 type CareKind = 'feed' | 'play' | 'wash' | 'sleep';
 
-/** 가장 많이 한 돌봄 (무료 돌봄 + 아이템 돌봄을 합쳐 센다) */
+/** 가장 많이 한 돌봄 (무료 돌봄 + 아이템 돌봄을 합쳐 센다. 산책은 놀기) */
 export function favoriteCare(counts: Record<string, number>): CareKind | null {
   const c = (k: string) => counts[k] ?? 0;
   const totals: [CareKind, number][] = [
     ['feed', c('feed') + c('item:food')],
-    ['play', c('pet') + c('item:toy')],
+    ['play', c('pet') + c('walk') + c('item:toy')],
     ['wash', c('wash') + c('item:hygiene')],
     ['sleep', c('sleep')],
   ];
@@ -114,13 +126,9 @@ export function makeTitle(pet: PetData, learning: LearningData): string {
   return `${adjective} ${noun}`;
 }
 
-export function graduationNeedMs(days: number): number {
-  return days * DAY_MS;
-}
-
-/** 다 자란 펫이 행복한 시간을 (days)일 채웠는가 */
-export function canGraduate(pet: PetData, days: number): boolean {
-  return pet.stage === 'adult' && (pet.happyMs ?? 0) >= graduationNeedMs(days);
+/** 아직 졸업하지 않은 펫이 친밀도 Lv10이 되었는가 */
+export function canGraduate(pet: PetData): boolean {
+  return !!pet.species && pet.stage !== 'egg' && !pet.graduated && affectionLevel(pet.affection) >= GRADUATION_LEVEL;
 }
 
 let seq = 0;
@@ -129,34 +137,77 @@ function entryId(now: number): string {
   return `dex_${now.toString(36)}_${seq}`;
 }
 
+/** 지금 펫으로 도감 기록을 만든다 (펫 전체 상태를 함께 넣어 나중에 다시 데려올 수 있게) */
+export function makeEntry(pet: PetData, learning: LearningData, now: number, reason: DexEntry['reason']): DexEntry | null {
+  if (!pet.species || pet.stage === 'egg') return null;
+  const graduating = reason !== 'resting';
+  // 졸업(또는 관리자의 새 펫)이면 칭호를 정하고 '졸업한 펫'으로 표시한다
+  const title = pet.title ?? (graduating ? makeTitle(pet, learning) : null);
+  const saved: PetData = { ...pet, title, graduated: pet.graduated || graduating, sleepingUntil: null };
+  const life = lifeDelta(pet, learning);
+  return {
+    id: entryId(now),
+    species: pet.species,
+    name: pet.name,
+    title,
+    stage: pet.stage,
+    hatchedAt: pet.hatchedAt,
+    leftAt: localDateString(now),
+    affectionLevel: affectionLevel(pet.affection),
+    studyDays: Math.max(0, life.studyDays),
+    explorations: Math.max(0, life.explorations),
+    hat: pet.equippedHat,
+    reason,
+    pet: saved,
+  };
+}
+
 /**
- * 지금 펫을 도감에 넣고 새 알(아직 종류를 고르지 않은 상태)로 바꾼다.
+ * 졸업 또는 관리자의 새 펫 시작: 지금 펫을 도감에 넣고 새 알(아직 종류를 고르지 않은 상태)로 바꾼다.
  * 학습 기록·별·가방·모자는 그대로다. 부화 전 알이면 도감에 넣지 않는다.
  */
 export function sendToDex(
   pet: PetData,
   learning: LearningData,
   now: number,
-  reason: DexEntry['reason'],
+  reason: 'graduated' | 'admin',
 ): { entry: DexEntry | null; nextPet: PetData } {
-  const nextPet = newEgg(now, learning.totalExplorations);
-  if (!pet.species || pet.stage === 'egg') return { entry: null, nextPet };
-  const life = lifeDelta(pet, learning);
+  return { entry: makeEntry(pet, learning, now, reason), nextPet: newEgg(now, learning.totalExplorations) };
+}
+
+/** 도감 기록에서 펫을 다시 데려온다. 예전 기록(펫 상태 없음)은 이름·모습·레벨·모자로 다시 만든다. */
+export function restorePet(entry: DexEntry, now: number): PetData {
+  if (entry.pet) {
+    return { ...entry.pet, statsUpdatedAt: now, sleepingUntil: null, cooldowns: {} };
+  }
   return {
-    entry: {
-      id: entryId(now),
-      species: pet.species,
-      name: pet.name,
-      title: makeTitle(pet, learning),
-      stage: pet.stage,
-      hatchedAt: pet.hatchedAt,
-      leftAt: localDateString(now),
-      affectionLevel: affectionLevel(pet.affection),
-      studyDays: Math.max(0, life.studyDays),
-      explorations: Math.max(0, life.explorations),
-      hat: pet.equippedHat,
-      reason,
-    },
-    nextPet,
+    ...initialPet(now),
+    species: entry.species,
+    name: entry.name,
+    stage: entry.stage,
+    affection: affectionForLevel(entry.affectionLevel),
+    equippedHat: entry.hat,
+    hatchedAt: entry.hatchedAt,
+    title: entry.title,
+    graduated: entry.reason !== 'resting',
+    lastVisitDate: localDateString(now),
+  };
+}
+
+export type SwapResult = { ok: true; pet: PetData; dex: DexEntry[] } | { ok: false; reason: 'egg' | 'missing' };
+
+/**
+ * 도감의 펫과 자리 바꾸기: 지금 펫은 도감에서 쉬고, 고른 펫이 다시 함께한다.
+ * 지금 펫이 아직 알이면 알을 잃지 않도록 바꾸지 않는다 (먼저 부화시킨다).
+ */
+export function swapWithDex(current: PetData, dex: DexEntry[], entryId: string, learning: LearningData, now: number): SwapResult {
+  const target = dex.find((e) => e.id === entryId);
+  if (!target) return { ok: false, reason: 'missing' };
+  if (!current.species || current.stage === 'egg') return { ok: false, reason: 'egg' };
+  const resting = makeEntry(current, learning, now, 'resting')!;
+  return {
+    ok: true,
+    pet: restorePet(target, now),
+    dex: [...dex.filter((e) => e.id !== entryId), resting],
   };
 }

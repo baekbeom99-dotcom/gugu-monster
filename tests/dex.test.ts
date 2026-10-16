@@ -1,66 +1,69 @@
 import { describe, expect, it } from 'vitest';
-import { canGraduate, DAY_MS, favoriteCare, lifeSnapshot, makeTitle, sendToDex } from '../src/domain/dex';
 import {
-  applyDecay,
+  canGraduate,
+  type DexEntry,
+  favoriteCare,
+  GRADUATION_LEVEL,
+  lifeSnapshot,
+  makeTitle,
+  restorePet,
+  sendToDex,
+  swapWithDex,
+} from '../src/domain/dex';
+import {
+  affectionForLevel,
+  affectionLevel,
+  affectionProgress,
   chooseEgg,
   doCare,
-  happyDurationMs,
   hatch,
-  HAPPY_THRESHOLD,
   initialPet,
   needsHatch,
   newEgg,
   type PetData,
-  satisfaction,
 } from '../src/domain/pet';
 import { initialLearning, type LearningData } from '../src/domain/progress';
 
-const HOUR = 3_600_000;
-const NOW = new Date(2026, 9, 15, 10).getTime();
+const NOW = new Date(2026, 9, 16, 10).getTime();
 
-function adult(over: Partial<PetData> = {}): PetData {
+function pet(over: Partial<PetData> = {}): PetData {
   const p = hatch(chooseEgg(initialPet(NOW), 'cat'), '냥냥이', NOW, lifeSnapshot(initialLearning()));
   return { ...p, stage: 'adult', fullness: 100, mood: 100, cleanliness: 100, ...over };
 }
 
-describe('만족도와 행복한 시간', () => {
-  it('만족도는 세 상태의 평균', () => {
-    expect(satisfaction({ fullness: 90, mood: 60, cleanliness: 60 })).toBe(70);
-  });
-
-  it('가득 찬 상태에서 1시간이면 1시간 모두 행복', () => {
-    expect(happyDurationMs({ fullness: 100, mood: 100, cleanliness: 100 }, HOUR)).toBe(HOUR);
-  });
-
-  it('하루 넘게 비우면 기준(70) 아래로 떨어지는 순간까지만 센다', () => {
-    // 평균이 시간당 (3+2+1.5)/3 ≈ 2.17씩 줄어 100→70까지 약 13.8시간
-    const ms = happyDurationMs({ fullness: 100, mood: 100, cleanliness: 100 }, 5 * DAY_MS);
-    expect(ms / HOUR).toBeGreaterThan(13.5);
-    expect(ms / HOUR).toBeLessThan(14.2);
-  });
-
-  it('처음부터 기준 아래면 0', () => {
-    expect(happyDurationMs({ fullness: 60, mood: 60, cleanliness: 60 }, HOUR)).toBe(0);
-    expect(HAPPY_THRESHOLD).toBe(70);
-  });
-
-  it('다 자란 펫만 행복한 시간이 쌓인다', () => {
-    expect(applyDecay(adult(), NOW + 2 * HOUR).happyMs).toBe(2 * HOUR);
-    expect(applyDecay(adult({ stage: 'child' }), NOW + 2 * HOUR).happyMs).toBe(0);
-  });
-
-  it('행복한 시간은 줄지 않는다 (불행한 시간이 와도 그대로)', () => {
-    const p = applyDecay(adult({ happyMs: 10 * HOUR, fullness: 40, mood: 40, cleanliness: 40 }), NOW + 5 * HOUR);
-    expect(p.happyMs).toBe(10 * HOUR);
+describe('친밀도 레벨 (10을 넘어 계속)', () => {
+  it('Lv10은 320, 그 뒤로는 80마다 한 레벨', () => {
+    expect(affectionForLevel(10)).toBe(320);
+    expect(affectionLevel(319)).toBe(9);
+    expect(affectionLevel(320)).toBe(10);
+    expect(affectionLevel(399)).toBe(10);
+    expect(affectionLevel(400)).toBe(11);
+    expect(affectionLevel(320 + 80 * 5)).toBe(15);
+    expect(affectionForLevel(15)).toBe(720);
+    expect(affectionProgress(360)).toBeCloseTo(0.5);
   });
 });
 
-describe('졸업 조건', () => {
-  it('다 자란 펫이 행복한 시간 2일을 채우면 졸업', () => {
-    expect(canGraduate(adult({ happyMs: 2 * DAY_MS - 1 }), 2)).toBe(false);
-    expect(canGraduate(adult({ happyMs: 2 * DAY_MS }), 2)).toBe(true);
-    expect(canGraduate(adult({ stage: 'child', happyMs: 9 * DAY_MS }), 2)).toBe(false);
-    expect(canGraduate(adult({ happyMs: DAY_MS }), 1)).toBe(true);
+describe('졸업 조건: 아직 졸업하지 않은 펫이 Lv10', () => {
+  it('Lv10이면 단계와 상관없이 졸업, 졸업한 펫은 다시 졸업하지 않는다', () => {
+    expect(GRADUATION_LEVEL).toBe(10);
+    expect(canGraduate(pet({ affection: 319 }))).toBe(false);
+    expect(canGraduate(pet({ affection: 320 }))).toBe(true);
+    expect(canGraduate(pet({ affection: 320, stage: 'child' }))).toBe(true);
+    expect(canGraduate(pet({ affection: 900, graduated: true }))).toBe(false);
+    expect(canGraduate({ ...newEgg(NOW, 0), species: 'cat', affection: 999 })).toBe(false);
+  });
+});
+
+describe('산책', () => {
+  it('무료, 기분 +15·친밀도 +2, 1시간 대기, 놀기로 센다', () => {
+    const r = doCare(pet({ mood: 50 }), 'walk', NOW);
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.pet.mood).toBe(65);
+    expect(r.pet.affection).toBe(2);
+    expect(r.pet.careCounts.walk).toBe(1);
+    expect(doCare(r.pet, 'walk', NOW + 59 * 60_000)).toEqual({ ok: false, reason: 'cooldown' });
+    expect(favoriteCare({ walk: 3, feed: 2 })).toBe('play');
   });
 });
 
@@ -68,55 +71,77 @@ describe('칭호', () => {
   const learning = (over: Partial<LearningData> = {}): LearningData => ({ ...initialLearning(), ...over });
 
   it('어려운 문제를 많이 극복했으면 용감한, 많이 탐험했으면 탐험가', () => {
-    expect(makeTitle(adult(), learning({ totalOvercome: 6, totalExplorations: 25 }))).toBe('용감한 탐험가');
+    expect(makeTitle(pet(), learning({ totalOvercome: 6, totalExplorations: 25 }))).toBe('용감한 탐험가');
   });
 
   it('친밀도가 높고 씻기기를 가장 많이 했으면 따뜻한 의사', () => {
-    const pet = adult({ affection: 300, careCounts: { wash: 20, 'item:hygiene': 5, feed: 10 } });
-    expect(makeTitle(pet, learning())).toBe('따뜻한 의사');
-  });
-
-  it('단을 마스터했으면 구구단 박사', () => {
-    expect(makeTitle(adult(), learning({ masteredDans: [7] }))).toMatch(/구구단 박사$/);
+    expect(makeTitle(pet({ affection: 300, careCounts: { wash: 20, 'item:hygiene': 5, feed: 10 } }), learning())).toBe('따뜻한 의사');
   });
 
   it('부화하기 전의 기록은 세지 않는다', () => {
     const before = learning({ totalOvercome: 30, totalExplorations: 50 });
-    const pet = { ...adult(), lifeStart: lifeSnapshot(before) };
-    expect(makeTitle(pet, before)).not.toMatch(/용감한|탐험가/);
-  });
-
-  it('특별한 기록이 없어도 칭찬하는 칭호가 붙고, 같은 펫이면 늘 같다', () => {
-    const t1 = makeTitle(adult(), learning());
-    expect(t1).toMatch(/^\S+ \S+/);
-    expect(makeTitle(adult(), learning())).toBe(t1);
-  });
-
-  it('가장 많이 한 돌봄은 무료 돌봄과 아이템을 합쳐 센다', () => {
-    expect(favoriteCare({ feed: 3, 'item:toy': 5, pet: 1 })).toBe('play');
-    expect(favoriteCare({})).toBeNull();
-  });
-
-  it('돌봄 행동이 횟수에 기록된다', () => {
-    const r = doCare(adult({ fullness: 50 }), 'feed', NOW);
-    expect(r.ok && r.pet.careCounts.feed).toBe(1);
+    expect(makeTitle({ ...pet(), lifeStart: lifeSnapshot(before) }, before)).not.toMatch(/용감한|탐험가/);
   });
 });
 
-describe('도감으로 보내기', () => {
-  it('도감 기록을 남기고 새 알로 바뀐다. 다음 탐험을 마치면 부화', () => {
-    const l = { ...initialLearning(), totalExplorations: 30, studyDays: ['a', 'b', 'c'] };
-    const pet = adult({ equippedHat: 'hat_crown', affection: 120 });
-    const r = sendToDex(pet, l, NOW, 'graduated');
-    expect(r.entry).toMatchObject({ name: '냥냥이', species: 'cat', stage: 'adult', hat: 'hat_crown', reason: 'graduated', explorations: 30 });
+describe('졸업해서 도감으로', () => {
+  it('칭호와 펫 전체 상태를 남기고 새 알로. 다음 탐험을 마치면 부화', () => {
+    const l = { ...initialLearning(), totalExplorations: 30 };
+    const r = sendToDex(pet({ affection: 330, equippedHat: 'hat_crown' }), l, NOW, 'graduated');
+    expect(r.entry).toMatchObject({ name: '냥냥이', reason: 'graduated', affectionLevel: 10, hat: 'hat_crown' });
     expect(r.entry?.title).toBeTruthy();
-    expect(r.nextPet).toMatchObject({ species: null, stage: 'egg', happyMs: 0, affection: 0, equippedHat: null, eggBaseExplorations: 30 });
-    const chosen = chooseEgg(r.nextPet, 'dino');
-    expect(needsHatch(chosen, 30)).toBe(false);
-    expect(needsHatch(chosen, 31)).toBe(true);
+    expect(r.entry?.pet).toMatchObject({ graduated: true, title: r.entry?.title, affection: 330 });
+    expect(r.nextPet).toMatchObject({ species: null, stage: 'egg', graduated: false, affection: 0, eggBaseExplorations: 30 });
+    expect(needsHatch(chooseEgg(r.nextPet, 'dino'), 31)).toBe(true);
+  });
+});
+
+describe('도감의 펫과 자리 바꾸기', () => {
+  const learning = initialLearning();
+  const graduatedEntry = (): DexEntry => sendToDex(pet({ name: '나비', affection: 350 }), learning, NOW, 'graduated').entry!;
+
+  it('고른 펫이 그대로(레벨·칭호) 돌아오고, 지금 펫은 쉬는 중으로 도감에 들어간다', () => {
+    const old = graduatedEntry();
+    const current = pet({ name: '퐁퐁', species: 'penguin', affection: 40, stage: 'baby' });
+    const r = swapWithDex(current, [old], old.id, learning, NOW + 1000);
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.pet).toMatchObject({ name: '나비', affection: 350, graduated: true, title: old.title });
+    expect(r.dex).toHaveLength(1);
+    expect(r.dex[0]).toMatchObject({ name: '퐁퐁', reason: 'resting', title: null });
+    expect(r.dex[0].pet).toMatchObject({ graduated: false, affection: 40 });
   });
 
-  it('부화 전 알은 도감에 넣지 않는다', () => {
-    expect(sendToDex(chooseEgg(newEgg(NOW, 0), 'cat'), initialLearning(), NOW, 'admin').entry).toBeNull();
+  it('졸업한 펫은 Lv10을 넘어 계속 오르고, 새 알은 졸업 안 한 펫이 Lv10일 때만', () => {
+    const back = restorePet(graduatedEntry(), NOW);
+    const r = doCare({ ...back, affection: 398 }, 'walk', NOW);
+    if (!r.ok) throw new Error(r.reason);
+    expect(affectionLevel(r.pet.affection)).toBe(11);
+    expect(canGraduate(r.pet)).toBe(false);
+
+    // 쉬고 있던 새 펫을 다시 데려와 Lv10으로 키우면 그때 졸업
+    const old = graduatedEntry();
+    const s1 = swapWithDex(pet({ name: '퐁퐁', affection: 300 }), [old], old.id, learning, NOW);
+    if (!s1.ok) throw new Error();
+    const pongEntry = s1.dex[0];
+    const s2 = swapWithDex(s1.pet, s1.dex, pongEntry.id, learning, NOW);
+    if (!s2.ok) throw new Error();
+    expect(s2.pet.name).toBe('퐁퐁');
+    expect(canGraduate({ ...s2.pet, affection: 320 })).toBe(true);
+  });
+
+  it('지금 펫이 알이면 바꾸지 않는다 (알을 잃지 않게)', () => {
+    const old = graduatedEntry();
+    expect(swapWithDex(chooseEgg(newEgg(NOW, 3), 'dino'), [old], old.id, learning, NOW)).toEqual({ ok: false, reason: 'egg' });
+    expect(swapWithDex(newEgg(NOW, 3), [old], old.id, learning, NOW)).toEqual({ ok: false, reason: 'egg' });
+  });
+
+  it('예전 버전 도감 기록(펫 상태 없음)도 이름·모습·레벨·모자로 다시 데려온다', () => {
+    const legacy: DexEntry = {
+      id: 'old1', species: 'dino', name: '룡룡', title: '따뜻한 의사', stage: 'adult', hatchedAt: '2026-10-01',
+      leftAt: '2026-10-15', affectionLevel: 9, studyDays: 3, explorations: 12, hat: 'hat_crown', reason: 'graduated',
+    };
+    const p = restorePet(legacy, NOW);
+    expect(p).toMatchObject({ species: 'dino', name: '룡룡', stage: 'adult', equippedHat: 'hat_crown', title: '따뜻한 의사', graduated: true });
+    expect(affectionLevel(p.affection)).toBe(9);
   });
 });

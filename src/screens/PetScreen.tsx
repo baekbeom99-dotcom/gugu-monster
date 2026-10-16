@@ -5,7 +5,10 @@ import { hatArtOf } from '../art/HatSprite';
 import { EggSprite, type PetExpression, PetSprite } from '../art/PetSprite';
 import { Confetti } from '../components/Confetti';
 import { GraduationOverlay } from '../components/GraduationOverlay';
-import { canGraduate, graduationNeedMs, makeTitle } from '../domain/dex';
+import { PlayEffect } from '../components/PlayEffect';
+import { iconGlyph } from '../data/itemIcons';
+import { PLAY_LINES, PLAY_MS, type PlayStyle, playStyleOf } from '../data/playStyles';
+import { canGraduate, GRADUATION_LEVEL, makeTitle } from '../domain/dex';
 import { ItemArt } from '../components/ItemArt';
 import { bagItems, findItem, type ItemCategory, type ItemDef, ownedCount } from '../domain/shop';
 import { playSfx } from '../audio/sfx';
@@ -20,8 +23,6 @@ import {
   cooldownLeft,
   cooldownMinutesLabel,
   growthProgress,
-  HAPPY_THRESHOLD,
-  satisfaction,
   isSleeping,
   neediest,
   type Species,
@@ -41,7 +42,10 @@ const DANCE_LEVEL = 5;
 /** 돌봄 버튼 → 서랍에 보여줄 아이템 종류 */
 const DRAWER_CATEGORY: Record<DrawerKey, ItemCategory> = { feed: 'food', pet: 'toy', wash: 'hygiene', decorate: 'hat' };
 const DRAWER_TITLE: Record<DrawerKey, string> = { feed: '밥 주기', pet: '놀아 주기', wash: '씻기기', decorate: '꾸미기' };
-const FREE_ICON: Record<CareAction, string> = { feed: '🍚', pet: '🤚', wash: '💧', sleep: '🌙' };
+const FREE_ICON: Record<CareAction, string> = { feed: '🍚', pet: '🤚', walk: '🐾', wash: '💧', sleep: '🌙' };
+/** 서랍 맨 앞의 무료 돌봄 (놀기에는 쓰다듬기와 산책) */
+const DRAWER_FREE: Record<Exclude<DrawerKey, 'decorate'>, CareAction[]> = { feed: ['feed'], pet: ['pet', 'walk'], wash: ['wash'] };
+const pickLine = (lines: string[]) => lines[Math.floor(Math.random() * lines.length)];
 /** 아이템 종류 → 펫 동작 */
 const CATEGORY_ACTION: Record<Exclude<ItemCategory, 'hat'>, CareAction> = { food: 'feed', toy: 'pet', hygiene: 'wash' };
 const ITEM_DONE_LINES: Record<Exclude<ItemCategory, 'hat'>, string> = {
@@ -55,7 +59,7 @@ const ITEM_FAIL_LINES: Record<string, string> = {
   cooldown: '방금 그걸로 놀았어! 조금 있다가 또 하자.',
 };
 
-const ACTIONS: { key: CareAction | 'decorate'; icon: string; label: string }[] = [
+const ACTIONS: { key: DrawerKey | 'sleep'; icon: string; label: string }[] = [
   { key: 'feed', icon: '🍚', label: '밥' },
   { key: 'pet', icon: '🤚', label: '놀기' },
   { key: 'wash', icon: '🫧', label: '씻기' },
@@ -77,16 +81,18 @@ const NEED_LINES: Record<StatKey, string> = {
 const DONE_LINES: Record<CareAction, string> = {
   feed: '냠냠! 맛있다!',
   pet: '헤헤, 간지러워!',
+  walk: '산책 최고!',
   wash: '뽀득뽀득! 깨끗해졌어!',
   sleep: '하암… 잘 자…',
 };
 const COOLDOWN_LINES: Record<CareAction, string> = {
   feed: '배불러! 조금 있다가 또 줘.',
   pet: '헤헤, 조금 있다가 또 놀자!',
+  walk: '방금 산책했어! 조금 쉬었다 또 가자.',
   wash: '방금 씻었어! 반짝반짝하지?',
   sleep: '아직 졸리지 않아!',
 };
-const ACTION_EXPRESSION: Record<CareAction, PetExpression> = { feed: 'eat', pet: 'happy', wash: 'happy', sleep: 'sleep' };
+const ACTION_EXPRESSION: Record<CareAction, PetExpression> = { feed: 'eat', pet: 'happy', walk: 'happy', wash: 'happy', sleep: 'sleep' };
 
 /** 30초마다 현재 시각을 갱신 (대기 시간·상태 감소 표시) */
 function useNow(intervalMs = 30_000): number {
@@ -105,7 +111,6 @@ export function PetScreen() {
   const care = useGameStore((s) => s.care);
   const wakePet = useGameStore((s) => s.wakePet);
   const catalog = useGameStore((s) => s.catalog);
-  const graduationDays = useGameStore((s) => s.settings.graduationDays);
   const graduatePet = useGameStore((s) => s.graduatePet);
   const economy = useGameStore((s) => s.economy);
   const { giveItem, wearHat } = useGameStore.getState();
@@ -114,7 +119,14 @@ export function PetScreen() {
   const now = useNow();
   const pet = useMemo(() => applyDecay(storedPet, now), [storedPet, now]);
 
-  const [action, setAction] = useState<{ key: CareAction; at: number; special?: boolean; reaction?: TapReaction } | null>(null);
+  const [action, setAction] = useState<{
+    key: CareAction;
+    at: number;
+    special?: boolean;
+    reaction?: TapReaction;
+    /** 놀기 장면 (산책·쓰다듬기·장난감) */
+    play?: { style: PlayStyle; glyph: string };
+  } | null>(null);
   const [line, setLine] = useState<string | null>(null);
   const [evolution, setEvolution] = useState<Stage | null>(session.pendingEvolution);
   const [toast, setToast] = useState<string | null>(null);
@@ -158,12 +170,14 @@ export function PetScreen() {
 
   const stage = pet.stage;
   const lv = affectionLevel(pet.affection);
-  const acting = action && now - action.at < 1600 ? action.key : null;
+  // 놀기 장면은 조금 더 길게 (useNow는 30초마다라 Date.now()로 다시 본다)
+  const acting = action && Date.now() - action.at < (action.play ? PLAY_MS : 1600) ? action.key : null;
+  const play = acting ? action?.play : undefined;
   const need = neediest(pet);
   const expression: PetExpression = sleeping
     ? 'sleep'
     : acting
-      ? action?.special || action?.reaction === 'dance' || action?.reaction === 'highfive'
+      ? action?.special || action?.reaction === 'dance' || action?.reaction === 'highfive' || (play && play.style !== 'pat')
         ? 'excited'
         : ACTION_EXPRESSION[acting]
       : session.welcomeBack
@@ -193,13 +207,15 @@ export function PetScreen() {
       setLine(r.reason === 'sleeping' ? '쉿, 자고 있어요. 펫을 누르면 깨울 수 있어요.' : COOLDOWN_LINES[key]);
       return;
     }
-    playSfx(key === 'sleep' ? 'lullaby' : 'correct');
-    setAction({ key, at: t });
-    setLine(DONE_LINES[key]);
+    playSfx(key === 'sleep' ? 'lullaby' : key === 'walk' ? 'combo' : 'correct');
+    const playScene = key === 'walk' ? { style: 'walk' as const, glyph: '' } : key === 'pet' ? { style: 'pat' as const, glyph: '' } : undefined;
+    setAction({ key, at: t, play: playScene });
+    setLine(playScene ? pickLine(PLAY_LINES[playScene.style]) : DONE_LINES[key]);
     if (key === 'feed' && session.feedTutorial) session.set({ feedTutorial: false });
     if (r.levelUp) showLevelUp(r.levelUp);
     if (r.evolvedTo) setEvolution(r.evolvedTo);
-    setTimeout(() => setAction((a) => (a?.at === t ? null : a)), 1600);
+    const ms = playScene ? PLAY_MS : 1600;
+    setTimeout(() => setAction((a) => (a?.at === t ? null : a)), ms);
   };
 
   const giveFromBag = (item: ItemDef) => {
@@ -220,13 +236,17 @@ export function PetScreen() {
       setLine(ITEM_FAIL_LINES[r.reason] ?? '나중에 줄게!');
       return;
     }
-    playSfx('correct');
-    setAction({ key, at: t, special: item.special });
-    setLine(item.special ? `우와, ${item.name}! 최고야!` : ITEM_DONE_LINES[item.category]);
+    // 장난감은 그림마다 다른 놀이 장면 (공은 통통, 비눗방울은 둥실, 연은 슝…)
+    const playScene = item.category === 'toy' ? { style: playStyleOf(item.art.icon), glyph: iconGlyph(item.art.icon) } : undefined;
+    playSfx(playScene ? 'combo' : 'correct');
+    setAction({ key, at: t, special: item.special, play: playScene });
+    setLine(
+      item.special ? `우와, ${item.name}! 최고야!` : playScene ? pickLine(PLAY_LINES[playScene.style]) : ITEM_DONE_LINES[item.category],
+    );
     if (key === 'feed' && session.feedTutorial) session.set({ feedTutorial: false });
     if (r.levelUp) showLevelUp(r.levelUp);
     if (r.evolvedTo) setEvolution(r.evolvedTo);
-    setTimeout(() => setAction((a) => (a?.at === t ? null : a)), 1600);
+    setTimeout(() => setAction((a) => (a?.at === t ? null : a)), playScene ? PLAY_MS : 1600);
   };
 
   const openDrawer = (key: DrawerKey) => {
@@ -264,6 +284,7 @@ export function PetScreen() {
   return (
     <section className="pet-home">
       <header className="pet-head">
+        {pet.title && <span className="pet-title">🏅 {pet.title}</span>}
         <h1 className="pet-name">{pet.name}</h1>
         <button type="button" className="pet-chip pet-chip--dex" onClick={() => navigate('/dex')}>
           📖 도감
@@ -283,7 +304,15 @@ export function PetScreen() {
         </div>
         <button
           type="button"
-          className={`pet-button ${session.welcomeBack ? 'pet-run-in' : acting ? `pet-act pet-act--${action?.reaction === 'dance' ? 'dance' : acting}` : 'pet-breathe'}`}
+          className={`pet-button ${
+            session.welcomeBack
+              ? 'pet-run-in'
+              : play
+                ? `pet-play--${play.style}`
+                : acting
+                  ? `pet-act pet-act--${action?.reaction === 'dance' ? 'dance' : acting}`
+                  : 'pet-breathe'
+          }`}
           onClick={tapPet}
           aria-label={sleeping ? `${pet.name} 깨우기` : `${pet.name} 쓰다듬기`}
         >
@@ -293,6 +322,7 @@ export function PetScreen() {
           {acting && action?.reaction === 'highfive' && <span className="highfive" aria-hidden>✋</span>}
         </button>
         <div className="rug" aria-hidden />
+        {play && <PlayEffect key={action?.at} style={play.style} glyph={play.glyph} />}
       </div>
 
       <div className="neo-card gauges">
@@ -310,7 +340,9 @@ export function PetScreen() {
 
       <div className="care-grid">
         {ACTIONS.map((a) => {
-          const left = a.key === 'decorate' ? 0 : cooldownLeft(pet, a.key, now);
+          // 무료 돌봄이 여러 개면(놀기: 쓰다듬기·산책) 가장 빨리 할 수 있는 것 기준
+          const freeKeys: CareAction[] = a.key === 'decorate' ? [] : a.key === 'sleep' ? ['sleep'] : DRAWER_FREE[a.key];
+          const left = freeKeys.length ? Math.min(...freeKeys.map((k) => cooldownLeft(pet, k, now))) : 0;
           const tutorial = a.key === 'feed' && session.feedTutorial;
           const hasItems = a.key !== 'sleep' && bagItems(economy, catalog, DRAWER_CATEGORY[a.key]).length > 0;
           const waiting = a.key !== 'decorate' && (sleeping || (left > 0 && !hasItems));
@@ -346,19 +378,15 @@ export function PetScreen() {
             )}
           </>
         ) : (
+          <div className="growth__title">다 자랐어요!</div>
+        )}
+        {pet.graduated ? (
+          <p className="growth__hint">🏅 이미 졸업한 친구예요. 친밀도 레벨은 계속 올라가요! 지금 Lv{lv}</p>
+        ) : (
           <>
-            <div className="growth__title">도감 졸업까지</div>
-            <GrowthRow
-              label="행복한 시간"
-              have={Math.floor((pet.happyMs ?? 0) / 3_600_000)}
-              need={Math.round(graduationNeedMs(graduationDays) / 3_600_000)}
-              unit="시간"
-            />
-            <p className="growth__hint">
-              배부름·기분·깨끗함을 모두 높게(평균 70 이상) 지켜 주면 행복한 시간이 쌓여요. 지금 만족도{' '}
-              <strong>{Math.round(satisfaction(pet))}</strong>
-              {satisfaction(pet) >= HAPPY_THRESHOLD ? ' 😊' : ' — 조금 더 돌봐 줘요!'}
-            </p>
+            <div className="growth__title">도감 졸업 (새 알 받기)</div>
+            <GrowthRow label="친밀도" have={lv} need={GRADUATION_LEVEL} unit="Lv" />
+            <p className="growth__hint">돌봐 주고 탐험할수록 친밀도가 올라요. Lv{GRADUATION_LEVEL}이 되면 칭호를 받고 도감으로 졸업, 새 알을 받아요.</p>
           </>
         )}
       </div>
@@ -373,19 +401,24 @@ export function PetScreen() {
               </button>
             </div>
             <div className="drawer__list">
-              {drawer !== 'decorate' && (
-                <button
-                  type="button"
-                  className={`bag-item bag-item--free ${cooldownLeft(pet, drawer, now) > 0 ? 'bag-item--waiting' : ''} ${drawer === 'feed' && session.feedTutorial ? 'bag-item--tutorial' : ''}`}
-                  onClick={() => doAction(drawer)}
-                >
-                  <span className="item-art" style={{ width: 52, height: 52, background: 'var(--yellow)', fontSize: 30 }} aria-hidden>
-                    {FREE_ICON[drawer]}
-                  </span>
-                  {CARE[drawer].label}
-                  <span className="bag-item__tag">{cooldownLeft(pet, drawer, now) > 0 ? cooldownMinutesLabel(cooldownLeft(pet, drawer, now)) : '무료'}</span>
-                </button>
-              )}
+              {drawer !== 'decorate' &&
+                DRAWER_FREE[drawer].map((key) => {
+                  const wait = cooldownLeft(pet, key, now);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`bag-item bag-item--free ${wait > 0 ? 'bag-item--waiting' : ''} ${key === 'feed' && session.feedTutorial ? 'bag-item--tutorial' : ''}`}
+                      onClick={() => doAction(key)}
+                    >
+                      <span className="item-art" style={{ width: 52, height: 52, background: key === 'walk' ? 'var(--lime)' : 'var(--yellow)', fontSize: 30 }} aria-hidden>
+                        {FREE_ICON[key]}
+                      </span>
+                      {CARE[key].label}
+                      <span className="bag-item__tag">{wait > 0 ? cooldownMinutesLabel(wait) : '무료'}</span>
+                    </button>
+                  );
+                })}
               {drawer === 'decorate' && pet.equippedHat && (
                 <button type="button" className="bag-item" onClick={() => giveFromBag(findItem(catalog, pet.equippedHat!)!)}>
                   <span className="item-art" style={{ width: 52, height: 52, background: 'var(--paper)', fontSize: 28 }} aria-hidden>
@@ -426,9 +459,10 @@ export function PetScreen() {
       )}
 
       {toast && <div className="toast">{toast}</div>}
-      {!evolution && canGraduate(pet, graduationDays) && (
+      {!evolution && canGraduate(pet) && (
         <GraduationOverlay
           species={pet.species}
+          stage={stage}
           name={pet.name}
           title={makeTitle(pet, learning)}
           hat={hatArtOf(findItem(catalog, pet.equippedHat ?? ''))}
