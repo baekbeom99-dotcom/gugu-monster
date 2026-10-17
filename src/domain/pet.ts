@@ -1,12 +1,12 @@
 /** 펫 상태·돌봄·성장 규칙 — 설계서 6장, 7장. 펫은 죽거나 벌받지 않는다. */
 import { localDateString } from './dates';
 
-export type Species = 'tiger' | 'cat' | 'bunny' | 'hedgehog' | 'cheese';
+export type Species = 'tiger' | 'cat' | 'bunny' | 'hedgehog' | 'cheese' | 'pig' | 'cow' | 'dog' | 'panda' | 'fox' | 'penguin';
 export type Stage = 'egg' | 'baby' | 'child' | 'adult';
 export type StatKey = 'fullness' | 'mood' | 'cleanliness';
 export type CareAction = 'feed' | 'pet' | 'walk' | 'wash' | 'sleep';
 
-export const SPECIES: readonly Species[] = ['tiger', 'cat', 'bunny', 'hedgehog', 'cheese'];
+export const SPECIES: readonly Species[] = ['tiger', 'cat', 'bunny', 'hedgehog', 'cheese', 'pig', 'cow', 'dog', 'panda', 'fox', 'penguin'];
 export const STAGES: readonly Stage[] = ['egg', 'baby', 'child', 'adult'];
 
 export const SPECIES_INFO: Record<Species, { egg: string; name: string; desc: string }> = {
@@ -15,10 +15,16 @@ export const SPECIES_INFO: Record<Species, { egg: string; name: string; desc: st
   bunny: { egg: '하트 알', name: '토실이', desc: '분홍 볼이 말랑한 토끼' },
   hedgehog: { egg: '밤송이 알', name: '도치', desc: '눈이 반짝반짝한 고슴도치' },
   cheese: { egg: '치즈 알', name: '치즈', desc: '부드러운 치즈색 고양이' },
+  pig: { egg: '꿀꿀 알', name: '꿀꿀이', desc: '동그란 코가 귀여운 아기 돼지' },
+  cow: { egg: '얼룩소 알', name: '음메', desc: '검은 얼룩무늬 젖소' },
+  dog: { egg: '멍멍 알', name: '멍멍이', desc: '귀가 축 처진 강아지' },
+  panda: { egg: '대나무 알', name: '판판이', desc: '대나무를 좋아하는 판다' },
+  fox: { egg: '단풍 알', name: '여리', desc: '꼬리가 풍성한 여우' },
+  penguin: { egg: '얼음 알', name: '펭펭이', desc: '뒤뚱뒤뚱 걷는 펭귄' },
 };
 
-/** 예전 펫 종류 → 새 종류 (저장 데이터 이어받기) */
-export const LEGACY_SPECIES: Record<string, Species> = { penguin: 'bunny', dino: 'tiger' };
+/** 예전 펫 종류 → 새 종류 (저장 데이터 이어받기). 펭귄은 다시 펭귄으로 돌아왔다. */
+export const LEGACY_SPECIES: Record<string, Species> = { dino: 'tiger' };
 export function normalizeSpecies(s: unknown): Species | null {
   if (typeof s !== 'string') return null;
   if ((SPECIES as readonly string[]).includes(s)) return s as Species;
