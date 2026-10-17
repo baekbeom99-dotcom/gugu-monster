@@ -279,7 +279,7 @@ export function PetScreen() {
     );
   };
 
-  const growth = growthProgress(pet, learning.studyDays.length, learning.totalExplorations);
+  const growth = growthProgress(pet);
 
   return (
     <section className="pet-home">
@@ -370,12 +370,10 @@ export function PetScreen() {
       <div className="neo-card growth">
         {growth.next ? (
           <>
-            <div className="growth__title">다음 성장: {STAGE_LABELS[growth.next]}</div>
-            <GrowthRow label="성장 점수" have={growth.xp.have} need={growth.xp.need} />
-            <GrowthRow label="공부한 날" have={growth.studyDays.have} need={growth.studyDays.need} unit="일" />
-            {growth.explorations.need > 0 && (
-              <GrowthRow label="탐험" have={growth.explorations.have} need={growth.explorations.need} unit="번" />
-            )}
+            <div className="growth__title">
+              다음 진화: {STAGE_LABELS[growth.next]} (친밀도 Lv{growth.level.need})
+            </div>
+            <GrowthRow label="친밀도" have={growth.level.have} need={growth.level.need} unit="Lv" />
           </>
         ) : (
           <div className="growth__title">다 자랐어요!</div>

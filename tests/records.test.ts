@@ -104,3 +104,17 @@ describe('저장본 호환', () => {
     expect(merged.learning.totalOvercome).toBe(0);
   });
 });
+
+describe('펫 종류 이어받기', () => {
+  it('예전 펭귄·공룡 저장 데이터는 새 종류로 바뀐다', () => {
+    const merged = mergeSave(createInitialSave(NOW), {
+      pet: { species: 'penguin', stage: 'child', name: '뒤뚱' },
+      dex: [{ id: 'a', species: 'dino', name: '룡룡', pet: { species: 'dino' } }],
+    });
+    expect(merged.pet.species).toBe('bunny');
+    expect(merged.dex[0].species).toBe('tiger');
+    expect(merged.dex[0].pet?.species).toBe('tiger');
+    expect(mergeSave(createInitialSave(NOW), { pet: { species: 'cat' } }).pet.species).toBe('cat');
+    expect(mergeSave(createInitialSave(NOW), {}).pet.species).toBeNull();
+  });
+});

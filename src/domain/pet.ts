@@ -1,19 +1,29 @@
 /** 펫 상태·돌봄·성장 규칙 — 설계서 6장, 7장. 펫은 죽거나 벌받지 않는다. */
 import { localDateString } from './dates';
 
-export type Species = 'cat' | 'penguin' | 'dino';
+export type Species = 'tiger' | 'cat' | 'bunny' | 'hedgehog' | 'cheese';
 export type Stage = 'egg' | 'baby' | 'child' | 'adult';
 export type StatKey = 'fullness' | 'mood' | 'cleanliness';
 export type CareAction = 'feed' | 'pet' | 'walk' | 'wash' | 'sleep';
 
-export const SPECIES: readonly Species[] = ['cat', 'penguin', 'dino'];
+export const SPECIES: readonly Species[] = ['tiger', 'cat', 'bunny', 'hedgehog', 'cheese'];
 export const STAGES: readonly Stage[] = ['egg', 'baby', 'child', 'adult'];
 
 export const SPECIES_INFO: Record<Species, { egg: string; name: string; desc: string }> = {
-  cat: { egg: '별빛 알', name: '냥냥이', desc: '반짝반짝 별을 좋아하는 고양이' },
-  penguin: { egg: '바다 알', name: '뒤뚱이', desc: '뒤뚱뒤뚱 걷는 귀여운 펭귄' },
-  dino: { egg: '숲 알', name: '꼬북룡', desc: '숲에서 온 아기 공룡' },
+  tiger: { egg: '줄무늬 알', name: '어흥이', desc: '씩씩하게 손 흔드는 아기 호랑이' },
+  cat: { egg: '얼룩 알', name: '얼룩이', desc: '회색 얼룩이 매력인 고양이' },
+  bunny: { egg: '하트 알', name: '토실이', desc: '분홍 볼이 말랑한 토끼' },
+  hedgehog: { egg: '밤송이 알', name: '도치', desc: '눈이 반짝반짝한 고슴도치' },
+  cheese: { egg: '치즈 알', name: '치즈', desc: '부드러운 치즈색 고양이' },
 };
+
+/** 예전 펫 종류 → 새 종류 (저장 데이터 이어받기) */
+export const LEGACY_SPECIES: Record<string, Species> = { penguin: 'bunny', dino: 'tiger' };
+export function normalizeSpecies(s: unknown): Species | null {
+  if (typeof s !== 'string') return null;
+  if ((SPECIES as readonly string[]).includes(s)) return s as Species;
+  return LEGACY_SPECIES[s] ?? 'cat';
+}
 
 export const STAGE_LABELS: Record<Stage, string> = { egg: '알', baby: '아기', child: '어린이', adult: '다 자란 펫' };
 
@@ -97,11 +107,8 @@ export const AFFECTION_UNLOCKS: { level: number; label: string }[] = [
   { level: 7, label: '특별 응원' },
 ];
 
-/** 다음 단계로 자라기 위한 조건 (모두 충족) — 설계서 7-2 */
-export const GROWTH_RULES: Record<'child' | 'adult', { xp: number; studyDays: number; explorations: number }> = {
-  child: { xp: 120, studyDays: 3, explorations: 0 },
-  adult: { xp: 400, studyDays: 7, explorations: 15 },
-};
+/** 친밀도 레벨이 이만큼 되면 진화한다 (아기 → 어린이 Lv3, 어린이 → 다 자람 Lv6) */
+export const EVOLUTION_LEVELS: Record<'child' | 'adult', number> = { child: 3, adult: 6 };
 
 export function initialPet(now: number): PetData {
   return {
@@ -302,36 +309,24 @@ export function nextStage(stage: Stage): Stage | null {
 
 export interface GrowthProgress {
   next: 'child' | 'adult' | null;
-  xp: { have: number; need: number };
-  studyDays: { have: number; need: number };
-  explorations: { have: number; need: number };
+  level: { have: number; need: number };
 }
 
-/** 다음 성장까지 무엇이 얼마나 남았나 (알·아기→어린이·어린이→다 자람) */
-export function growthProgress(pet: PetData, studyDays: number, explorations: number): GrowthProgress {
+/** 다음 진화까지 친밀도 레벨이 얼마나 남았나 */
+export function growthProgress(pet: PetData): GrowthProgress {
   const next = pet.stage === 'baby' ? 'child' : pet.stage === 'child' ? 'adult' : null;
-  const rule = next ? GROWTH_RULES[next] : { xp: 0, studyDays: 0, explorations: 0 };
-  return {
-    next,
-    xp: { have: pet.growthXp, need: rule.xp },
-    studyDays: { have: studyDays, need: rule.studyDays },
-    explorations: { have: explorations, need: rule.explorations },
-  };
+  return { next, level: { have: affectionLevel(pet.affection), need: next ? EVOLUTION_LEVELS[next] : 0 } };
 }
 
-/**
- * 성장 조건을 모두 채웠으면 한 단계 자란다. 알은 첫 탐험 뒤 부화(hatch)로만 깨어난다.
- * 조건에 학습한 날·탐험 횟수가 들어 있어 아이템·돌봄만으로는 자랄 수 없다.
- */
-export function checkEvolution(pet: PetData, studyDays: number, explorations: number, now: number): { pet: PetData; evolvedTo: Stage | null } {
-  const g = growthProgress(pet, studyDays, explorations);
-  if (!g.next) return { pet, evolvedTo: null };
-  const ready = g.xp.have >= g.xp.need && g.studyDays.have >= g.studyDays.need && g.explorations.have >= g.explorations.need;
-  if (!ready) return { pet, evolvedTo: null };
-  return {
-    pet: { ...pet, stage: g.next, evolutionCards: [...pet.evolutionCards, { stage: g.next, date: localDateString(now) }] },
-    evolvedTo: g.next,
-  };
+/** 친밀도 레벨이 오르면 맞는 단계까지 자란다 (한 번에 두 단계도). 알은 부화로만 깨어나고, 자란 펫은 작아지지 않는다. */
+export function checkEvolution(pet: PetData, now: number): { pet: PetData; evolvedTo: Stage | null } {
+  let p = pet;
+  let evolvedTo: Stage | null = null;
+  for (let g = growthProgress(p); g.next && g.level.have >= g.level.need; g = growthProgress(p)) {
+    evolvedTo = g.next;
+    p = { ...p, stage: g.next, evolutionCards: [...p.evolutionCards, { stage: g.next, date: localDateString(now) }] };
+  }
+  return { pet: p, evolvedTo };
 }
 
 export function chooseEgg(pet: PetData, species: Species): PetData {

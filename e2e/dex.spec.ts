@@ -37,7 +37,7 @@ test('Lv10이 된 펫이 칭호를 받고 도감에 들어가고, 새 알을 키
   // 이미 공부해 온 학생은 바로 알 고르기, 진단 대신 추천 탐험
   await expect(page.getByRole('heading', { name: '새 친구가 될 알을 골라 줘!' })).toBeVisible();
   await expect(page.getByRole('button', { name: /도감 보기 \(1마리\)/ })).toBeVisible();
-  await page.locator('.egg-choice', { hasText: '바다 알' }).click();
+  await page.locator('.egg-choice', { hasText: '하트 알' }).click();
   await page.getByRole('button', { name: '이 알로 할래!' }).click();
   await page.getByRole('button', { name: '탐험 떠나기' }).click();
   await expect(page).toHaveURL(/mode=recommended/);
@@ -89,7 +89,7 @@ test('놀기: 산책과 장난감마다 다른 놀이 장면', async ({ page }) 
       JSON.stringify({
         version: 1,
         state: {
-          pet: { species: 'penguin', stage: 'child', name: '뒤뚱', mood: 50, statsUpdatedAt: Date.now() },
+          pet: { species: 'bunny', stage: 'child', name: '뒤뚱', mood: 50, statsUpdatedAt: Date.now() },
           learning: { totalExplorations: 2 },
           economy: { stars: 10, owned: ['toy_ball', 'toy_bubbles'] },
         },

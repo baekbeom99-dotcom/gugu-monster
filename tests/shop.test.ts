@@ -20,7 +20,7 @@ const NOW = new Date(2026, 9, 15, 10).getTime();
 const catalog = defaultCatalog();
 const item = (id: string) => findItem(catalog, id) as ItemDef;
 const rich = (stars = 100): EconomyData => ({ ...initialEconomy(), stars });
-const pet = (over: Partial<PetData> = {}): PetData => ({ ...hatch(chooseEgg(initialPet(NOW), 'dino'), '룡이', NOW), ...over });
+const pet = (over: Partial<PetData> = {}): PetData => ({ ...hatch(chooseEgg(initialPet(NOW), 'tiger'), '룡이', NOW), ...over });
 
 describe('기본 카탈로그', () => {
   it('설계서 5-3: 먹이 5, 위생 2, 장난감 3, 모자 5 + 마스터 모자 10 (비매품)', () => {

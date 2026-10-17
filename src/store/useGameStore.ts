@@ -32,7 +32,6 @@ import {
   finishExploration,
   type FinishOutcome,
   type TrialOutcome,
-  type LearningData,
   recordAnswer,
 } from '../domain/progress';
 import { applyItem, buy, type CatalogData, canWearHat, findItem, grantMasterHats, type ItemCategory, type ItemDef, type ItemId } from '../domain/shop';
@@ -120,9 +119,9 @@ const safeStorage = {
 };
 
 /** 펫 변화 후 진화·친밀도 레벨업을 판정한다 (알은 부화로만 깨어난다). */
-function settlePet(before: PetData, after: PetData, learning: LearningData, now: number): { pet: PetData } & PetChange {
+function settlePet(before: PetData, after: PetData, now: number): { pet: PetData } & PetChange {
   const evo =
-    after.stage === 'egg' ? { pet: after, evolvedTo: null } : checkEvolution(after, learning.studyDays.length, learning.totalExplorations, now);
+    after.stage === 'egg' ? { pet: after, evolvedTo: null } : checkEvolution(after, now);
   const lvBefore = affectionLevel(before.affection);
   const lvAfter = affectionLevel(evo.pet.affection);
   return { pet: evo.pet, evolvedTo: evo.evolvedTo, levelUp: before.stage !== 'egg' && lvAfter > lvBefore ? lvAfter : null };
@@ -157,7 +156,7 @@ export const useGameStore = create<GameStore>()(
         const hats = grantMasterHats(r.economy, s.catalog, r.newlyMastered);
         let pet = addGrowthXp(s.pet, r.xp);
         if (completed && pet.stage !== 'egg') pet = addAffection(pet, EXPLORATION_AFFECTION);
-        const settled = settlePet(s.pet, pet, r.learning, now);
+        const settled = settlePet(s.pet, pet, now);
         set({ learning: r.learning, economy: hats.economy, pet: settled.pet, lastSeenAt: now });
         return { ...r, economy: hats.economy, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp, grantedHats: hats.granted };
       },
@@ -185,7 +184,7 @@ export const useGameStore = create<GameStore>()(
         const s = get();
         const r = doCare(s.pet, action, now);
         if (!r.ok) return r;
-        const settled = settlePet(s.pet, r.pet, s.learning, now);
+        const settled = settlePet(s.pet, r.pet, now);
         set({ pet: settled.pet, lastSeenAt: now });
         return { ok: true, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
       },
@@ -205,7 +204,7 @@ export const useGameStore = create<GameStore>()(
         if (!item) return { ok: false, reason: 'missing' };
         const r = applyItem(s.pet, s.economy, item, now);
         if (!r.ok) return r;
-        const settled = settlePet(s.pet, r.pet, s.learning, now);
+        const settled = settlePet(s.pet, r.pet, now);
         set({ pet: settled.pet, economy: r.economy, lastSeenAt: now });
         return { ok: true, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
       },

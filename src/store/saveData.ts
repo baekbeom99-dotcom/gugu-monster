@@ -2,7 +2,7 @@
 import { defaultCatalog } from '../data/defaultCatalog';
 import { type AdminData, initialAdmin } from '../domain/admin';
 import type { DexEntry } from '../domain/dex';
-import { initialPet, type PetData } from '../domain/pet';
+import { initialPet, normalizeSpecies, type PetData } from '../domain/pet';
 import type { CatalogData } from '../domain/shop';
 import { type EconomyData, initialEconomy, initialLearning, type LearningData } from '../domain/progress';
 
@@ -66,9 +66,10 @@ export function mergeSave(initial: SaveData, persisted: unknown): SaveData {
       typeStats: { ...initial.learning.typeStats, ...p.learning?.typeStats },
     },
     economy: { ...initial.economy, ...p.economy },
-    pet: { ...initial.pet, ...p.pet },
+    // 예전 펫 종류(펭귄·공룡)는 새 종류로 이어받는다
+    pet: { ...initial.pet, ...p.pet, species: p.pet?.species ? normalizeSpecies(p.pet.species) : initial.pet.species },
     catalog: p.catalog?.items?.length ? p.catalog : initial.catalog,
     admin: { ...initial.admin, ...p.admin },
-    dex: Array.isArray(p.dex) ? p.dex : initial.dex,
+    dex: Array.isArray(p.dex) ? p.dex.map((e) => ({ ...e, species: normalizeSpecies(e.species) ?? 'cat', pet: e.pet && { ...e.pet, species: normalizeSpecies(e.pet.species) } })) : initial.dex,
   };
 }

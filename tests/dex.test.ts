@@ -92,7 +92,7 @@ describe('졸업해서 도감으로', () => {
     expect(r.entry?.title).toBeTruthy();
     expect(r.entry?.pet).toMatchObject({ graduated: true, title: r.entry?.title, affection: 330 });
     expect(r.nextPet).toMatchObject({ species: null, stage: 'egg', graduated: false, affection: 0, eggBaseExplorations: 30 });
-    expect(needsHatch(chooseEgg(r.nextPet, 'dino'), 31)).toBe(true);
+    expect(needsHatch(chooseEgg(r.nextPet, 'tiger'), 31)).toBe(true);
   });
 });
 
@@ -102,7 +102,7 @@ describe('도감의 펫과 자리 바꾸기', () => {
 
   it('고른 펫이 그대로(레벨·칭호) 돌아오고, 지금 펫은 쉬는 중으로 도감에 들어간다', () => {
     const old = graduatedEntry();
-    const current = pet({ name: '퐁퐁', species: 'penguin', affection: 40, stage: 'baby' });
+    const current = pet({ name: '퐁퐁', species: 'bunny', affection: 40, stage: 'baby' });
     const r = swapWithDex(current, [old], old.id, learning, NOW + 1000);
     if (!r.ok) throw new Error(r.reason);
     expect(r.pet).toMatchObject({ name: '나비', affection: 350, graduated: true, title: old.title });
@@ -131,17 +131,17 @@ describe('도감의 펫과 자리 바꾸기', () => {
 
   it('지금 펫이 알이면 바꾸지 않는다 (알을 잃지 않게)', () => {
     const old = graduatedEntry();
-    expect(swapWithDex(chooseEgg(newEgg(NOW, 3), 'dino'), [old], old.id, learning, NOW)).toEqual({ ok: false, reason: 'egg' });
+    expect(swapWithDex(chooseEgg(newEgg(NOW, 3), 'tiger'), [old], old.id, learning, NOW)).toEqual({ ok: false, reason: 'egg' });
     expect(swapWithDex(newEgg(NOW, 3), [old], old.id, learning, NOW)).toEqual({ ok: false, reason: 'egg' });
   });
 
   it('예전 버전 도감 기록(펫 상태 없음)도 이름·모습·레벨·모자로 다시 데려온다', () => {
     const legacy: DexEntry = {
-      id: 'old1', species: 'dino', name: '룡룡', title: '따뜻한 의사', stage: 'adult', hatchedAt: '2026-10-01',
+      id: 'old1', species: 'tiger', name: '룡룡', title: '따뜻한 의사', stage: 'adult', hatchedAt: '2026-10-01',
       leftAt: '2026-10-15', affectionLevel: 9, studyDays: 3, explorations: 12, hat: 'hat_crown', reason: 'graduated',
     };
     const p = restorePet(legacy, NOW);
-    expect(p).toMatchObject({ species: 'dino', name: '룡룡', stage: 'adult', equippedHat: 'hat_crown', title: '따뜻한 의사', graduated: true });
+    expect(p).toMatchObject({ species: 'tiger', name: '룡룡', stage: 'adult', equippedHat: 'hat_crown', title: '따뜻한 의사', graduated: true });
     expect(affectionLevel(p.affection)).toBe(9);
   });
 });

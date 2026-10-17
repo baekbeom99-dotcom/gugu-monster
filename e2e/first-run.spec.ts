@@ -11,7 +11,7 @@ test('처음 시작한 학생이 펫을 부화시키고 돌보고 상점에서 �
   // 환영 → 알 고르기
   await expect(page.getByRole('heading', { name: '구구단 몬스터 탐험대' })).toBeVisible();
   await page.getByRole('button', { name: '시작하기' }).click();
-  await page.locator('.egg-choice', { hasText: '숲 알' }).click();
+  await page.locator('.egg-choice', { hasText: '줄무늬 알' }).click();
   await page.getByRole('button', { name: '이 알로 할래!' }).click();
   await page.getByRole('button', { name: '첫 탐험 떠나기' }).click();
 

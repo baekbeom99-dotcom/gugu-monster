@@ -1,9 +1,11 @@
 /**
  * 자체 제작 펫 SVG — 설계서 13-2, 13-3.
- * 3종 × 성장 3단계(아기·어린이·다 자람) × 표정 7종. 알은 EggSprite.
- * 몸은 말랑한 한 덩어리이고, 단계가 오를수록 키가 크고 귀·꼬리·무늬가 자란다.
+ * 5종 × 성장 3단계(아기·어린이·다 자람) × 표정 7종. 알은 EggSprite.
+ * 굵은 검은 테두리, 큰 머리, 발그레한 볼. 어린이부터 좌우 똑같은 짧은 팔을 배 위에 모으고,
+ * 다 자라면 머리 모양은 어린이와 같고 몸이 길어져 키가 크며, 무늬가 짙어지고 종마다 장신구(스카프·방울·꽃·사과)가 생긴다.
+ * 고슴도치는 머리와 몸이 하나인 동그란 몸에 가시 테두리, 두 손을 배 위에 모은다.
  */
-import type { ReactNode } from 'react';
+import { type ReactNode, useId } from 'react';
 import type { Species, Stage } from '../domain/pet';
 import { INK } from './colors';
 import { type HatArt, HatShapeG } from './HatSprite';
@@ -12,30 +14,53 @@ export type PetExpression = 'idle' | 'happy' | 'excited' | 'cheer' | 'sleep' | '
 type GrownStage = Exclude<Stage, 'egg'>;
 
 const STROKE = 5;
+const CX = 100;
 
-interface Geo {
+interface Oval {
   cy: number;
   rx: number;
   ry: number;
-  faceY: number;
+}
+interface Geo {
+  head: Oval;
+  body: Oval;
 }
 
 const GEO: Record<GrownStage, Geo> = {
-  baby: { cy: 132, rx: 58, ry: 48, faceY: 128 },
-  child: { cy: 120, rx: 54, ry: 56, faceY: 108 },
-  adult: { cy: 112, rx: 56, ry: 64, faceY: 96 },
+  baby: { head: { cy: 106, rx: 62, ry: 50 }, body: { cy: 158, rx: 40, ry: 24 } },
+  child: { head: { cy: 86, rx: 58, ry: 46 }, body: { cy: 148, rx: 36, ry: 32 } },
+  adult: { head: { cy: 66, rx: 58, ry: 46 }, body: { cy: 138, rx: 42, ry: 46 } },
 };
 
+const GROW: Record<GrownStage, 0 | 1 | 2> = { baby: 0, child: 1, adult: 2 };
+
 /** 모자를 씌울 머리 위 기준점 (M5 꾸미기에서 사용) */
-export function hatAnchor(stage: GrownStage): { x: number; y: number; scale: number } {
-  const g = GEO[stage];
-  return { x: 100, y: g.cy - g.ry + 4, scale: stage === 'baby' ? 0.85 : stage === 'child' ? 0.95 : 1 };
+export function hatAnchor(stage: GrownStage, species?: Species): { x: number; y: number; scale: number } {
+  const h = species === 'hedgehog' ? HEDGE[stage] : GEO[stage].head;
+  return { x: CX, y: h.cy - h.ry + (species === 'hedgehog' ? 2 : 6), scale: stage === 'baby' ? 0.9 : 0.95 };
 }
 
-const COLORS: Record<Species, { body: string; belly: string; accent: string }> = {
-  cat: { body: '#ffe08a', belly: '#fff6d6', accent: '#ff9f43' },
-  penguin: { body: '#7cc6ff', belly: '#fffdf5', accent: '#ffa94d' },
-  dino: { body: '#9be58a', belly: '#e8f9d0', accent: '#4fb83a' },
+/** 고슴도치: 머리와 몸이 하나인 동그란 몸 */
+const HEDGE: Record<GrownStage, Oval> = {
+  baby: { cy: 130, rx: 56, ry: 50 },
+  child: { cy: 118, rx: 60, ry: 60 },
+  adult: { cy: 110, rx: 64, ry: 68 },
+};
+
+interface Palette {
+  body: string;
+  belly: string;
+  mark: string;
+  inner: string;
+  blush: string;
+}
+
+const COLORS: Record<Species, Palette> = {
+  tiger: { body: '#f7a23e', belly: '#ffe6c2', mark: '#e0781f', inner: '#ffc98a', blush: '#ff8a5c' },
+  cat: { body: '#ffffff', belly: '#ffffff', mark: '#a3a3ab', inner: '#ffc2cf', blush: '#ffadbd' },
+  bunny: { body: '#ffdfe2', belly: '#fff3f4', mark: '#ffbfc7', inner: '#ffadbb', blush: '#ff9eab' },
+  hedgehog: { body: '#94603d', belly: '#fdeed8', mark: '#6f4428', inner: '#cf9a70', blush: '#ffa79a' },
+  cheese: { body: '#fcd39e', belly: '#fff2df', mark: '#f0a95e', inner: '#ffbfb0', blush: '#ffa58c' },
 };
 
 const line = { stroke: INK, strokeWidth: STROKE, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
@@ -49,171 +74,345 @@ function star(cx: number, cy: number, r: number, fill: string, key?: string) {
   return <polygon key={key} points={pts} fill={fill} stroke={INK} strokeWidth="3" strokeLinejoin="round" />;
 }
 
-/** 몸 뒤에 그리는 부분 (귀, 꼬리, 등 돌기, 날개) */
-function behind(species: Species, stage: GrownStage, g: Geo, c: (typeof COLORS)[Species]): ReactNode {
-  const top = g.cy - g.ry;
-  const grow = stage === 'baby' ? 0 : stage === 'child' ? 1 : 2;
+/** 옆이 살짝 각진 찹쌀떡 모양 (머리) */
+function mochi(o: Oval): string {
+  const l = CX - o.rx;
+  const r = CX + o.rx;
+  const mid = o.cy + o.ry * 0.05;
+  return `M${l} ${mid} C${l} ${o.cy - o.ry * 1.33} ${r} ${o.cy - o.ry * 1.33} ${r} ${mid} C${r} ${o.cy + o.ry * 1.25} ${l} ${o.cy + o.ry * 1.25} ${l} ${mid} Z`;
+}
+
+/** 테두리가 있는 굵은 팔다리·꼬리 (검은 굵은 선 위에 색 선을 겹친다) */
+function limb(d: string, fill: string, width: number, key?: string, stripes?: string) {
+  return (
+    <g key={key}>
+      <path d={d} fill="none" stroke={INK} strokeWidth={width + STROKE * 2} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} fill="none" stroke={fill} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" />
+      {stripes && <path d={d} fill="none" stroke={stripes} strokeWidth={width} strokeDasharray="5 9" strokeDashoffset="-6" />}
+    </g>
+  );
+}
+
+/** 고슴도치 가시 (머리 둘레 톱니) */
+function spikes(h: Oval, grow: number, fill: string) {
+  const n = 16 + grow * 2;
+  const out = 1.18 + grow * 0.05;
+  const pts = Array.from({ length: n * 2 }, (_, i) => {
+    const a = -Math.PI / 2 + (i * Math.PI) / n;
+    const k = i % 2 === 0 ? out : 0.98;
+    return `${(CX + Math.cos(a) * h.rx * k).toFixed(1)},${(h.cy + Math.sin(a) * h.ry * k).toFixed(1)}`;
+  }).join(' ');
+  return <polygon {...line} strokeWidth="4" points={pts} fill={fill} />;
+}
+
+/** 머리·몸 뒤: 꼬리와 귀 */
+function behind(species: Species, stage: GrownStage, g: Geo, c: Palette): ReactNode {
+  const { head: h, body: b } = g;
+  const grow = GROW[stage];
+  const top = h.cy - h.ry;
+  // 꼬리는 왼쪽 (오른손을 흔드니까)
+  const tailBase = { x: CX - b.rx + 8, y: b.cy + b.ry * 0.45 };
+  const curl = (len: number) =>
+    `M${tailBase.x} ${tailBase.y} Q${tailBase.x - len} ${tailBase.y + 6} ${tailBase.x - len * 0.9} ${tailBase.y - len * 0.75} Q${tailBase.x - len * 0.75} ${tailBase.y - len * 1.05} ${tailBase.x - len * 0.45} ${tailBase.y - len * 0.95}`;
+  const catEar = (dir: 1 | -1, fill: string, inner: string) => {
+    const bx = CX + dir * h.rx * 0.42;
+    const ox = CX + dir * h.rx * 0.92;
+    const tipX = CX + dir * h.rx * (0.78 + grow * 0.03);
+    const tipY = top - 18 - grow * 5;
+    return (
+      <g key={dir}>
+        <path {...line} fill={fill} d={`M${bx} ${top + 12} Q${tipX - dir * 10} ${tipY - 4} ${tipX} ${tipY} Q${ox + dir * 6} ${top + 2} ${ox} ${top + 28} Z`} />
+        <path fill={inner} d={`M${bx + dir * 10} ${top + 14} Q${tipX - dir * 6} ${tipY + 8} ${tipX - dir * 1} ${tipY + 12} Q${ox - dir * 2} ${top + 12} ${ox - dir * 6} ${top + 24} Z`} />
+      </g>
+    );
+  };
+
   switch (species) {
-    case 'cat': {
-      const h = 22 + grow * 8;
-      const ear = (dir: 1 | -1) => (
-        <g key={dir}>
-          <path {...line} fill={c.body} d={`M${100 + dir * 18} ${top + 14} L${100 + dir * (34 + grow * 2)} ${top - h + 6} L${100 + dir * 50} ${top + 26} Z`} />
-          <path fill="#ff9ebb" d={`M${100 + dir * 26} ${top + 14} L${100 + dir * (34 + grow * 2)} ${top - h + 18} L${100 + dir * 42} ${top + 20} Z`} />
-        </g>
-      );
-      const tail =
-        stage === 'baby' ? (
-          <circle {...line} cx="156" cy={g.cy + 26} r="12" fill={c.body} />
-        ) : (
-          <path {...line} fill="none" strokeWidth={STROKE + 9} stroke={INK} d={`M140 ${g.cy + 30} Q${178 + grow * 4} ${g.cy + 10} ${168 + grow * 4} ${g.cy - 30 - grow * 8}`} />
+    case 'tiger': {
+      const ear = (dir: 1 | -1) => {
+        const x = CX + dir * h.rx * 0.66;
+        const y = top + 8;
+        const r = 15 + grow;
+        return (
+          <g key={dir}>
+            <circle {...line} cx={x} cy={y} r={r} fill={c.body} />
+            <circle cx={x} cy={y + 2} r={r * 0.5} fill={c.mark} opacity="0.55" />
+          </g>
         );
-      const tailFill =
-        stage === 'baby' ? null : (
-          <path fill="none" strokeWidth="9" stroke={c.body} strokeLinecap="round" d={`M140 ${g.cy + 30} Q${178 + grow * 4} ${g.cy + 10} ${168 + grow * 4} ${g.cy - 30 - grow * 8}`} />
-        );
+      };
       return (
         <>
-          {tail}
-          {tailFill}
-          {stage === 'adult' && star(176, g.cy - 50, 12, '#ffd43b')}
+          {stage === 'baby'
+            ? limb(`M${tailBase.x} ${tailBase.y} Q${tailBase.x - 22} ${tailBase.y + 2} ${tailBase.x - 24} ${tailBase.y - 14}`, c.body, 12)
+            : limb(curl(26 + grow * 6), c.body, 13 + grow * 2, undefined, c.mark)}
           {ear(-1)}
           {ear(1)}
         </>
       );
     }
-    case 'penguin': {
-      const wing = (dir: 1 | -1) => {
-        const len = 22 + grow * 10;
+    case 'cat':
+      return (
+        <>
+          {stage === 'baby'
+            ? limb(`M${tailBase.x} ${tailBase.y} Q${tailBase.x - 22} ${tailBase.y + 2} ${tailBase.x - 24} ${tailBase.y - 14}`, c.mark, 11)
+            : limb(curl(26 + grow * 7), c.mark, 11 + grow * 2)}
+          {catEar(-1, c.mark, c.inner)}
+          {catEar(1, c.body, c.inner)}
+        </>
+      );
+    case 'cheese':
+      return (
+        <>
+          {stage === 'baby'
+            ? limb(`M${tailBase.x} ${tailBase.y} Q${tailBase.x - 22} ${tailBase.y + 2} ${tailBase.x - 24} ${tailBase.y - 14}`, c.body, 11, undefined, c.mark)
+            : limb(curl(26 + grow * 7), c.body, 11 + grow * 2, undefined, c.mark)}
+          {catEar(-1, c.body, c.inner)}
+          {catEar(1, c.body, c.inner)}
+        </>
+      );
+    case 'bunny': {
+      const len = 30 + grow * 9;
+      const ear = (dir: 1 | -1) => {
+        // 다 자라면 한쪽 귀가 살짝 접힌다
+        const tilt = dir * (8 + grow * 2) + (stage === 'adult' && dir === 1 ? 26 : 0);
+        const x = CX + dir * h.rx * 0.36;
+        const y = top + 6 - len / 2;
         return (
-          <path
-            key={dir}
-            {...line}
-            fill={c.body}
-            d={`M${100 + dir * (g.rx - 8)} ${g.cy - 10} Q${100 + dir * (g.rx + len)} ${g.cy + 8} ${100 + dir * (g.rx + 4)} ${g.cy + 30} Z`}
-          />
+          <g key={dir} transform={`rotate(${tilt} ${x} ${top + 10})`}>
+            <ellipse {...line} cx={x} cy={y} rx={13 + grow} ry={len / 2 + 8} fill={c.body} />
+            <ellipse cx={x} cy={y + 4} rx={6 + grow * 0.5} ry={len / 2 - 2} fill={c.inner} />
+          </g>
         );
       };
       return (
         <>
-          {stage !== 'baby' && wing(-1)}
-          {stage !== 'baby' && wing(1)}
+          <circle {...line} cx={CX - b.rx + 2} cy={b.cy + b.ry * 0.35} r={10 + grow * 2} fill={c.belly} />
+          {ear(-1)}
+          {ear(1)}
         </>
       );
     }
-    case 'dino': {
-      const bumps = stage === 'baby' ? 0 : stage === 'child' ? 3 : 5;
-      const spikes = Array.from({ length: bumps }, (_, i) => {
-        const a = -Math.PI / 2 + 0.35 + i * 0.36;
-        const x = 100 + Math.cos(a) * (g.rx - 2);
-        const y = g.cy + Math.sin(a) * (g.ry - 2);
-        return <circle key={i} {...line} cx={x} cy={y} r={11} fill={c.accent} />;
-      });
-      return (
-        <>
-          {stage !== 'baby' && (
-            <path {...line} fill={c.body} d={`M${100 + g.rx - 14} ${g.cy + 20} Q${186} ${g.cy + 30} ${190} ${g.cy + 6} Q${176} ${g.cy + 44} ${100 + g.rx - 20} ${g.cy + 42} Z`} />
-          )}
-          {stage === 'adult' && (
-            <>
-              <path {...line} fill="#c9b6ff" d={`M${100 - g.rx + 10} ${g.cy - 20} L${100 - g.rx - 30} ${g.cy - 46} L${100 - g.rx - 18} ${g.cy - 10} L${100 - g.rx - 34} ${g.cy - 4} Z`} />
-              <path {...line} fill="#c9b6ff" d={`M${100 + g.rx - 10} ${g.cy - 20} L${100 + g.rx + 30} ${g.cy - 46} L${100 + g.rx + 18} ${g.cy - 10} L${100 + g.rx + 34} ${g.cy - 4} Z`} />
-            </>
-          )}
-          {spikes}
-          <path {...line} fill={c.accent} d={`M88 ${top + 8} Q100 ${top - 22 - grow * 4} 112 ${top + 8} Z`} />
-        </>
-      );
-    }
+    case 'hedgehog':
+      return null;
   }
 }
 
-/** 몸 앞에 그리는 부분 (배, 무늬, 발, 목털) */
-function front(species: Species, stage: GrownStage, g: Geo, c: (typeof COLORS)[Species]): ReactNode {
-  const top = g.cy - g.ry;
-  const bottom = g.cy + g.ry;
-  const feet =
-    stage === 'baby' ? null : (
-      <>
-        <ellipse {...line} cx="78" cy={bottom - 2} rx="16" ry="9" fill={species === 'penguin' ? '#ffa94d' : c.body} />
-        <ellipse {...line} cx="122" cy={bottom - 2} rx="16" ry="9" fill={species === 'penguin' ? '#ffa94d' : c.body} />
-      </>
-    );
+/** 몸 앞: 배, 발, 팔 선 */
+function bodyParts(species: Species, stage: GrownStage, g: Geo, c: Palette): ReactNode {
+  const b = g.body;
+  const bottom = b.cy + b.ry;
+  const bodyFill = species === 'hedgehog' ? c.belly : c.body;
+  const footFill = species === 'cat' ? c.body : bodyFill;
+  const armCurve = (dir: 1 | -1) =>
+    `M${CX + dir * (b.rx - 7)} ${b.cy - b.ry * 0.35} Q${CX + dir * (b.rx - 2)} ${b.cy + b.ry * 0.25} ${CX + dir * (b.rx - 16)} ${b.cy + b.ry * 0.32}`;
+  return (
+    <>
+      <ellipse {...line} cx={CX} cy={b.cy} rx={b.rx} ry={b.ry} fill={bodyFill} />
+      {species !== 'hedgehog' && species !== 'cat' && (
+        <ellipse cx={CX} cy={b.cy + b.ry * 0.2} rx={b.rx * 0.55} ry={b.ry * 0.55} fill={c.belly} />
+      )}
+      {species === 'cat' && stage !== 'baby' && <ellipse cx={CX + b.rx * 0.45} cy={b.cy + b.ry * 0.05} rx={b.rx * 0.28} ry={b.ry * 0.3} fill={c.mark} />}
+      {species === 'tiger' &&
+        stage === 'adult' &&
+        [-1, 1].map((dir) => (
+          <path key={dir} d={`M${CX + dir * b.rx} ${b.cy - 4} q${-dir * 12} 4 ${-dir * 14} 12`} stroke={c.mark} strokeWidth="5" fill="none" strokeLinecap="round" />
+        ))}
+      <ellipse {...line} cx={CX - b.rx * 0.42} cy={bottom - 3} rx={13} ry={8} fill={footFill} />
+      <ellipse {...line} cx={CX + b.rx * 0.42} cy={bottom - 3} rx={13} ry={8} fill={footFill} />
+      {stage === 'baby'
+        ? [-1, 1].map((dir) => <path key={dir} d={armCurve(dir as 1 | -1)} {...line} strokeWidth="4" fill="none" />)
+        : // 어린이부터: 좌우 똑같은 짧은 팔, 동그란 손을 배 위에 모은다
+          [-1, 1].map((dir) =>
+            limb(
+              `M${CX + dir * b.rx * 0.8} ${b.cy - b.ry * 0.42} Q${CX + dir * b.rx * 0.92} ${b.cy + b.ry * 0.08} ${CX + dir * b.rx * 0.48} ${b.cy + b.ry * 0.2}`,
+              footFill,
+              13,
+              String(dir),
+            ),
+          )}
+    </>
+  );
+}
+
+/** 머리 위 무늬 (머리 모양으로 잘라 그린다) */
+function headMarks(species: Species, stage: GrownStage, g: Geo, c: Palette): ReactNode {
+  const h = g.head;
+  const top = h.cy - h.ry;
+  const grow = GROW[stage];
+  const stripe = (x: number, y: number, len: number, key: number, w = 5) => (
+    <path key={key} d={`M${x} ${y} l0 ${len}`} stroke={c.mark} strokeWidth={w} strokeLinecap="round" />
+  );
   switch (species) {
+    case 'tiger':
+      return (
+        <>
+          {[-12, 0, 12].map((dx, i) => stripe(CX + dx, top + 2, (i === 1 ? 16 : 11) + grow * 3, i, 5 + grow))}
+          {grow > 0 &&
+            [-1, 1].map((dir) => (
+              <g key={dir} stroke={c.mark} strokeWidth={4 + grow} strokeLinecap="round" fill="none">
+                <path d={`M${CX + dir * h.rx} ${h.cy - 8} l${-dir * 14} 3`} />
+                <path d={`M${CX + dir * h.rx} ${h.cy + 4} l${-dir * 11} 2`} />
+              </g>
+            ))}
+        </>
+      );
     case 'cat':
       return (
         <>
-          <ellipse cx="100" cy={g.cy + g.ry * 0.45} rx={g.rx * 0.55} ry={g.ry * 0.38} fill={c.belly} />
-          {stage !== 'baby' && star(100, top + 22, stage === 'adult' ? 11 : 9, '#ffa94d')}
-          {stage === 'adult' && (
-            // 목에 맨 리본
-            <g {...line} strokeWidth="3.5" fill="#ff8fc1">
-              <path d={`M100 ${g.faceY + 48} L80 ${g.faceY + 38} L80 ${g.faceY + 60} Z`} />
-              <path d={`M100 ${g.faceY + 48} L120 ${g.faceY + 38} L120 ${g.faceY + 60} Z`} />
-              <circle cx="100" cy={g.faceY + 48} r="6" />
-            </g>
-          )}
-          {stage === 'adult' && (
-            <g stroke={INK} strokeWidth="3" strokeLinecap="round">
-              <line x1="52" y1={g.faceY + 12} x2="30" y2={g.faceY + 6} />
-              <line x1="52" y1={g.faceY + 20} x2="30" y2={g.faceY + 22} />
-              <line x1="148" y1={g.faceY + 12} x2="170" y2={g.faceY + 6} />
-              <line x1="148" y1={g.faceY + 20} x2="170" y2={g.faceY + 22} />
-            </g>
-          )}
-          {feet}
+          <ellipse cx={CX - h.rx * 0.62} cy={top + h.ry * 0.25} rx={h.rx * 0.6} ry={h.ry * 0.62} fill={c.mark} />
+          {grow > 0 && <ellipse cx={CX + h.rx * 0.82} cy={top + h.ry * 0.1} rx={h.rx * 0.3} ry={h.ry * 0.3} fill="#f6a35a" />}
         </>
       );
-    case 'penguin':
-      return (
-        <>
-          <ellipse {...line} strokeWidth="3.5" cx="100" cy={g.cy + g.ry * 0.28} rx={g.rx * 0.62} ry={g.ry * 0.66} fill={c.belly} />
-          {stage === 'baby' && (
-            <path {...line} fill="none" d={`M92 ${top + 4} Q96 ${top - 14} 104 ${top - 6} M104 ${top + 2} Q110 ${top - 16} 116 ${top - 4}`} />
-          )}
-          {stage === 'adult' && (
-            <>
-              <path {...line} fill="#ffe14d" d={`M84 ${top + 6} L78 ${top - 22} L94 ${top + 2} Z`} />
-              <path {...line} fill="#ffe14d" d={`M96 ${top + 2} L100 ${top - 28} L106 ${top + 2} Z`} />
-            </>
-          )}
-          {stage !== 'baby' && (
-            <path
-              fill="#ff8fc1"
-              stroke={INK}
-              strokeWidth="3"
-              d={`M100 ${g.cy + 40} C88 ${g.cy + 30} 86 ${g.cy + 20} 94 ${g.cy + 18} C98 ${g.cy + 17} 100 ${g.cy + 21} 100 ${g.cy + 23} C100 ${g.cy + 21} 102 ${g.cy + 17} 106 ${g.cy + 18} C114 ${g.cy + 20} 112 ${g.cy + 30} 100 ${g.cy + 40} Z`}
-            />
-          )}
-          {feet}
-        </>
-      );
-    case 'dino':
-      return (
-        <>
-          <ellipse cx="100" cy={g.cy + g.ry * 0.42} rx={g.rx * 0.58} ry={g.ry * 0.42} fill={c.belly} />
-          {stage === 'adult' &&
-            [0, 1, 2].map((i) => (
-              <path key={i} d={`M80 ${g.cy + 20 + i * 12} Q100 ${g.cy + 26 + i * 12} 120 ${g.cy + 20 + i * 12}`} stroke={INK} strokeWidth="3" fill="none" strokeLinecap="round" />
-            ))}
-          {feet}
-        </>
-      );
+    case 'cheese':
+      return [-10, 0, 10].map((dx, i) => stripe(CX + dx, top + 2, (i === 1 ? 13 : 9) + grow * 3, i, 4 + grow));
+    case 'bunny':
+      return null;
+    case 'hedgehog':
+      return null;
   }
 }
 
-function Face({ expression, y, species }: { expression: PetExpression; y: number; species: Species }) {
-  const L = 78;
-  const R = 122;
+/** 다 자란 펫의 장신구 (머리 앞) */
+function adornment(species: Species, stage: GrownStage, g: Geo): ReactNode {
+  if (stage !== 'adult') return null;
+  const neckY = g.head.cy + g.head.ry * 0.95;
+  const scarf = (fill: string) => (
+    <g {...line} strokeWidth="4" fill={fill}>
+      <path d={`M${CX - 34} ${neckY - 4} Q${CX} ${neckY + 12} ${CX + 34} ${neckY - 4} L${CX + 32} ${neckY + 8} Q${CX} ${neckY + 22} ${CX - 32} ${neckY + 8} Z`} />
+      <path d={`M${CX - 20} ${neckY + 10} L${CX - 26} ${neckY + 34} L${CX - 10} ${neckY + 30} L${CX - 8} ${neckY + 12} Z`} />
+    </g>
+  );
+  switch (species) {
+    case 'tiger':
+      return scarf('#ff4d6d');
+    case 'cheese':
+      return scarf('#4dabf7');
+    case 'cat':
+      return (
+        <g>
+          <path {...line} strokeWidth="4" fill="#ff6b6b" d={`M${CX - 30} ${neckY - 2} Q${CX} ${neckY + 10} ${CX + 30} ${neckY - 2} L${CX + 30} ${neckY + 6} Q${CX} ${neckY + 18} ${CX - 30} ${neckY + 6} Z`} />
+          <circle {...line} strokeWidth="3.5" cx={CX} cy={neckY + 18} r="8" fill="#ffd43b" />
+          <path d={`M${CX - 7} ${neckY + 18} L${CX + 7} ${neckY + 18}`} stroke={INK} strokeWidth="2.5" />
+        </g>
+      );
+    case 'bunny': {
+      // 귀에 꽂은 꽃
+      const x = CX + 30;
+      const y = g.head.cy - g.head.ry + 4;
+      return (
+        <g>
+          {[0, 72, 144, 216, 288].map((a) => (
+            <circle
+              key={a}
+              {...line}
+              strokeWidth="3"
+              cx={x + Math.cos((a * Math.PI) / 180) * 8}
+              cy={y + Math.sin((a * Math.PI) / 180) * 8}
+              r="6.5"
+              fill="#fff59d"
+            />
+          ))}
+          <circle {...line} strokeWidth="3" cx={x} cy={y} r="5" fill="#ff922b" />
+        </g>
+      );
+    }
+    case 'hedgehog':
+      return null;
+  }
+}
+
+/** 고슴도치 한 덩어리 몸 (가시·귀·크림색 얼굴과 배·발·배 위에 모은 손·장식) */
+function hedgehogBody(stage: GrownStage, c: Palette): ReactNode {
+  const o = HEDGE[stage];
+  const grow = GROW[stage];
+  const L = CX - o.rx * 0.8;
+  const R = CX + o.rx * 0.8;
+  const top = o.cy - o.ry * 0.62;
+  const mid = o.cy + o.ry * 0.05;
+  const bottom = o.cy + o.ry * 1.1;
+  const hand = (dir: 1 | -1) =>
+    limb(
+      `M${CX + dir * o.rx * 0.6} ${o.cy + o.ry * 0.42} L${CX + dir * o.rx * 0.36} ${o.cy + o.ry * 0.54}`,
+      c.belly,
+      13,
+      String(dir),
+    );
+  const ax = CX + o.rx * 0.62;
+  const ay = o.cy - o.ry * 0.98;
+  return (
+    <>
+      {spikes(o, grow, c.body)}
+      {[-1, 1].map((dir) => (
+        <g key={dir}>
+          <circle {...line} cx={CX + dir * o.rx * 0.55} cy={o.cy - o.ry * 0.78} r="10" fill={c.body} />
+          <circle cx={CX + dir * o.rx * 0.55} cy={o.cy - o.ry * 0.76} r="4.5" fill={c.inner} />
+        </g>
+      ))}
+      <ellipse {...line} cx={CX} cy={o.cy} rx={o.rx} ry={o.ry} fill={c.body} />
+      <path
+        {...line}
+        strokeWidth="3.5"
+        fill={c.belly}
+        d={`M${L} ${mid} C${L} ${top} ${CX - 14} ${top - 6} ${CX} ${top + 8} C${CX + 14} ${top - 6} ${R} ${top} ${R} ${mid} C${R} ${bottom} ${L} ${bottom} ${L} ${mid} Z`}
+      />
+      <ellipse {...line} cx={CX - o.rx * 0.36} cy={o.cy + o.ry - 2} rx="14" ry="9" fill={c.belly} />
+      <ellipse {...line} cx={CX + o.rx * 0.36} cy={o.cy + o.ry - 2} rx="14" ry="9" fill={c.belly} />
+      {grow > 0 && hand(-1)}
+      {grow > 0 && hand(1)}
+      {grow === 1 && <path {...line} strokeWidth="3" fill="#69db7c" d={`M${CX + 6} ${o.cy - o.ry - 6} q12 -14 24 -6 q-10 12 -24 6 Z`} />}
+      {grow === 2 && (
+        <g>
+          <circle {...line} strokeWidth="4" cx={ax} cy={ay} r="14" fill="#ff5c5c" />
+          <path d={`M${ax} ${ay - 13} l2 -8`} stroke={INK} strokeWidth="4" strokeLinecap="round" />
+          <path {...line} strokeWidth="3" fill="#69db7c" d={`M${ax + 2} ${ay - 17} q10 -8 16 -2 q-8 8 -16 2 Z`} />
+          <ellipse cx={ax - 5} cy={ay - 4} rx="3" ry="4.5" fill="#fff" opacity="0.7" />
+        </g>
+      )}
+    </>
+  );
+}
+
+function whiskers(species: Species, g: Geo): ReactNode {
+  if (species !== 'cat' && species !== 'cheese' && species !== 'bunny') return null;
+  const h = g.head;
+  const y = h.cy + h.ry * 0.3;
+  const from = h.rx - 8;
+  return (
+    <g stroke={INK} strokeWidth="2.5" strokeLinecap="round">
+      {[-1, 1].map((dir) => (
+        <g key={dir}>
+          <line x1={CX + dir * from} y1={y - 4} x2={CX + dir * (from + 18)} y2={y - 8} />
+          <line x1={CX + dir * from} y1={y + 3} x2={CX + dir * (from + 18)} y2={y + 5} />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+function Face({ expression, g, species, blush }: { expression: PetExpression; g: Geo; species: Species; blush: string }) {
+  const h = g.head;
+  const big = species === 'hedgehog';
+  const y = h.cy + h.ry * (big ? 0.12 : 0.05);
+  const spread = h.rx * (big ? 0.34 : 0.38);
+  const L = CX - spread;
+  const R = CX + spread;
+  const er = big ? { rx: 9, ry: 10.5 } : { rx: 6, ry: 7.5 };
   const eyes = (() => {
     switch (expression) {
       case 'idle':
         return (
-          <g className="pet-eyes" style={{ transformOrigin: `100px ${y}px` }}>
+          <g className="pet-eyes" style={{ transformOrigin: `${CX}px ${y}px` }}>
             {[L, R].map((x) => (
               <g key={x}>
-                <ellipse cx={x} cy={y} rx="8" ry="10" fill={INK} />
-                <circle cx={x + 3} cy={y - 4} r="3" fill="#fff" />
+                <ellipse cx={x} cy={y} rx={er.rx} ry={er.ry} fill={INK} />
+                {big ? (
+                  <>
+                    <circle cx={x + 3} cy={y - 4} r="3.5" fill="#fff" />
+                    <circle cx={x - 3} cy={y + 4} r="1.8" fill="#fff" />
+                  </>
+                ) : (
+                  <circle cx={x + 2} cy={y - 3} r="2" fill="#fff" />
+                )}
               </g>
             ))}
           </g>
@@ -221,63 +420,58 @@ function Face({ expression, y, species }: { expression: PetExpression; y: number
       case 'happy':
       case 'eat':
         return [L, R].map((x) => (
-          <path key={x} d={`M${x - 10} ${y + 4} Q${x} ${y - 10} ${x + 10} ${y + 4}`} stroke={INK} strokeWidth="5" fill="none" strokeLinecap="round" />
+          <path key={x} d={`M${x - 8} ${y + 3} Q${x} ${y - 8} ${x + 8} ${y + 3}`} stroke={INK} strokeWidth="4.5" fill="none" strokeLinecap="round" />
         ));
       case 'excited':
-        return [L, R].map((x) => <g key={x}>{star(x, y, 11, INK)}</g>);
+        return [L, R].map((x) => <g key={x}>{star(x, y, big ? 11 : 9, INK)}</g>);
       case 'cheer':
         return [L, R].map((x, i) => (
           <g key={x}>
-            <ellipse cx={x} cy={y + 2} rx="7" ry="9" fill={INK} />
-            <circle cx={x + 2} cy={y - 2} r="2.5" fill="#fff" />
-            <path d={i === 0 ? `M${x - 10} ${y - 14} L${x + 8} ${y - 10}` : `M${x - 8} ${y - 10} L${x + 10} ${y - 14}`} stroke={INK} strokeWidth="4.5" strokeLinecap="round" />
+            <ellipse cx={x} cy={y + 2} rx={er.rx} ry={er.ry} fill={INK} />
+            <circle cx={x + 1.5} cy={y - 1} r="1.8" fill="#fff" />
+            <path d={i === 0 ? `M${x - 9} ${y - 13} L${x + 7} ${y - 9}` : `M${x - 7} ${y - 9} L${x + 9} ${y - 13}`} stroke={INK} strokeWidth="4" strokeLinecap="round" />
           </g>
         ));
       case 'sleep':
         return [L, R].map((x) => (
-          <path key={x} d={`M${x - 10} ${y} Q${x} ${y + 9} ${x + 10} ${y}`} stroke={INK} strokeWidth="5" fill="none" strokeLinecap="round" />
+          <path key={x} d={`M${x - 8} ${y} Q${x} ${y + 7} ${x + 8} ${y}`} stroke={INK} strokeWidth="4.5" fill="none" strokeLinecap="round" />
         ));
       case 'request':
         return [L, R].map((x) => (
           <g key={x}>
-            <circle cx={x} cy={y} r="12" fill={INK} />
-            <circle cx={x + 4} cy={y - 4} r="5" fill="#fff" />
-            <circle cx={x - 4} cy={y + 5} r="2.5" fill="#fff" />
+            <circle cx={x} cy={y} r={big ? 12 : 9} fill={INK} />
+            <circle cx={x + 3} cy={y - 3} r={big ? 4.5 : 3.5} fill="#fff" />
+            <circle cx={x - 3} cy={y + 4} r="2" fill="#fff" />
           </g>
         ));
     }
   })();
 
   const open = expression === 'happy' || expression === 'excited' || expression === 'eat' || expression === 'cheer';
-  const my = y + 22;
+  const my = y + (big ? 20 : 14);
   const mouth =
-    species === 'penguin' ? (
-      open ? (
-        <g {...line} strokeWidth="3.5">
-          <path fill="#ffa94d" d={`M90 ${my - 6} L110 ${my - 6} L100 ${my - 14} Z`} />
-          <path fill="#ffa94d" d={`M91 ${my} L109 ${my} L100 ${my + 9} Z`} />
-        </g>
-      ) : (
-        <path {...line} strokeWidth="3.5" fill="#ffa94d" d={`M89 ${my - 6} L111 ${my - 6} L100 ${my + 6} Z`} />
-      )
-    ) : expression === 'eat' ? (
+    expression === 'eat' ? (
       <g>
-        <circle cx="100" cy={my + 2} r="10" fill={INK} />
-        <ellipse cx="100" cy={my + 7} rx="6" ry="3.5" fill="#ff6b8b" />
+        <circle cx={CX} cy={my + 2} r="7.5" fill={INK} />
+        <ellipse cx={CX} cy={my + 6} rx="4.5" ry="2.5" fill="#ff6b8b" />
       </g>
     ) : open ? (
-      <path d={`M87 ${my - 4} Q100 ${my + 16} 113 ${my - 4} Z`} fill={INK} stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+      <g>
+        <path d={`M${CX - 7} ${my - 2} Q${CX} ${my + 12} ${CX + 7} ${my - 2} Z`} fill={INK} stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+        <ellipse cx={CX} cy={my + 5} rx="3.5" ry="2.2" fill="#ff7b95" />
+      </g>
     ) : expression === 'request' || expression === 'sleep' ? (
-      <ellipse cx="100" cy={my} rx="4.5" ry="4" fill={INK} />
+      <ellipse cx={CX} cy={my + 1} rx="3.5" ry="3" fill={INK} />
     ) : (
-      <path d={`M90 ${my - 3} Q95 ${my + 4} 100 ${my - 2} Q105 ${my + 4} 110 ${my - 3}`} stroke={INK} strokeWidth="4" fill="none" strokeLinecap="round" />
+      <path d={`M${CX - 6.5} ${my - 2} Q${CX - 3.2} ${my + 3.5} ${CX} ${my - 0.5} Q${CX + 3.2} ${my + 3.5} ${CX + 6.5} ${my - 2}`} stroke={INK} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
     );
 
   return (
     <g>
-      <ellipse cx={L - 16} cy={y + 16} rx="9" ry="6" fill="#ff6b8b" opacity="0.45" />
-      <ellipse cx={R + 16} cy={y + 16} rx="9" ry="6" fill="#ff6b8b" opacity="0.45" />
+      <ellipse cx={L - 13} cy={y + 12} rx="12" ry="7.5" fill={blush} opacity="0.8" />
+      <ellipse cx={R + 13} cy={y + 12} rx="12" ry="7.5" fill={blush} opacity="0.8" />
       {eyes}
+      {big && <ellipse cx={CX} cy={y + 9} rx="5" ry="3.8" fill={INK} />}
       {mouth}
     </g>
   );
@@ -294,35 +488,58 @@ interface Props {
 }
 
 export function PetSprite({ species, stage, expression = 'idle', size = 200, className, hat }: Props) {
-  const g = GEO[stage];
-  const c = COLORS[species];
+  const clip = `pet-head-${useId().replace(/:/g, '')}`;
+  const hedgehog = species === 'hedgehog';
+  const c = COLORS[species] ?? COLORS.cat;
+  const ho = HEDGE[stage];
+  // 고슴도치는 몸 위쪽을 '머리'로 보고 얼굴을 그린다
+  const g: Geo = hedgehog ? { head: { cy: ho.cy - ho.ry * 0.3, rx: ho.rx * 0.8, ry: ho.ry * 0.5 }, body: ho } : GEO[stage];
+  const h = g.head;
+  const top = hedgehog ? ho.cy - ho.ry : h.cy - h.ry;
+  const head = mochi(h);
+  const ground = g.body.cy + g.body.ry;
   return (
-    <svg viewBox="-10 -10 220 210" width={size} height={size} className={className} role="img" aria-label="펫">
-      <ellipse cx="100" cy={g.cy + g.ry + 8} rx="60" ry="8" fill={INK} opacity="0.15" />
-      {behind(species, stage, g, c)}
-      <ellipse {...line} cx="100" cy={g.cy} rx={g.rx} ry={g.ry} fill={c.body} />
-      <ellipse cx={100 - g.rx * 0.45} cy={g.cy - g.ry * 0.55} rx="10" ry="6" fill="#fff" opacity="0.6" transform={`rotate(-30 ${100 - g.rx * 0.45} ${g.cy - g.ry * 0.55})`} />
-      {front(species, stage, g, c)}
-      <Face expression={expression} y={g.faceY} species={species} />
+    <svg viewBox="-10 -14 220 214" width={size} height={size} className={className} role="img" aria-label="펫">
+      <defs>
+        <clipPath id={clip}>
+          <path d={head} />
+        </clipPath>
+      </defs>
+      <ellipse cx={CX} cy={ground + 6} rx="56" ry="7" fill={INK} opacity="0.15" />
+      {hedgehog ? (
+        hedgehogBody(stage, c)
+      ) : (
+        <>
+          {behind(species, stage, g, c)}
+          {bodyParts(species, stage, g, c)}
+          <path d={head} fill={c.body} />
+          <g clipPath={`url(#${clip})`}>{headMarks(species, stage, g, c)}</g>
+          <path d={head} fill="none" {...line} />
+          {whiskers(species, g)}
+        </>
+      )}
+      <Face expression={expression} g={g} species={species} blush={c.blush} />
+      {adornment(species, stage, g)}
       {expression === 'sleep' && (
-        <text x="150" y={g.cy - g.ry + 4} fontSize="28" fontWeight="900" fill={INK}>
+        <text x="150" y={top - 2} fontSize="28" fontWeight="900" fill={INK}>
           Z<tspan fontSize="20" dy="-12">z</tspan>
         </text>
       )}
       {expression === 'excited' && (
         <>
-          {star(32, g.cy - 40, 9, '#ffe14d')}
-          {star(170, g.cy - 50, 7, '#ff8fc1')}
+          {star(22, top + 16, 9, '#ffe14d')}
+          {star(182, top + 6, 7, '#ff8fc1')}
         </>
       )}
-      {hat && (() => {
-        const a = hatAnchor(stage);
-        return (
-          <g transform={`translate(${a.x} ${a.y}) scale(${a.scale})`}>
-            <HatShapeG {...hat} />
-          </g>
-        );
-      })()}
+      {hat &&
+        (() => {
+          const a = hatAnchor(stage, species);
+          return (
+            <g transform={`translate(${a.x} ${a.y}) scale(${a.scale})`}>
+              <HatShapeG {...hat} />
+            </g>
+          );
+        })()}
     </svg>
   );
 }
@@ -331,34 +548,64 @@ export function PetSprite({ species, stage, expression = 'idle', size = 200, cla
 
 const EGG_PATH = 'M100 26 C142 26 162 92 162 122 C162 160 134 180 100 180 C66 180 38 160 38 122 C38 92 58 26 100 26 Z';
 
-const EGG_STYLE: Record<Species, { fill: string; pattern: (clip: string) => ReactNode }> = {
-  cat: {
-    fill: '#ffe08a',
-    pattern: () => (
-      <>
-        {star(76, 84, 10, '#ffa94d', 'a')}
-        {star(124, 112, 13, '#ffa94d', 'b')}
-        {star(84, 146, 8, '#ffa94d', 'c')}
-        {star(132, 62, 7, '#ffa94d', 'd')}
-      </>
-    ),
-  },
-  penguin: {
-    fill: '#7cc6ff',
-    pattern: (clip) => (
-      <g clipPath={`url(#${clip})`} fill="none" stroke="#fffdf5" strokeWidth="9" strokeLinecap="round">
-        <path d="M30 96 Q50 84 70 96 T110 96 T150 96 T190 96" />
-        <path d="M30 136 Q50 124 70 136 T110 136 T150 136 T190 136" />
+const EGG_STYLE: Record<Species, { fill: string; pattern: ReactNode }> = {
+  tiger: {
+    fill: '#f7a23e',
+    pattern: (
+      <g stroke="#e0781f" strokeWidth="9" strokeLinecap="round" fill="none">
+        <path d="M40 92 L70 100" />
+        <path d="M40 130 L66 134" />
+        <path d="M160 92 L130 100" />
+        <path d="M160 130 L134 134" />
+        <path d="M88 30 L94 54" />
+        <path d="M112 30 L106 54" />
       </g>
     ),
   },
-  dino: {
-    fill: '#b8f25c',
-    pattern: () => (
-      <g fill="#4fb83a" stroke={INK} strokeWidth="3" strokeLinejoin="round">
-        <path d="M70 80 Q86 66 96 84 Q80 96 70 80 Z" />
-        <path d="M112 118 Q132 102 142 124 Q122 136 112 118 Z" />
-        <path d="M74 140 Q88 128 98 144 Q84 154 74 140 Z" />
+  cat: {
+    fill: '#ffffff',
+    pattern: (
+      <>
+        <ellipse cx="72" cy="70" rx="30" ry="26" fill="#a3a3ab" />
+        <ellipse cx="132" cy="138" rx="22" ry="18" fill="#f6a35a" />
+        <ellipse cx="78" cy="150" rx="12" ry="10" fill="#a3a3ab" />
+      </>
+    ),
+  },
+  bunny: {
+    fill: '#ffdfe2',
+    pattern: (
+      <g fill="#ffadbb" stroke={INK} strokeWidth="3" strokeLinejoin="round">
+        {[
+          [78, 82, 1],
+          [124, 118, 1.3],
+          [86, 148, 0.9],
+        ].map(([x, y, s]) => (
+          <path
+            key={x}
+            transform={`translate(${x} ${y}) scale(${s})`}
+            d="M0 10 C-14 0 -12 -10 -5 -10 C-2 -10 0 -7 0 -5 C0 -7 2 -10 5 -10 C12 -10 14 0 0 10 Z"
+          />
+        ))}
+      </g>
+    ),
+  },
+  hedgehog: {
+    fill: '#fdeed8',
+    pattern: (
+      <path
+        fill="#94603d"
+        d="M30 112 L44 92 L52 106 L62 80 L72 98 L84 70 L94 92 L104 64 L112 90 L124 70 L132 96 L144 80 L150 104 L162 96 L170 40 L30 40 Z"
+      />
+    ),
+  },
+  cheese: {
+    fill: '#fcd39e',
+    pattern: (
+      <g stroke="#f0a95e" strokeWidth="10" strokeLinecap="round" fill="none">
+        <path d="M60 70 Q100 82 140 70" />
+        <path d="M44 112 Q100 126 156 112" />
+        <path d="M52 150 Q100 162 148 150" />
       </g>
     ),
   },
@@ -371,8 +618,8 @@ const CRACKS = [
 ];
 
 export function EggSprite({ species, cracks = 0, size = 200, className }: { species: Species; cracks?: 0 | 1 | 2 | 3; size?: number; className?: string }) {
-  const s = EGG_STYLE[species];
-  const clip = `egg-clip-${species}`;
+  const s = EGG_STYLE[species] ?? EGG_STYLE.cat;
+  const clip = `egg-clip-${useId().replace(/:/g, '')}`;
   return (
     <svg viewBox="0 0 200 200" width={size} height={size} className={className} role="img" aria-label="알">
       <defs>
@@ -382,7 +629,7 @@ export function EggSprite({ species, cracks = 0, size = 200, className }: { spec
       </defs>
       <ellipse cx="100" cy="186" rx="52" ry="8" fill={INK} opacity="0.15" />
       <path d={EGG_PATH} fill={s.fill} />
-      {s.pattern(clip)}
+      <g clipPath={`url(#${clip})`}>{s.pattern}</g>
       <path d={EGG_PATH} fill="none" stroke={INK} strokeWidth={STROKE} />
       <ellipse cx="74" cy="60" rx="9" ry="14" fill="#fff" opacity="0.6" transform="rotate(25 74 60)" />
       {CRACKS.slice(0, cracks).map((d) => (

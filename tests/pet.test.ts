@@ -4,6 +4,7 @@ import {
   applyDecay,
   CARE_XP_DAILY_CAP,
   checkEvolution,
+  growthProgress,
   checkName,
   chooseEgg,
   cooldownLeft,
@@ -120,33 +121,33 @@ describe('친밀도 레벨', () => {
   });
 });
 
-describe('성장', () => {
-  it('어린이: XP 120 + 공부한 날 3일 모두 필요', () => {
-    expect(checkEvolution(hatched({ growthXp: 200 }), 2, 10, NOW).evolvedTo).toBeNull();
-    expect(checkEvolution(hatched({ growthXp: 119 }), 5, 10, NOW).evolvedTo).toBeNull();
-    const r = checkEvolution(hatched({ growthXp: 120 }), 3, 4, NOW);
+describe('성장 (친밀도 레벨로 진화)', () => {
+  it('친밀도 Lv3이 되면 어린이로 진화한다', () => {
+    expect(checkEvolution(hatched({ affection: 24 }), NOW).evolvedTo).toBeNull();
+    const r = checkEvolution(hatched({ affection: 25 }), NOW);
     expect(r.evolvedTo).toBe('child');
     expect(r.pet.evolutionCards.map((c) => c.stage)).toEqual(['baby', 'child']);
   });
 
-  it('다 자람: XP 400 + 7일 + 탐험 15회', () => {
-    const child = hatched({ stage: 'child', growthXp: 500 });
-    expect(checkEvolution(child, 7, 14, NOW).evolvedTo).toBeNull();
-    expect(checkEvolution(child, 7, 15, NOW).evolvedTo).toBe('adult');
-    expect(checkEvolution({ ...child, stage: 'adult' }, 99, 99, NOW).evolvedTo).toBeNull();
+  it('친밀도 Lv6이 되면 다 자란다', () => {
+    const child = hatched({ stage: 'child', affection: 99 });
+    expect(checkEvolution(child, NOW).evolvedTo).toBeNull();
+    expect(checkEvolution({ ...child, affection: 100 }, NOW).evolvedTo).toBe('adult');
+    expect(checkEvolution({ ...child, stage: 'adult', affection: 9999 }, NOW).evolvedTo).toBeNull();
   });
 
-  it('돌봄만으로는 자랄 수 없다 (공부한 날 조건)', () => {
-    let p = hatched();
-    for (let day = 0; day < 60; day++) {
-      for (const action of ['feed', 'pet', 'wash', 'sleep'] as const) {
-        const r = doCare(wake(p), action, NOW + day * DAY + 5 * HOUR);
-        if (r.ok) p = r.pet;
-      }
-    }
-    expect(p.growthXp).toBeGreaterThan(120);
-    expect(checkEvolution(p, 0, 0, NOW + 60 * DAY).evolvedTo).toBeNull();
+  it('레벨이 한 번에 많이 오르면 두 단계를 함께 자란다', () => {
+    const r = checkEvolution(hatched({ affection: 150 }), NOW);
+    expect(r.evolvedTo).toBe('adult');
+    expect(r.pet.evolutionCards.map((c) => c.stage)).toEqual(['baby', 'child', 'adult']);
   });
+
+  it('다음 진화까지 남은 레벨', () => {
+    expect(growthProgress(hatched({ affection: 10 }))).toEqual({ next: 'child', level: { have: 2, need: 3 } });
+    expect(growthProgress(hatched({ stage: 'child', affection: 45 }))).toEqual({ next: 'adult', level: { have: 4, need: 6 } });
+    expect(growthProgress(hatched({ stage: 'adult' })).next).toBeNull();
+  });
+
 
   it('오답이 많아도 탐험 한 번의 XP는 비슷하다 (정답률 50% vs 100%)', () => {
     const xpFor = (pattern: boolean[]) =>

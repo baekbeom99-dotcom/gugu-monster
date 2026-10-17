@@ -27,7 +27,7 @@ export function OnboardingScreen() {
         <p className="onboarding__lead">구구단을 풀어 몬스터를 잡고, 나만의 펫을 키워요!</p>
         <div className="egg-trio" aria-hidden>
           {SPECIES.map((s, i) => (
-            <EggSprite key={s} species={s} size={96} className={`egg-wobble egg-wobble--${i}`} />
+            <EggSprite key={s} species={s} size={68} className={`egg-wobble egg-wobble--${i % 3}`} />
           ))}
         </div>
         <button
@@ -60,7 +60,7 @@ export function OnboardingScreen() {
               }}
               aria-pressed={picked === s}
             >
-              <EggSprite species={s} size={84} className={picked === s ? 'egg-wobble' : ''} />
+              <EggSprite species={s} size={64} className={picked === s ? 'egg-wobble' : ''} />
               <span className="egg-choice__text">
                 <strong>{SPECIES_INFO[s].egg}</strong>
                 <span>{picked === s ? SPECIES_INFO[s].desc : '어떤 친구가 나올까?'}</span>
