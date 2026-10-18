@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { BASE_DANS, factsOfDan } from '../src/domain/facts';
 import { DAY_MS } from '../src/domain/mastery';
+import { createInitialSave, mergeSave } from '../src/store/saveData';
 import {
   type AnswerInput,
   BOOST_COUNT,
+  challengeEligible,
   DAN_TRIAL_MASTER_MS,
   finishDanTrial,
   finishExploration,
   initialEconomy,
   initialLearning,
   recordAnswer,
+  repairChallengeUnlock,
 } from '../src/domain/progress';
 
 const NOW = new Date(2026, 9, 15, 10).getTime();
@@ -151,5 +154,36 @@ describe('단 도전 기록', () => {
     expect(l.boosted['7x8']).toBe(BOOST_COUNT);
     for (let i = 0; i < BOOST_COUNT; i++) l = recordAnswer(l, initialEconomy(), input({ correct: true })).learning;
     expect(l.boosted['7x8']).toBeUndefined();
+  });
+});
+
+describe('12·13단 도전 모드 열기', () => {
+  const trials = (dans: readonly number[]) =>
+    Object.fromEntries(dans.map((d) => [d, { bestMs: 30_000, plays: 1, master: true, masteredAt: '2026-10-15' }]));
+
+  it('2~9단 단 도전 MASTER를 모두 받으면 탐험을 마칠 때 열린다', () => {
+    const learning = { ...initialLearning(), danTrials: trials(BASE_DANS) };
+    const r = finishExploration(learning, initialEconomy(), { completed: true, now: NOW });
+    expect(r.challengeJustUnlocked).toBe(true);
+    expect(r.learning.challengeUnlocked).toBe(true);
+  });
+
+  it('MASTER가 하나라도 빠지면 열리지 않는다', () => {
+    const learning = { ...initialLearning(), danTrials: trials(BASE_DANS.filter((d) => d !== 9)) };
+    expect(challengeEligible(learning)).toBe(false);
+    expect(finishExploration(learning, initialEconomy(), { completed: true, now: NOW }).challengeJustUnlocked).toBe(false);
+  });
+
+  it('예전 저장 데이터: 조건을 채웠는데 닫혀 있으면 불러올 때 열고, 다른 기록은 그대로 둔다', () => {
+    const old = { ...initialLearning(), masteredDans: [...BASE_DANS], totalExplorations: 42, studyDays: ['2026-10-01'] };
+    const fixed = repairChallengeUnlock(old);
+    expect(fixed).toMatchObject({ challengeUnlocked: true, challengeUnlockedBy: 'mastery', totalExplorations: 42, studyDays: ['2026-10-01'] });
+    expect(fixed.facts).toBe(old.facts);
+    const merged = mergeSave(createInitialSave(NOW), { learning: { ...old, danTrials: {} }, economy: { stars: 77 } });
+    expect(merged.learning.challengeUnlocked).toBe(true);
+    expect(merged.learning.totalExplorations).toBe(42);
+    expect(merged.economy.stars).toBe(77);
+    // 조건을 못 채웠으면 그대로
+    expect(repairChallengeUnlock(initialLearning()).challengeUnlocked).toBe(false);
   });
 });

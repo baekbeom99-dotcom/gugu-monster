@@ -64,7 +64,7 @@ export function ExploreScreen() {
           </h2>
           <div className="dan-grid">{BASE_DANS.map((d) => danButton(d, false))}</div>
           <h2 className="explore__heading">
-            도전 탐험 <span className="explore__hint">{learning.challengeUnlocked ? '황금 몬스터 출현!' : '2~9단을 모두 마스터하면 열려요'}</span>
+            도전 탐험 <span className="explore__hint">{learning.challengeUnlocked ? '황금 몬스터 출현!' : '2~9단 모두 마스터 배지나 MASTER를 받으면 열려요'}</span>
           </h2>
           <div className="dan-grid dan-grid--challenge">{CHALLENGE_DANS.map((d) => danButton(d, !learning.challengeUnlocked))}</div>
         </>

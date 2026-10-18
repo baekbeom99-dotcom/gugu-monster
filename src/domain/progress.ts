@@ -1,6 +1,6 @@
 /** 답·포획·탐험 종료를 학습 기록과 별에 반영하는 순수 함수들 */
 import { localDateString } from './dates';
-import { type Dan, type FactId, getFact, isChallengeDan } from './facts';
+import { BASE_DANS, type Dan, type FactId, getFact, isChallengeDan } from './facts';
 import { GROWTH_XP, STAR_REWARDS, isOvercome, type RewardLine } from './economy';
 import {
   applyAnswer,
@@ -218,6 +218,20 @@ export function finishDanTrial(
   };
 }
 
+/**
+ * 12·13단 도전 모드를 열 수 있는가: 2~9단을 모두 '단 마스터'(숙련도 배지)로 받았거나,
+ * 2~9단 단 도전에서 모두 MASTER(오답 0개 + 33초 안)를 받았다.
+ */
+export function challengeEligible(learning: Pick<LearningData, 'masteredDans' | 'danTrials'>): boolean {
+  return isChallengeEligible(learning.masteredDans ?? []) || BASE_DANS.every((d) => learning.danTrials?.[d]?.master);
+}
+
+/** 조건을 이미 채웠는데 닫혀 있으면 연다 (예전 저장 데이터 고치기). 그 밖의 기록은 그대로 둔다. */
+export function repairChallengeUnlock(learning: LearningData): LearningData {
+  if (learning.challengeUnlocked || !challengeEligible(learning)) return learning;
+  return { ...learning, challengeUnlocked: true, challengeUnlockedBy: 'mastery' };
+}
+
 function bumpDaily(days: LearningData['dailyAttempts'], today: string, correct: boolean): LearningData['dailyAttempts'] {
   const last = days[days.length - 1];
   const add = correct ? 1 : 0;
@@ -270,7 +284,7 @@ export function finishExploration(
     });
   }
   const masteredDans = [...learning.masteredDans, ...newlyMastered];
-  const challengeJustUnlocked = !learning.challengeUnlocked && isChallengeEligible(masteredDans);
+  const challengeJustUnlocked = !learning.challengeUnlocked && challengeEligible({ masteredDans, danTrials: learning.danTrials });
 
   nextEconomy = addStars(nextEconomy, bonuses.reduce((sum, b) => sum + b.stars, 0));
 

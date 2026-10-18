@@ -4,7 +4,7 @@ import { type AdminData, initialAdmin } from '../domain/admin';
 import type { DexEntry } from '../domain/dex';
 import { initialPet, normalizeSpecies, type PetData } from '../domain/pet';
 import type { CatalogData } from '../domain/shop';
-import { type EconomyData, initialEconomy, initialLearning, type LearningData } from '../domain/progress';
+import { type EconomyData, initialEconomy, initialLearning, type LearningData, repairChallengeUnlock } from '../domain/progress';
 
 export const SCHEMA_VERSION = 1;
 export const SAVE_KEY = 'gugu-monster:save';
@@ -59,12 +59,13 @@ export function mergeSave(initial: SaveData, persisted: unknown): SaveData {
     ...p,
     schemaVersion: SCHEMA_VERSION,
     settings: { ...initial.settings, ...p.settings },
-    learning: {
+    // 조건을 채웠는데 닫혀 있던 12·13단 도전 모드는 불러올 때 연다
+    learning: repairChallengeUnlock({
       ...initial.learning,
       ...p.learning,
       facts: { ...initial.learning.facts, ...p.learning?.facts },
       typeStats: { ...initial.learning.typeStats, ...p.learning?.typeStats },
-    },
+    }),
     economy: { ...initial.economy, ...p.economy },
     // 예전 펫 종류(펭귄·공룡)는 새 종류로 이어받는다
     pet: { ...initial.pet, ...p.pet, species: p.pet?.species ? normalizeSpecies(p.pet.species) : initial.pet.species },
