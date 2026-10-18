@@ -155,3 +155,26 @@ export function restoreDefaults(catalog: CatalogData, defaults: CatalogData, cat
     .map((i) => (inScope(i) && i.source === 'custom' ? { ...i, onSale: false } : i));
   return bump(catalog, [...kept, ...restored]);
 }
+
+/**
+ * 새 버전에서 늘어난 기본·보상 아이템을 저장된 상점에 더한다.
+ * 이미 있는 아이템(관리자가 바꾼 가격·이름·판매 중지·순서, 직접 추가한 아이템)은 그대로 둔다.
+ * 새 아이템은 같은 종류의 맨 뒤에 붙는다. 더할 것이 없으면 원래 객체를 그대로 돌려준다.
+ */
+export function addMissingDefaults(catalog: CatalogData, defaults: CatalogData): CatalogData {
+  const have = new Set(catalog.items.map((i) => i.id));
+  const missing = defaults.items.filter((i) => !have.has(i.id));
+  if (missing.length === 0) return catalog;
+  const lastOrder = new Map<ItemCategory, number>();
+  for (const i of catalog.items) {
+    if (i.source === 'reward') continue;
+    lastOrder.set(i.category, Math.max(lastOrder.get(i.category) ?? 0, i.order));
+  }
+  const added = missing.map((i) => {
+    if (i.source === 'reward') return i;
+    const order = (lastOrder.get(i.category) ?? 0) + 1;
+    lastOrder.set(i.category, order);
+    return { ...i, order };
+  });
+  return bump(catalog, [...catalog.items, ...added]);
+}

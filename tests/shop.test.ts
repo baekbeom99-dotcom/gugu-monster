@@ -23,11 +23,11 @@ const rich = (stars = 100): EconomyData => ({ ...initialEconomy(), stars });
 const pet = (over: Partial<PetData> = {}): PetData => ({ ...hatch(chooseEgg(initialPet(NOW), 'tiger'), '룡이', NOW), ...over });
 
 describe('기본 카탈로그', () => {
-  it('설계서 5-3: 먹이 5, 위생 2, 장난감 3, 모자 5 + 마스터 모자 10 (비매품)', () => {
-    expect(shopItems(catalog, 'food')).toHaveLength(5);
-    expect(shopItems(catalog, 'hygiene')).toHaveLength(2);
-    expect(shopItems(catalog, 'toy')).toHaveLength(3);
-    expect(shopItems(catalog, 'hat')).toHaveLength(5);
+  it('설계서 5-3 (v1.14): 먹이 15, 위생 10, 장난감 15, 모자 13 + 마스터 모자 10 (비매품)', () => {
+    expect(shopItems(catalog, 'food')).toHaveLength(15);
+    expect(shopItems(catalog, 'hygiene')).toHaveLength(10);
+    expect(shopItems(catalog, 'toy')).toHaveLength(15);
+    expect(shopItems(catalog, 'hat')).toHaveLength(13);
     expect(catalog.items.filter((i) => i.source === 'reward')).toHaveLength(10);
   });
 

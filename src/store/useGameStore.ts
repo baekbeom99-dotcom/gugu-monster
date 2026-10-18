@@ -3,7 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { defaultCatalog } from '../data/defaultCatalog';
 import type { Dan } from '../domain/facts';
 import type { AdminData } from '../domain/admin';
-import { deleteItem, moveItem, restoreDefaults, setOnSale, upsertItem } from '../domain/catalogRules';
+import { addMissingDefaults, deleteItem, moveItem, restoreDefaults, setOnSale, upsertItem } from '../domain/catalogRules';
 import { canGraduate, type DexEntry, lifeSnapshot, sendToDex, type SwapResult, swapWithDex } from '../domain/dex';
 import { STAR_REWARDS } from '../domain/economy';
 import {
@@ -219,7 +219,8 @@ export const useGameStore = create<GameStore>()(
       moveCatalogItem: (id, dir) => set((s) => ({ catalog: moveItem(s.catalog, id, dir) })),
       deleteCatalogItem: (id) => set((s) => ({ catalog: deleteItem(s.catalog, s.economy, id) })),
       restoreCatalog: (category) => set((s) => ({ catalog: restoreDefaults(s.catalog, defaultCatalog(), category) })),
-      replaceCatalog: (catalog) => set({ catalog }),
+      // 예전 버전에서 만든 공유 코드여도 새 기본 아이템은 빠지지 않게
+      replaceCatalog: (catalog) => set({ catalog: addMissingDefaults(catalog, defaultCatalog()) }),
       setChallengeByAdmin: (unlocked) =>
         set((s) => {
           if (s.learning.challengeUnlockedBy === 'mastery') return {};
