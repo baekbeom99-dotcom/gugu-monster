@@ -77,6 +77,12 @@ export function defaultCatalog(): CatalogData {
     hat('hat_party_gold', '황금 고깔', 120, 'party', '#ffcf3a', 11),
     hat('hat_wizard_night', '밤하늘 마법사 모자', 180, 'wizard', '#748ffc', 12),
     hat('hat_crown_jewel', '보석 왕관', 300, 'crown', '#c9b6ff', 13),
+    hat('hat_helmet', '용사 투구', 140, 'helmet', '#748ffc', 14),
+    hat('hat_pirate', '해적 선장 모자', 160, 'pirate', '#343a40', 15),
+    hat('hat_viking', '바이킹 투구', 150, 'viking', '#868e96', 16),
+    hat('hat_dino', '공룡 후드', 130, 'dino', '#51cf66', 17),
+    hat('hat_headset', '게이밍 헤드셋', 140, 'headset', '#4dabf7', 18),
+    hat('hat_aviator', '파일럿 비행모', 130, 'aviator', '#9c6644', 19),
     // 마스터 보상 모자 (비매품)
     ...ALL_DANS.map(
       (dan, i): ItemDef => ({

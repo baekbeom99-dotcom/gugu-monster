@@ -14,9 +14,9 @@ export const LIMITS = {
 } as const;
 
 /** 관리자가 고를 수 있는 모자 모양 8종 (마스터 모자 모양 'cap'은 보상 전용) */
-export const EDITABLE_HAT_SHAPES: readonly HatShape[] = ['ribbon', 'straw', 'party', 'wizard', 'crown', 'beret', 'headband', 'flower'];
+export const EDITABLE_HAT_SHAPES: readonly HatShape[] = ['ribbon', 'straw', 'party', 'wizard', 'crown', 'beret', 'headband', 'flower', 'helmet', 'pirate', 'viking', 'dino', 'headset', 'aviator'];
 export const HAT_SHAPE_LABELS: Record<HatShape, string> = {
-  ribbon: '리본', straw: '밀짚모자', party: '고깔', wizard: '마법사', crown: '왕관', beret: '베레모', headband: '헤어밴드', flower: '꽃', cap: '마스터 모자',
+  ribbon: '리본', straw: '밀짚모자', party: '고깔', wizard: '마법사', crown: '왕관', beret: '베레모', headband: '헤어밴드', flower: '꽃', cap: '마스터 모자', helmet: '용사 투구', pirate: '해적 선장', viking: '바이킹 투구', dino: '공룡 후드', headset: '헤드셋', aviator: '파일럿 모자',
 };
 export const HAT_COLORS: readonly string[] = ['#ff8fc1', '#ffe14d', '#6fd3ff', '#b8f25c', '#ffa94d', '#c9b6ff', '#ff6b6b', '#fffdf5'];
 

@@ -5,7 +5,22 @@ import type { EconomyData } from './progress';
 
 export type ItemId = string;
 export type ItemCategory = 'food' | 'hygiene' | 'toy' | 'hat';
-export type HatShape = 'ribbon' | 'straw' | 'party' | 'wizard' | 'crown' | 'beret' | 'headband' | 'flower' | 'cap';
+export type HatShape =
+  | 'ribbon'
+  | 'straw'
+  | 'party'
+  | 'wizard'
+  | 'crown'
+  | 'beret'
+  | 'headband'
+  | 'flower'
+  | 'cap'
+  | 'helmet'
+  | 'pirate'
+  | 'viking'
+  | 'dino'
+  | 'headset'
+  | 'aviator';
 export type ItemEffects = Partial<Record<StatKey | 'affection', number>>;
 
 export interface ItemDef {

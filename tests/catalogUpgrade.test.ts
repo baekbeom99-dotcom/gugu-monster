@@ -76,7 +76,7 @@ describe('저장된 상점에 새 아이템 더하기', () => {
     expect(merged.pet).toMatchObject({ species: 'fox', name: '여리', equippedHat: 'hat_ribbon' });
     expect(shopItems(merged.catalog, 'food')).toHaveLength(15);
     expect(shopItems(merged.catalog, 'toy')).toHaveLength(15);
-    expect(shopItems(merged.catalog, 'hat')).toHaveLength(13);
+    expect(shopItems(merged.catalog, 'hat')).toHaveLength(19);
   });
 });
 

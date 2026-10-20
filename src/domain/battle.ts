@@ -22,7 +22,7 @@ export const TRIAL_RULES: BattleRules = { hp: [4, 4, 3], attemptLimit: null, ret
 export const CRITICAL_MS = 3000;
 export const COMBO_STEP = 3;
 
-export const MONSTER_KINDS = ['jelly', 'cloud', 'mushroom', 'pebble', 'ghost', 'fluff'] as const;
+export const MONSTER_KINDS = ['horn', 'jelly', 'antenna', 'mushroom', 'cloud', 'fluff', 'pebble', 'ghost'] as const;
 export type MonsterKind = (typeof MONSTER_KINDS)[number];
 
 export interface MonsterSlot {

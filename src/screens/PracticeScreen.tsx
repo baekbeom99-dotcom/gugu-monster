@@ -2,12 +2,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { DAN_COLORS } from '../art/colors';
-import { MONSTER_NAMES, MonsterSprite, type MonsterMood } from '../art/MonsterSprite';
+import { MonsterSprite, type MonsterMood } from '../art/MonsterSprite';
 import { playSfx } from '../audio/sfx';
 import { ArithHintPanel } from '../components/ArithHintPanel';
 import { ChoiceGrid, Keypad } from '../components/AnswerInput';
 import { Buddy, type BuddyMood } from '../components/Buddy';
 import { Confetti } from '../components/Confetti';
+import { HitBurst, monsterScale } from '../components/HitBurst';
 import { QuestionView } from '../components/QuestionView';
 import { line } from '../data/dialogues';
 import { ARITH_INFO, ARITH_KINDS, type ArithKind } from '../domain/arith';
@@ -184,7 +185,9 @@ function PracticeSession({ kind, onAgain }: { kind: ArithKind; onAgain: () => vo
   const shown = battle.monsters[shownIndex];
   const mood: MonsterMood =
     anim?.type === 'hit' ? 'hit' : anim?.type === 'capture' ? 'happy' : shown.status === 'sleeping' ? 'sleep' : 'idle';
-  const hp = anim?.type === 'capture' ? 0 : shown.hp;
+  // 맞히는 순간 체력이 줄고(잡으면 0) 몬스터도 그만큼 작아진다
+  const hp = anim?.type === 'capture' ? 0 : anim?.type === 'hit' ? Math.max(0, shown.hp - 1) : shown.hp;
+  const struck = anim && anim.type !== 'dodge';
   const inHint = battle.phase === 'hint';
 
   return (
@@ -206,22 +209,25 @@ function PracticeSession({ kind, onAgain }: { kind: ArithKind; onAgain: () => vo
         </div>
       </header>
 
-      <section className={`battle__stage ${inHint ? 'battle__stage--hint' : ''}`}>
+      <section className={`battle__stage ${inHint ? 'battle__stage--hint' : ''} ${struck ? 'battle__stage--shake' : ''}`}>
         {inHint && question ? (
           <ArithHintPanel question={question} />
         ) : (
           <>
             <span className="stage-tag">
-              {ARITH_INFO[kind].title} · {MONSTER_NAMES[shown.kind]}
+              {ARITH_INFO[kind].title}
             </span>
             <div className="hp" aria-label={`몬스터 체력 ${hp}`}>
               {Array.from({ length: 3 }, (_, i) => (
                 <span key={i} className={i < hp ? 'hp__cell' : 'hp__cell hp__cell--empty'} />
               ))}
             </div>
-            <div key={`${shownIndex}-${anim?.type ?? 'idle'}`} className={`monster monster--${anim?.type ?? 'idle'}`}>
-              <MonsterSprite kind={shown.kind} color={DAN_COLORS[shown.dan]} golden={false} mood={mood} size={190} />
+            <div className="monster-scale" style={{ transform: `scale(${monsterScale(hp, 3)})` }}>
+              <div key={`${shownIndex}-${anim?.type ?? 'idle'}`} className={`monster monster--${anim?.type ?? 'idle'} ${anim?.critical ? 'monster--critical' : ''}`}>
+                <MonsterSprite kind={shown.kind} color={DAN_COLORS[shown.dan]} golden={false} mood={mood} size={260} />
+              </div>
             </div>
+            {struck && <HitBurst key={`burst-${battle.attempts}`} seed={battle.attempts} strong={anim.critical} capture={anim.type === 'capture'} />}
             {anim && anim.stars > 0 && <div className="float-stars">+{anim.stars} ★</div>}
             {anim?.critical && <div className="critical">크리티컬!</div>}
             {battle.combo >= 3 && !anim && <div className="combo">{battle.combo} 콤보!</div>}

@@ -27,7 +27,7 @@ describe('기본 카탈로그', () => {
     expect(shopItems(catalog, 'food')).toHaveLength(15);
     expect(shopItems(catalog, 'hygiene')).toHaveLength(10);
     expect(shopItems(catalog, 'toy')).toHaveLength(15);
-    expect(shopItems(catalog, 'hat')).toHaveLength(13);
+    expect(shopItems(catalog, 'hat')).toHaveLength(19);
     expect(catalog.items.filter((i) => i.source === 'reward')).toHaveLength(10);
   });
 

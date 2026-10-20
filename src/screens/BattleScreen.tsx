@@ -8,6 +8,7 @@ import { ChoiceGrid, Keypad } from '../components/AnswerInput';
 import { Buddy, type BuddyMood } from '../components/Buddy';
 import { ArithHintPanel } from '../components/ArithHintPanel';
 import { HintPanel } from '../components/HintPanel';
+import { HitBurst, monsterScale } from '../components/HitBurst';
 import { QuestionView } from '../components/QuestionView';
 import { line } from '../data/dialogues';
 import {
@@ -288,7 +289,9 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
   const shown = battle.monsters[shownIndex];
   const mood: MonsterMood =
     anim?.type === 'hit' ? 'hit' : anim?.type === 'capture' ? 'happy' : shown.status === 'sleeping' ? 'sleep' : 'idle';
-  const hp = anim?.type === 'capture' ? 0 : shown.hp;
+  // 맞히는 순간 체력이 줄고(잡으면 0) 몬스터도 그만큼 작아진다
+  const hp = anim?.type === 'capture' ? 0 : anim?.type === 'hit' ? Math.max(0, shown.hp - 1) : shown.hp;
+  const struck = anim && anim.type !== 'dodge';
   const inHint = battle.phase === 'hint';
   // 지금까지 잰 시간 + 지금 기다리는 중인 시간
   const waitingSince = inHint ? hintAt.current : !anim && battle.phase === 'question' ? shownAt.current : null;
@@ -323,7 +326,9 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
         </div>
       </header>
 
-      <section className={`battle__stage ${inHint ? 'battle__stage--hint' : ''} ${shown.golden && !inHint ? 'battle__stage--golden' : ''}`}>
+      <section
+        className={`battle__stage ${inHint ? 'battle__stage--hint' : ''} ${shown.golden && !inHint ? 'battle__stage--golden' : ''} ${struck ? 'battle__stage--shake' : ''}`}
+      >
         {inHint && arithItem ? (
           <ArithHintPanel question={arithItem.arith} />
         ) : inHint && fact && factItem ? (
@@ -336,9 +341,12 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
                 <span key={i} className={i < hp ? 'hp__cell' : 'hp__cell hp__cell--empty'} />
               ))}
             </div>
-            <div key={`${shownIndex}-${anim?.type ?? 'idle'}`} className={`monster monster--${anim?.type ?? 'idle'}`}>
-              <MonsterSprite kind={shown.kind} color={DAN_COLORS[shown.dan]} golden={shown.golden} mood={mood} size={190} />
+            <div className="monster-scale" style={{ transform: `scale(${monsterScale(hp, battle.rules.hp[shownIndex])})` }}>
+              <div key={`${shownIndex}-${anim?.type ?? 'idle'}`} className={`monster monster--${anim?.type ?? 'idle'} ${anim?.critical ? 'monster--critical' : ''}`}>
+                <MonsterSprite kind={shown.kind} color={DAN_COLORS[shown.dan]} golden={shown.golden} mood={mood} size={260} />
+              </div>
             </div>
+            {struck && <HitBurst key={`burst-${battle.attempts}`} seed={battle.attempts} strong={anim.critical} capture={anim.type === 'capture'} />}
             {anim && anim.stars > 0 && <div className="float-stars">+{anim.stars} ★</div>}
             {anim?.critical && <div className="critical">크리티컬!</div>}
             {battle.combo >= 3 && !anim && <div className="combo">{battle.combo} 콤보!</div>}
