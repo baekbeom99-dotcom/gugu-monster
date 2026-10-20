@@ -9,6 +9,7 @@ import {
   summarize,
 } from '../domain/records';
 import { PetSprite } from '../art/PetSprite';
+import { ARITH_INFO, ARITH_KINDS } from '../domain/arith';
 import { josa } from '../domain/korean';
 import { STAGE_LABELS } from '../domain/pet';
 import { useGameStore } from '../store/useGameStore';
@@ -33,6 +34,7 @@ const factLabel = (id: FactId) => {
 export function RecordsScreen() {
   const learning = useGameStore((s) => s.learning);
   const pet = useGameStore((s) => s.pet);
+  const practice = useGameStore((s) => s.practice);
   const summary = useMemo(() => summarize(learning, Date.now()), [learning]);
   const progress = useMemo(() => danProgress(learning), [learning]);
   const [selected, setSelected] = useState<FactId | null>(null);
@@ -148,6 +150,37 @@ export function RecordsScreen() {
               )}
             </li>
           ))}
+        </ul>
+      </div>
+
+      <div className="neo-card panel">
+        <h2 className="panel__title">셈 연습</h2>
+        <p className="panel__hint">덧셈·뺄셈·보수 기록은 구구단 지도와 따로 모여요</p>
+        <ul className="type-rates type-rates--practice">
+          {ARITH_KINDS.map((kind) => {
+            const rec = practice[kind];
+            const rate = rec && rec.attempts > 0 ? rec.correct / rec.attempts : null;
+            return (
+              <li key={kind}>
+                <span className="type-rates__label">
+                  {ARITH_INFO[kind].title}
+                  {rec?.bestMs != null && <small> ⏱ {(rec.bestMs / 1000).toFixed(1)}초</small>}
+                </span>
+                {rate === null ? (
+                  <span className="type-rates__empty">아직 없어요</span>
+                ) : (
+                  <>
+                    <span className="bar" aria-hidden>
+                      <span className="bar__fill" style={{ width: `${Math.round(rate * 100)}%` }} />
+                    </span>
+                    <span className="type-rates__value">
+                      {Math.round(rate * 100)}%<small> ({rec!.correct}/{rec!.attempts})</small>
+                    </span>
+                  </>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
 

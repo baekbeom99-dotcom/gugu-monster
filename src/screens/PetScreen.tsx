@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hatArtOf } from '../art/HatSprite';
 import { EggSprite, type PetExpression, PetSprite } from '../art/PetSprite';
+import { PoopSprite } from '../art/PoopSprite';
 import { Confetti } from '../components/Confetti';
 import { GraduationOverlay } from '../components/GraduationOverlay';
 import { PlayEffect } from '../components/PlayEffect';
@@ -27,6 +28,7 @@ import {
   neediest,
   type Species,
   type Stage,
+  type SickCause,
   STAGE_LABELS,
   type StatKey,
 } from '../domain/pet';
@@ -93,6 +95,16 @@ const COOLDOWN_LINES: Record<CareAction, string> = {
   sleep: '아직 졸리지 않아!',
 };
 const ACTION_EXPRESSION: Record<CareAction, PetExpression> = { feed: 'eat', pet: 'happy', walk: 'happy', wash: 'happy', sleep: 'sleep' };
+/** 아플 때·똥이 있을 때 하는 말 (치료하거나 치울 때까지 계속) */
+const SICK_LINES: Record<SickCause, string> = {
+  food: '배가 아파… 상한 걸 먹었나 봐. 주사 맞혀 줄래?',
+  neglect: '혼자 있어서 몸이 아파졌어… 주사 맞혀 줄래?',
+  exploration: '탐험하다 감기에 걸렸나 봐… 주사 맞혀 줄래?',
+};
+const POOP_LINE = '으으, 냄새! 똥 좀 치워 줘! 흥!';
+const POISONED_LINE = '으윽… 배가 아파! 상한 걸 먹었나 봐. 주사를 맞혀 줘!';
+/** 똥이 놓이는 자리 (방 바닥) */
+const POOP_SPOTS = ['poop--a', 'poop--b', 'poop--c'];
 
 /** 30초마다 현재 시각을 갱신 (대기 시간·상태 감소 표시) */
 function useNow(intervalMs = 30_000): number {
@@ -128,6 +140,8 @@ export function PetScreen() {
     play?: { style: PlayStyle; glyph: string };
   } | null>(null);
   const [line, setLine] = useState<string | null>(null);
+  /** 청소(빗자루)·주사 연출 */
+  const [fx, setFx] = useState<{ kind: 'clean' | 'shot'; at: number } | null>(null);
   const [evolution, setEvolution] = useState<Stage | null>(session.pendingEvolution);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -174,9 +188,14 @@ export function PetScreen() {
   const acting = action && Date.now() - action.at < (action.play ? PLAY_MS : 1600) ? action.key : null;
   const play = acting ? action?.play : undefined;
   const need = neediest(pet);
+  const poops = pet.poops ?? 0;
+  // 아프면 주사를 맞을 때까지 아픈 표정, 똥이 있으면 치울 때까지 화난 표정을 계속한다
+  const troubleFace: PetExpression | null = pet.sick ? 'sick' : poops > 0 ? 'angry' : null;
   const expression: PetExpression = sleeping
     ? 'sleep'
-    : acting
+    : troubleFace
+      ? troubleFace
+      : acting
       ? action?.special || action?.reaction === 'dance' || action?.reaction === 'highfive' || (play && play.style !== 'pat')
         ? 'excited'
         : ACTION_EXPRESSION[acting]
@@ -187,11 +206,15 @@ export function PetScreen() {
           : 'idle';
   const speech =
     line ??
-    (session.welcomeBack
-      ? `보고 싶었어! 다시 와 줘서 고마워!`
-      : sleeping
-        ? '쿨쿨… (펫을 누르면 깨울 수 있어요)'
-        : session.feedTutorial
+    (sleeping
+      ? '쿨쿨… (펫을 누르면 깨울 수 있어요)'
+      : pet.sick
+        ? SICK_LINES[pet.sick.cause]
+        : poops > 0
+          ? POOP_LINE
+          : session.welcomeBack
+            ? `보고 싶었어! 다시 와 줘서 고마워!`
+            : session.feedTutorial
           ? "배고파! '밥' 버튼을 눌러 줄래?"
           : need
             ? NEED_LINES[need]
@@ -212,6 +235,10 @@ export function PetScreen() {
     setAction({ key, at: t, play: playScene });
     setLine(playScene ? pickLine(PLAY_LINES[playScene.style]) : DONE_LINES[key]);
     if (key === 'feed' && session.feedTutorial) session.set({ feedTutorial: false });
+    if (r.poisoned) {
+      playSfx('gentle');
+      setLine(POISONED_LINE);
+    }
     if (r.levelUp) showLevelUp(r.levelUp);
     if (r.evolvedTo) setEvolution(r.evolvedTo);
     const ms = playScene ? PLAY_MS : 1600;
@@ -244,9 +271,28 @@ export function PetScreen() {
       item.special ? `우와, ${item.name}! 최고야!` : playScene ? pickLine(PLAY_LINES[playScene.style]) : ITEM_DONE_LINES[item.category],
     );
     if (key === 'feed' && session.feedTutorial) session.set({ feedTutorial: false });
+    if (r.poisoned) {
+      playSfx('gentle');
+      setLine(POISONED_LINE);
+    }
     if (r.levelUp) showLevelUp(r.levelUp);
     if (r.evolvedTo) setEvolution(r.evolvedTo);
     setTimeout(() => setAction((a) => (a?.at === t ? null : a)), playScene ? PLAY_MS : 1600);
+  };
+
+  /** 똥 치우기 · 주사 맞히기 */
+  const fixTrouble = (kind: 'clean' | 'shot') => {
+    if (session.welcomeBack) session.set({ welcomeBack: false });
+    setDrawer(null);
+    const t = Date.now();
+    const r = kind === 'clean' ? useGameStore.getState().cleanPoop(t) : useGameStore.getState().giveShot(t);
+    if (!r.ok) return;
+    playSfx(kind === 'clean' ? 'correct' : 'star');
+    setFx({ kind, at: t });
+    setLine(kind === 'clean' ? '와, 깨끗해졌다! 고마워!' : '따끔! …이제 다 나았어! 고마워!');
+    if (r.levelUp) showLevelUp(r.levelUp);
+    if (r.evolvedTo) setEvolution(r.evolvedTo);
+    setTimeout(() => setFx((f) => (f?.at === t ? null : f)), 1400);
   };
 
   const openDrawer = (key: DrawerKey) => {
@@ -261,6 +307,12 @@ export function PetScreen() {
       wakePet();
       playSfx('tap');
       setLine('하암~ 잘 잤다!');
+      return;
+    }
+    // 아프거나 똥이 있으면 놀아 줄 기분이 아니다
+    if (pet.sick || poops > 0) {
+      playSfx('gentle');
+      setLine(pet.sick ? '아야… 몸이 안 좋아. 주사 맞혀 줄래?' : '흥! 똥부터 치워 줘!');
       return;
     }
     // 친밀도가 오르면 새 반응이 열린다: Lv3 하이파이브, Lv5 춤추기 (설계서 6-4)
@@ -320,8 +372,13 @@ export function PetScreen() {
           {acting === 'wash' && <span className="bubbles" aria-hidden />}
           {acting === 'feed' && <span className="food" aria-hidden>🍚</span>}
           {acting && action?.reaction === 'highfive' && <span className="highfive" aria-hidden>✋</span>}
+          {fx?.kind === 'shot' && <span className="fx-shot" aria-hidden>💉</span>}
         </button>
         <div className="rug" aria-hidden />
+        {POOP_SPOTS.slice(0, poops).map((spot) => (
+          <PoopSprite key={spot} size={48} className={`poop ${spot}`} />
+        ))}
+        {fx?.kind === 'clean' && <span className="fx-broom" aria-hidden>🧹</span>}
         {play && <PlayEffect key={action?.at} style={play.style} glyph={play.glyph} />}
       </div>
 
@@ -337,6 +394,21 @@ export function PetScreen() {
           </div>
         ))}
       </div>
+
+      {(pet.sick || poops > 0) && (
+        <div className="trouble-bar">
+          {poops > 0 && (
+            <button type="button" className="trouble trouble--clean" onClick={() => fixTrouble('clean')}>
+              <span aria-hidden>🧹</span> 똥 치우기{poops > 1 ? ` (${poops})` : ''}
+            </button>
+          )}
+          {pet.sick && (
+            <button type="button" className="trouble trouble--shot" onClick={() => fixTrouble('shot')}>
+              <span aria-hidden>💉</span> 주사 맞히기
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="care-grid">
         {ACTIONS.map((a) => {

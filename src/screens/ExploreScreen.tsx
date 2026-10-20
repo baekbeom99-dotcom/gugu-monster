@@ -1,16 +1,28 @@
 /** 탐험 선택 — 설계서 4-2, 9-2 */
 import { useNavigate } from 'react-router-dom';
 import { playSfx } from '../audio/sfx';
+import { ARITH_INFO, ARITH_KINDS, type ArithKind } from '../domain/arith';
 import { BASE_DANS, CHALLENGE_DANS, type Dan } from '../domain/facts';
 import { localDateString } from '../domain/dates';
 import type { ExploreMode } from '../domain/scheduler';
 import { useGameStore } from '../store/useGameStore';
 import { battleUrl } from './BattleScreen';
+import { practiceUrl } from './PracticeScreen';
+
+const PRACTICE_TONE: Record<ArithKind, string> = {
+  addNoCarry: 'add',
+  addCarry: 'add',
+  subNoBorrow: 'sub',
+  subBorrow: 'sub',
+  comp10: 'comp',
+  comp5: 'comp',
+};
 
 export function ExploreScreen() {
   const navigate = useNavigate();
   const learning = useGameStore((s) => s.learning);
   const dailyBonusDates = useGameStore((s) => s.economy.dailyBonusDates);
+  const practice = useGameStore((s) => s.practice);
   const firstTime = learning.totalExplorations === 0;
   const playedToday = dailyBonusDates.includes(localDateString(Date.now()));
 
@@ -67,6 +79,29 @@ export function ExploreScreen() {
             도전 탐험 <span className="explore__hint">{learning.challengeUnlocked ? '황금 몬스터 출현!' : '2~9단 모두 마스터 배지나 MASTER를 받으면 열려요'}</span>
           </h2>
           <div className="dan-grid dan-grid--challenge">{CHALLENGE_DANS.map((d) => danButton(d, !learning.challengeUnlocked))}</div>
+          <h2 className="explore__heading">
+            셈 연습 <span className="explore__hint">덧셈·뺄셈·보수로 몬스터를 잡아요</span>
+          </h2>
+          <div className="practice-grid">
+            {ARITH_KINDS.map((kind) => {
+              const best = practice[kind]?.bestMs;
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  className={`practice-button practice-button--${PRACTICE_TONE[kind]}`}
+                  onClick={() => {
+                    playSfx('tap');
+                    navigate(practiceUrl(kind));
+                  }}
+                >
+                  <span className="practice-button__title">{ARITH_INFO[kind].title}</span>
+                  <span className="practice-button__ex">{ARITH_INFO[kind].example}</span>
+                  {best != null && <span className="practice-button__best">⏱ {(best / 1000).toFixed(1)}초</span>}
+                </button>
+              );
+            })}
+          </div>
         </>
       )}
     </section>

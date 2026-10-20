@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { defaultCatalog } from '../data/defaultCatalog';
+import type { ArithKind } from '../domain/arith';
+import { finishPractice, type PracticeRecord, recordPracticeAnswer } from '../domain/arithPractice';
 import type { Dan } from '../domain/facts';
 import type { AdminData } from '../domain/admin';
 import { addMissingDefaults, deleteItem, moveItem, restoreDefaults, setOnSale, upsertItem } from '../domain/catalogRules';
@@ -14,13 +16,18 @@ import {
   applyDecay,
   checkEvolution,
   chooseEgg,
+  cleanPoop,
   doCare,
   equipHat,
   EXPLORATION_AFFECTION,
+  giveShot,
   hatch,
   type PetData,
+  rollFoodPoisoning,
+  rollTrouble,
   type Species,
   type Stage,
+  type TroubleEvent,
   visit,
   wake,
 } from '../domain/pet';
@@ -35,7 +42,7 @@ import {
   recordAnswer,
 } from '../domain/progress';
 import { applyItem, buy, type CatalogData, canWearHat, findItem, grantMasterHats, type ItemCategory, type ItemDef, type ItemId } from '../domain/shop';
-import { createInitialSave, mergeSave, SAVE_KEY, type SaveData, SCHEMA_VERSION, type Settings } from './saveData';
+import { createInitialSave, mergeSave, migrateSave, SAVE_KEY, type SaveData, SCHEMA_VERSION, type Settings } from './saveData';
 
 export interface PetChange {
   evolvedTo: Stage | null;
@@ -43,25 +50,39 @@ export interface PetChange {
   levelUp: number | null;
 }
 
-export type ExplorationOutcome = FinishOutcome & PetChange & { grantedHats: ItemId[] };
+/** 탐험을 마친 뒤 펫에게 생긴 일 (10% 똥, 10% 병) */
+export type ExplorationOutcome = FinishOutcome & PetChange & { grantedHats: ItemId[]; troubles: TroubleEvent[] };
+
+/** 밥·먹이를 먹고 5% 확률로 식중독에 걸렸는가 */
+export type FeedChange = PetChange & { poisoned: boolean };
+
+export type PracticeOutcome = PetChange & { stars: number; xp: number; newBest: boolean; record: PracticeRecord };
 
 interface GameActions {
   updateSettings: (patch: Partial<Settings>) => void;
   /** 앱을 열 때: 펫 상태 감소·하루 첫 방문·오랜만의 방문 */
-  openApp: (now: number) => { welcomeBack: boolean };
+  openApp: (now: number) => { welcomeBack: boolean; troubles: TroubleEvent[] };
   /** 답 하나를 즉시 저장. 이번 답으로 얻은 별·XP와 극복 여부를 돌려준다. */
   recordAnswer: (input: AnswerInput) => { stars: number; xp: number; overcome: boolean };
   recordCapture: (golden: boolean) => number;
   finishExploration: (completed: boolean, now: number) => ExplorationOutcome;
   /** 단 도전을 끝까지 마쳤을 때: 기록·MASTER·보너스 */
   finishDanTrial: (dan: Dan, timeMs: number, mistakes: number, now: number) => TrialOutcome;
+  /** 셈 연습 답 하나: 별·XP·셈 연습 기록 (구구단 기록은 건드리지 않는다) */
+  recordPracticeAnswer: (kind: ArithKind, correct: boolean, now: number) => { stars: number; xp: number };
+  /** 셈 연습을 끝까지 마쳤을 때: 완료 별·최고 기록·펫 친밀도 */
+  finishPractice: (kind: ArithKind, timeMs: number, now: number) => PracticeOutcome;
   chooseEgg: (species: Species) => void;
   hatchPet: (name: string, now: number) => void;
-  care: (action: CareAction, now: number) => ({ ok: true } & PetChange) | { ok: false; reason: string };
+  care: (action: CareAction, now: number) => ({ ok: true } & FeedChange) | { ok: false; reason: string };
+  /** 똥 치우기 */
+  cleanPoop: (now: number) => ({ ok: true } & PetChange) | { ok: false; reason: string };
+  /** 주사 맞히기 (병이 낫는다) */
+  giveShot: (now: number) => ({ ok: true } & PetChange) | { ok: false; reason: string };
   wakePet: () => void;
   buyItem: (id: ItemId) => { ok: true } | { ok: false; reason: string; need?: number };
   /** 먹이·위생용품·장난감을 펫에게 쓴다 */
-  giveItem: (id: ItemId, now: number) => ({ ok: true } & PetChange) | { ok: false; reason: string };
+  giveItem: (id: ItemId, now: number) => ({ ok: true } & FeedChange) | { ok: false; reason: string };
   wearHat: (id: ItemId | null) => boolean;
   /** 친밀도 Lv10(아직 졸업 전)이면 도감에 넣고 새 알로. 넣은 기록을 돌려준다. */
   graduatePet: (now: number) => DexEntry | null;
@@ -118,6 +139,9 @@ const safeStorage = {
   },
 };
 
+/** 똥·병·식중독 주사위. E2E 테스트는 window.__GUGU_E2E_CALM__ = true 로 꺼서 결과가 흔들리지 않게 한다. */
+const troubleRng = () => ((globalThis as { __GUGU_E2E_CALM__?: boolean }).__GUGU_E2E_CALM__ ? 1 : Math.random());
+
 /** 펫 변화 후 진화·친밀도 레벨업을 판정한다 (알은 부화로만 깨어난다). */
 function settlePet(before: PetData, after: PetData, now: number): { pet: PetData } & PetChange {
   const evo =
@@ -134,9 +158,9 @@ export const useGameStore = create<GameStore>()(
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       openApp: (now) => {
         const { pet, lastSeenAt } = get();
-        const v = visit(pet, lastSeenAt, now);
+        const v = visit(pet, lastSeenAt, now, troubleRng);
         set({ pet: v.pet, lastSeenAt: now });
-        return { welcomeBack: v.welcomeBack };
+        return { welcomeBack: v.welcomeBack, troubles: v.troubles };
       },
       recordAnswer: (input) => {
         const s = get();
@@ -157,14 +181,38 @@ export const useGameStore = create<GameStore>()(
         let pet = addGrowthXp(s.pet, r.xp);
         if (completed && pet.stage !== 'egg') pet = addAffection(pet, EXPLORATION_AFFECTION);
         const settled = settlePet(s.pet, pet, now);
-        set({ learning: r.learning, economy: hats.economy, pet: settled.pet, lastSeenAt: now });
-        return { ...r, economy: hats.economy, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp, grantedHats: hats.granted };
+        // 끝까지 마친 탐험 뒤에는 10% 똥, 10% 병
+        const trouble = completed ? rollTrouble(settled.pet, now, 'exploration', troubleRng) : { pet: settled.pet, events: [] };
+        set({ learning: r.learning, economy: hats.economy, pet: trouble.pet, lastSeenAt: now });
+        return {
+          ...r,
+          economy: hats.economy,
+          evolvedTo: settled.evolvedTo,
+          levelUp: settled.levelUp,
+          grantedHats: hats.granted,
+          troubles: trouble.events,
+        };
       },
       finishDanTrial: (dan, timeMs, mistakes, now) => {
         const s = get();
         const r = finishDanTrial(s.learning, s.economy, { dan, timeMs, mistakes, now });
         set({ learning: r.learning, economy: r.economy });
         return r;
+      },
+      recordPracticeAnswer: (kind, correct, now) => {
+        const s = get();
+        const r = recordPracticeAnswer(s.practice, s.economy, kind, correct);
+        set({ practice: r.practice, economy: r.economy, pet: addGrowthXp(s.pet, r.xp), lastSeenAt: now });
+        return { stars: r.stars, xp: r.xp };
+      },
+      finishPractice: (kind, timeMs, now) => {
+        const s = get();
+        const r = finishPractice(s.practice, s.economy, kind, timeMs);
+        let pet = addGrowthXp(s.pet, r.xp);
+        if (pet.stage !== 'egg') pet = addAffection(pet, EXPLORATION_AFFECTION);
+        const settled = settlePet(s.pet, pet, now);
+        set({ practice: r.practice, economy: r.economy, pet: settled.pet, lastSeenAt: now });
+        return { stars: r.stars, xp: r.xp, newBest: r.newBest, record: r.record, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
       },
       chooseEgg: (species) => set((s) => ({ pet: chooseEgg(s.pet, species) })),
       hatchPet: (name, now) =>
@@ -183,6 +231,24 @@ export const useGameStore = create<GameStore>()(
       care: (action, now) => {
         const s = get();
         const r = doCare(s.pet, action, now);
+        if (!r.ok) return r;
+        const settled = settlePet(s.pet, r.pet, now);
+        // 밥을 먹으면 5% 식중독
+        const food = action === 'feed' ? rollFoodPoisoning(settled.pet, now, troubleRng) : { pet: settled.pet, poisoned: false };
+        set({ pet: food.pet, lastSeenAt: now });
+        return { ok: true, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp, poisoned: food.poisoned };
+      },
+      cleanPoop: (now) => {
+        const s = get();
+        const r = cleanPoop(s.pet, now);
+        if (!r.ok) return r;
+        const settled = settlePet(s.pet, r.pet, now);
+        set({ pet: settled.pet, lastSeenAt: now });
+        return { ok: true, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
+      },
+      giveShot: (now) => {
+        const s = get();
+        const r = giveShot(s.pet, now);
         if (!r.ok) return r;
         const settled = settlePet(s.pet, r.pet, now);
         set({ pet: settled.pet, lastSeenAt: now });
@@ -205,8 +271,10 @@ export const useGameStore = create<GameStore>()(
         const r = applyItem(s.pet, s.economy, item, now);
         if (!r.ok) return r;
         const settled = settlePet(s.pet, r.pet, now);
-        set({ pet: settled.pet, economy: r.economy, lastSeenAt: now });
-        return { ok: true, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
+        // 먹이를 먹으면 5% 식중독
+        const food = item.category === 'food' ? rollFoodPoisoning(settled.pet, now, troubleRng) : { pet: settled.pet, poisoned: false };
+        set({ pet: food.pet, economy: r.economy, lastSeenAt: now });
+        return { ok: true, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp, poisoned: food.poisoned };
       },
       setAdmin: (admin) => set({ admin }),
       saveItem: (item) => {
@@ -254,6 +322,7 @@ export const useGameStore = create<GameStore>()(
     {
       name: SAVE_KEY,
       version: SCHEMA_VERSION,
+      migrate: (persisted, version) => migrateSave(persisted, version) as SaveData,
       storage: createJSONStorage(() => safeStorage),
       partialize: (s): SaveData => ({
         schemaVersion: s.schemaVersion,
@@ -266,6 +335,7 @@ export const useGameStore = create<GameStore>()(
         catalog: s.catalog,
         admin: s.admin,
         dex: s.dex,
+        practice: s.practice,
       }),
       merge: (persisted, current) => ({ ...current, ...mergeSave(createInitialSave(current.createdAt), persisted) }),
     },

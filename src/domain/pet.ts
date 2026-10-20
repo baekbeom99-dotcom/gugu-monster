@@ -65,7 +65,14 @@ export interface PetData {
   /** 이 알을 고를 때까지의 탐험 횟수. 그보다 많아지면(탐험 1번 더) 부화한다. */
   eggBaseExplorations: number;
   hatchedAt: string | null;
+  /** 치우지 않은 똥 개수 (0~MAX_POOPS). 있으면 화난 표정. */
+  poops: number;
+  /** 아픈 상태 (null = 건강). 주사를 맞을 때까지 아픈 표정. */
+  sick: { since: number; cause: SickCause } | null;
 }
+
+/** 아픈 까닭: 오래 방치됨 · 탐험 뒤 · 음식 먹고 식중독 */
+export type SickCause = 'neglect' | 'exploration' | 'food';
 
 export interface LifeSnapshot {
   explorations: number;
@@ -139,6 +146,8 @@ export function initialPet(now: number): PetData {
     lifeStart: null,
     eggBaseExplorations: 0,
     hatchedAt: null,
+    poops: 0,
+    sick: null,
   };
 }
 
@@ -196,7 +205,7 @@ function addCareXp(pet: PetData, now: number): PetData {
   return { ...pet, growthXp: pet.growthXp + gain, careXpToday: { date: today, xp: used + gain } };
 }
 
-export type CareFailure = 'cooldown' | 'sleeping' | 'egg' | 'full';
+export type CareFailure = 'cooldown' | 'sleeping' | 'egg' | 'full' | 'nothing';
 export type CareResult = { ok: true; pet: PetData } | { ok: false; reason: CareFailure };
 
 export interface CareSpec {
@@ -259,20 +268,28 @@ export function wake(pet: PetData): PetData {
 
 export interface VisitResult {
   pet: PetData;
+  /** 오래 방치돼서 생긴 일 (똥·병) */
+  troubles: TroubleEvent[];
   /** 오늘 첫 방문이라 친밀도를 받았는가 */
   firstVisitToday: boolean;
   /** 24시간 넘게 쉬다 돌아왔는가 (반겨주는 연출) */
   welcomeBack: boolean;
 }
 
-/** 앱을 열 때: 상태 감소 반영 + 하루 첫 방문 친밀도 + 오랜만의 방문 판정 */
-export function visit(pet: PetData, lastSeenAt: number, now: number): VisitResult {
+/** 앱을 열 때: 상태 감소 반영 + 하루 첫 방문 친밀도 + 오랜만의 방문 판정 + 오래 방치됐으면 똥·병 */
+export function visit(pet: PetData, lastSeenAt: number, now: number, rng: Rng = Math.random): VisitResult {
   let next = applyDecay(pet, now);
   const today = localDateString(now);
   const firstVisitToday = next.stage !== 'egg' && next.lastVisitDate !== today;
   if (firstVisitToday) next = { ...next, affection: next.affection + DAILY_VISIT_AFFECTION, lastVisitDate: today };
   const welcomeBack = next.stage !== 'egg' && now - lastSeenAt >= WELCOME_BACK_HOURS * HOUR_MS;
-  return { pet: next, firstVisitToday, welcomeBack };
+  let troubles: TroubleEvent[] = [];
+  if (now - lastSeenAt >= NEGLECT_HOURS * HOUR_MS) {
+    const t = rollTrouble(next, now, 'neglect', rng);
+    next = t.pet;
+    troubles = t.events;
+  }
+  return { pet: next, firstVisitToday, welcomeBack, troubles };
 }
 
 /** Lv10 다음부터는 레벨마다 친밀도 80씩 더 (레벨은 끝없이 오른다) */
@@ -376,4 +393,64 @@ export function neediest(pet: PetData): StatKey | null {
   const low = (['fullness', 'cleanliness', 'mood'] as StatKey[]).filter((k) => pet[k] < 50);
   if (low.length === 0) return null;
   return low.reduce((a, b) => (pet[a] <= pet[b] ? a : b));
+}
+
+// ── 똥·병 (설계서 6-6) ─────────────────────────────
+
+/** 오래 방치되거나 탐험을 마쳤을 때 똥을 쌀 확률, 병에 걸릴 확률 (따로따로 굴린다) */
+export const TROUBLE_CHANCE = 0.1;
+/** 음식을 먹고 식중독에 걸릴 확률 */
+export const FOOD_POISON_CHANCE = 0.05;
+/** 이만큼 앱을 열지 않으면 '오래 방치' */
+export const NEGLECT_HOURS = 12;
+/** 똥은 최대 이만큼 쌓인다 */
+export const MAX_POOPS = 3;
+
+export type Rng = () => number;
+export type TroubleEvent = 'poop' | 'sick';
+
+/** 오래 방치되거나 탐험을 마쳤을 때: 10% 똥, 10% 병. 알이거나 이미 아프면 병은 더 걸리지 않는다. */
+export function rollTrouble(pet: PetData, now: number, cause: Exclude<SickCause, 'food'>, rng: Rng = Math.random): { pet: PetData; events: TroubleEvent[] } {
+  if (pet.stage === 'egg' || !pet.species) return { pet, events: [] };
+  const events: TroubleEvent[] = [];
+  let next = pet;
+  if (rng() < TROUBLE_CHANCE) {
+    next = { ...next, poops: Math.min(MAX_POOPS, (next.poops ?? 0) + 1) };
+    events.push('poop');
+  }
+  if (!next.sick && rng() < TROUBLE_CHANCE) {
+    next = { ...next, sick: { since: now, cause } };
+    events.push('sick');
+  }
+  return { pet: next, events };
+}
+
+/** 음식을 먹은 뒤: 5% 식중독 (이미 아프면 그대로) */
+export function rollFoodPoisoning(pet: PetData, now: number, rng: Rng = Math.random): { pet: PetData; poisoned: boolean } {
+  if (pet.sick || pet.stage === 'egg' || rng() >= FOOD_POISON_CHANCE) return { pet, poisoned: false };
+  return { pet: { ...pet, sick: { since: now, cause: 'food' } }, poisoned: true };
+}
+
+/** 똥 치우기: 모두 치우고 깨끗함 +10, 기분 +5, 친밀도 +1. 자고 있어도 치울 수 있다. */
+export function cleanPoop(pet: PetData, now: number): CareResult {
+  if (pet.stage === 'egg' || !pet.species) return { ok: false, reason: 'egg' };
+  if (!(pet.poops > 0)) return { ok: false, reason: 'nothing' };
+  const next = applyDecay(pet, now);
+  const counts = { ...(next.careCounts ?? {}), clean: (next.careCounts?.clean ?? 0) + 1 };
+  return {
+    ok: true,
+    pet: addCareXp(
+      { ...next, poops: 0, cleanliness: clampStat(next.cleanliness + 10), mood: clampStat(next.mood + 5), affection: next.affection + 1, careCounts: counts },
+      now,
+    ),
+  };
+}
+
+/** 주사 맞히기: 병이 낫고 친밀도 +1. 자고 있어도 맞힐 수 있다. */
+export function giveShot(pet: PetData, now: number): CareResult {
+  if (pet.stage === 'egg' || !pet.species) return { ok: false, reason: 'egg' };
+  if (!pet.sick) return { ok: false, reason: 'nothing' };
+  const next = applyDecay(pet, now);
+  const counts = { ...(next.careCounts ?? {}), shot: (next.careCounts?.shot ?? 0) + 1 };
+  return { ok: true, pet: addCareXp({ ...next, sick: null, affection: next.affection + 1, careCounts: counts }, now) };
 }

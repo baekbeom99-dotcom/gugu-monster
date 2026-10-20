@@ -78,7 +78,7 @@ export function generateQuestion(rng: Rng, fact: Fact, type: QuestionType): Ques
     case 'product':
       display = { kind: 'equation', a, b, result: null };
       answer = product;
-      distractors = productDistractors(rng, fact);
+      distractors = fact.isChallenge ? sameOnesDistractors(rng, product) : productDistractors(rng, fact);
       break;
     case 'missingFirst':
       if (b === 0) throw new Error(`${fact.id}: □ × 0 문제는 만들 수 없다`);
@@ -94,7 +94,7 @@ export function generateQuestion(rng: Rng, fact: Fact, type: QuestionType): Ques
     case 'commutative':
       display = { kind: 'commutative', given: { a, b, result: product }, ask: { a: b, b: a, result: null } };
       answer = product;
-      distractors = productDistractors(rng, fact);
+      distractors = fact.isChallenge ? sameOnesDistractors(rng, product) : productDistractors(rng, fact);
       break;
     case 'sequence': {
       if (b < 1) throw new Error(`${fact.id}: 뛰어 세기 문제는 곱하는 수 1 이상만 가능`);
@@ -106,7 +106,7 @@ export function generateQuestion(rng: Rng, fact: Fact, type: QuestionType): Ques
       const terms: (number | null)[] = [0, 1, 2, 3, 4].map((i) => (i === blank ? null : a * (k + i)));
       display = { kind: 'sequence', terms };
       answer = product;
-      distractors = sequenceDistractors(rng, fact);
+      distractors = fact.isChallenge ? sameOnesDistractors(rng, product) : sequenceDistractors(rng, fact);
       break;
     }
   }
@@ -148,6 +148,17 @@ export function productDistractors(rng: Rng, fact: Fact): number[] {
   );
   const near = [product + 1, product - 1, product + 2, product - 2, product + 3];
   return finalize(product, primary, [...sameDan, ...near], inRange);
+}
+
+/**
+ * 12·13단 도전용 (곱이 답인 유형만): 끝자리만 보고 고를 수 없도록 정답과 1의 자리가 같은 수.
+ * 정답 ±10, ±20을 우선하고 모자라면 ±30, ±40 …으로 채운다. 1 ~ 130 범위의 양수만.
+ * 앞/뒤 수 찾기는 답이 0~13이라 1의 자리가 같은 후보가 범위 안에 거의 없어 기존 ±1, ±2 규칙을 쓴다.
+ */
+export function sameOnesDistractors(rng: Rng, product: number): number[] {
+  const primary = shuffle(rng, [product + 10, product - 10, product + 20, product - 20]);
+  const fallback = [30, 40, 50, 60, 70, 80, 90, 100, 110, 120].flatMap((d) => [product + d, product - d]);
+  return finalize(product, primary, fallback, (n) => inRange(n) && n > 0);
 }
 
 /** 앞/뒤 수 찾기용: 정답 ±1, ±2 범위 */

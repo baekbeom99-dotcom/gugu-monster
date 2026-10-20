@@ -9,7 +9,7 @@ import { ALL_DANS } from '../domain/facts';
 import { SPECIES } from '../domain/pet';
 
 const MOODS: MonsterMood[] = ['idle', 'hit', 'happy', 'sleep'];
-const EXPRESSIONS: PetExpression[] = ['idle', 'happy', 'excited', 'cheer', 'sleep', 'request', 'eat'];
+const EXPRESSIONS: PetExpression[] = ['idle', 'happy', 'excited', 'cheer', 'sleep', 'request', 'eat', 'sick', 'angry'];
 const row = { display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'flex-end' } as const;
 
 export function DevGallery() {

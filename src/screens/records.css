@@ -401,3 +401,14 @@
   text-decoration: none;
   color: var(--ink);
 }
+
+/* 셈 연습: 이름이 길어 이름 칸을 넓힌다 */
+.type-rates--practice li {
+  grid-template-columns: 128px 1fr 84px;
+}
+
+.type-rates--practice .type-rates__label small {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-soft);
+}

@@ -21,6 +21,7 @@ function currentSave(): SaveData {
     pet: s.pet,
     catalog: s.catalog,
     dex: s.dex,
+    practice: s.practice,
     // 백업 파일에는 PIN 정보를 넣지 않는다
     admin: { pinHash: null, salt: '', recoveryHash: null, failedAttempts: 0, lockedUntil: null },
   };

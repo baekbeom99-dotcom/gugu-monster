@@ -1,5 +1,5 @@
 /** 단 골라 탐험 = 단 도전: 그 단의 11문제만, 모두 맞힐 때까지, 33초 안이면 MASTER + 보너스. 틀린 문제는 추천 탐험에 다시 나온다. */
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { answerCurrent, collectErrors, playExploration, seedHatchedPet } from './helpers';
 
 test('7단 도전: 11문제 모두, 틀리면 MASTER 아님, 틀린 문제는 추천 탐험에서 다시, 오답 0개면 MASTER', async ({ page }) => {

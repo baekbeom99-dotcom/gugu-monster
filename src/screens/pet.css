@@ -832,3 +832,113 @@
 .speech--room {
   z-index: 3;
 }
+
+/* ── 똥·병 (설계서 6-6) ── */
+.poop {
+  position: absolute;
+  bottom: 14px;
+  z-index: 2;
+  animation: poop-drop 0.35s ease-out;
+}
+.poop--a { left: 12px; }
+.poop--b { right: 14px; bottom: 22px; }
+.poop--c { left: 58px; bottom: 6px; }
+.poop-stink path {
+  animation: stink 1.6s ease-in-out infinite;
+}
+.poop-stink path:nth-child(2) { animation-delay: 0.3s; }
+.poop-stink path:nth-child(3) { animation-delay: 0.6s; }
+
+@keyframes poop-drop {
+  from { transform: translateY(-14px) scale(0.6); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes stink {
+  0%, 100% { opacity: 0.25; transform: translateY(2px); }
+  50% { opacity: 1; transform: translateY(-3px); }
+}
+
+.trouble-bar {
+  display: flex;
+  gap: 10px;
+}
+.trouble {
+  flex: 1;
+  min-height: 52px;
+  border: var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  font-family: var(--font-display);
+  font-size: 19px;
+  cursor: pointer;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+/* 버튼은 가만히 두고 아이콘만 통통 (눌러야 한다는 신호) */
+.trouble > span {
+  display: inline-block;
+  animation: trouble-pulse 1.2s ease-in-out infinite;
+}
+.trouble:active {
+  transform: translate(5px, 5px);
+  box-shadow: none;
+}
+.trouble--clean { background: #d9b38c; }
+.trouble--shot { background: #8fd3ff; }
+@keyframes trouble-pulse {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -4px; }
+}
+
+.fx-broom,
+.fx-shot {
+  position: absolute;
+  z-index: 4;
+  font-size: 44px;
+  pointer-events: none;
+}
+.fx-broom {
+  left: 10px;
+  bottom: 10px;
+  animation: sweep 1.3s ease-in-out;
+}
+.fx-shot {
+  right: -6px;
+  top: 30%;
+  animation: shot 1.3s ease-in-out;
+}
+@keyframes sweep {
+  0% { transform: translateX(0) rotate(-20deg); }
+  25% { transform: translateX(60px) rotate(20deg); }
+  50% { transform: translateX(120px) rotate(-20deg); }
+  75% { transform: translateX(200px) rotate(20deg); }
+  100% { transform: translateX(260px) rotate(0); opacity: 0; }
+}
+@keyframes shot {
+  0% { transform: translate(30px, -20px) rotate(-30deg); opacity: 0; }
+  30% { transform: translate(0, 0) rotate(-30deg); opacity: 1; }
+  60% { transform: translate(-8px, 6px) rotate(-30deg); }
+  100% { transform: translate(30px, -20px) rotate(-30deg); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poop, .poop-stink path, .trouble > span, .fx-broom, .fx-shot { animation: none; }
+}
+
+/* 탐험 결과: 펫에게 생긴 일 */
+.banner--trouble {
+  background: #ffe3a3;
+}
+
+/* 화난 표시(💢)가 두근두근 */
+.pet-angry-mark {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: anger-pulse 0.9s ease-in-out infinite;
+}
+@keyframes anger-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pet-angry-mark { animation: none; }
+}

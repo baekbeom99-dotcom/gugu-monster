@@ -9,6 +9,7 @@ import { ExploreScreen } from './screens/ExploreScreen';
 import { HatchScreen } from './screens/HatchScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { PetScreen } from './screens/PetScreen';
+import { PracticeScreen } from './screens/PracticeScreen';
 import { RecordsScreen } from './screens/RecordsScreen';
 import { AdminScreen } from './screens/admin/AdminScreen';
 import { ShopScreen } from './screens/ShopScreen';
@@ -67,6 +68,7 @@ export function App() {
         <Route path="/hatch" element={fullScreen(<HatchScreen />)} />
         {/* 전투는 탭 없이 화면 전체를 쓴다 */}
         <Route path="/battle" element={fullScreen(<BattleScreen />)} />
+        <Route path="/practice" element={fullScreen(<PracticeScreen />)} />
         {import.meta.env.DEV && <Route path="/dev/gallery" element={<DevGallery />} />}
         <Route path="*" element={<Navigate to="/pet" replace />} />
       </Routes>

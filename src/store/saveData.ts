@@ -2,12 +2,18 @@
 import { defaultCatalog } from '../data/defaultCatalog';
 import { addMissingDefaults } from '../domain/catalogRules';
 import { type AdminData, initialAdmin } from '../domain/admin';
+import type { PracticeData } from '../domain/arithPractice';
 import type { DexEntry } from '../domain/dex';
 import { initialPet, normalizeSpecies, type PetData } from '../domain/pet';
 import type { CatalogData } from '../domain/shop';
 import { type EconomyData, initialEconomy, initialLearning, type LearningData, repairChallengeUnlock } from '../domain/progress';
 
-export const SCHEMA_VERSION = 1;
+/**
+ * 저장 형식 버전. 올릴 때는 useGameStore의 persist migrate가 옛 저장본을 그대로 넘겨
+ * mergeSave가 새 칸만 채우게 한다 (migrate가 없으면 zustand가 옛 저장본을 버려 별이 사라진다).
+ * 1 → 2: 셈 연습 기록(practice) 추가
+ */
+export const SCHEMA_VERSION = 2;
 export const SAVE_KEY = 'gugu-monster:save';
 
 export interface Settings {
@@ -31,6 +37,8 @@ export interface SaveData {
   admin: AdminData;
   /** 펫 도감: 졸업했거나, 관리자가 새 펫을 시작했거나, 다른 펫과 자리를 바꿔 쉬는 펫들 */
   dex: DexEntry[];
+  /** 셈 연습(덧셈·뺄셈·보수) 기록 — 구구단 학습 기록과 따로 둔다 */
+  practice: PracticeData;
 }
 
 export function createInitialSave(now: number): SaveData {
@@ -45,6 +53,7 @@ export function createInitialSave(now: number): SaveData {
     catalog: defaultCatalog(),
     admin: initialAdmin(),
     dex: [],
+    practice: {},
   };
 }
 
@@ -73,6 +82,16 @@ export function mergeSave(initial: SaveData, persisted: unknown): SaveData {
     // 저장된 상점은 그대로 두고, 새 버전에서 늘어난 기본 아이템만 더한다
     catalog: p.catalog?.items?.length ? addMissingDefaults(p.catalog, initial.catalog) : initial.catalog,
     admin: { ...initial.admin, ...p.admin },
+    practice: p.practice && typeof p.practice === 'object' ? { ...initial.practice, ...p.practice } : initial.practice,
     dex: Array.isArray(p.dex) ? p.dex.map((e) => ({ ...e, species: normalizeSpecies(e.species) ?? 'cat', pet: e.pet && { ...e.pet, species: normalizeSpecies(e.pet.species) } })) : initial.dex,
   };
+}
+
+/**
+ * persist migrate: 옛 버전 저장본을 지금 버전으로. 지금까지의 변경은 모두 칸을 더한 것뿐이라
+ * 저장본을 그대로 돌려주고, 빠진 칸은 불러올 때 mergeSave가 기본값으로 채운다.
+ * 별·펫·가방·구구단 기록은 손대지 않는다.
+ */
+export function migrateSave(persisted: unknown, _fromVersion: number): unknown {
+  return persisted && typeof persisted === 'object' ? persisted : {};
 }

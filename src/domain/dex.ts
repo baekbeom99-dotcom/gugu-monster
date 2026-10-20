@@ -178,7 +178,7 @@ export function sendToDex(
 /** 도감 기록에서 펫을 다시 데려온다. 예전 기록(펫 상태 없음)은 이름·모습·레벨·모자로 다시 만든다. */
 export function restorePet(entry: DexEntry, now: number): PetData {
   if (entry.pet) {
-    return { ...entry.pet, statsUpdatedAt: now, sleepingUntil: null, cooldowns: {} };
+    return { ...entry.pet, statsUpdatedAt: now, sleepingUntil: null, cooldowns: {}, poops: entry.pet.poops ?? 0, sick: entry.pet.sick ?? null };
   }
   return {
     ...initialPet(now),

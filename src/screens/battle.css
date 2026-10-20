@@ -1143,3 +1143,127 @@
   transform: rotate(8deg);
   box-shadow: 2px 2px 0 var(--ink);
 }
+
+/* ── 셈 연습: 탐험 탭 메뉴 ───────────── */
+.practice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.practice-button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 72px;
+  padding: 8px 12px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+
+.practice-button:active {
+  transform: translate(5px, 5px);
+  box-shadow: none;
+}
+
+.practice-button--add { background: var(--sky); }
+.practice-button--sub { background: var(--orange); }
+.practice-button--comp { background: var(--lime); }
+
+.practice-button__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.practice-button__ex {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.practice-button__best {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* ── 셈 연습 힌트 ─────────────────────── */
+.arith-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  max-width: 340px;
+}
+
+.arith-steps__step {
+  padding: 8px 12px;
+  border: var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  font-size: 17px;
+  line-height: 1.35;
+  opacity: 0;
+  animation: appear 0.25s steps(3) forwards;
+}
+
+.arith-steps__step:nth-child(odd) { background: var(--sky); }
+.arith-steps__step:nth-child(even) { background: var(--orange); }
+
+.frame {
+  display: grid;
+  gap: 0;
+  border: var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.frame__row {
+  display: grid;
+  grid-template-columns: repeat(5, 44px);
+}
+
+.frame__row + .frame__row .frame__cell {
+  border-top: 2.5px solid var(--ink);
+}
+
+.frame__cell {
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  font-family: var(--font-display);
+  font-size: 20px;
+  opacity: 0;
+  animation: appear 0.25s steps(3) forwards;
+}
+
+.frame__cell + .frame__cell {
+  border-left: 2.5px solid var(--ink);
+}
+
+.frame__cell--empty {
+  background: var(--yellow);
+  color: var(--hot-pink);
+}
+
+.frame__say {
+  margin: 0;
+  font-size: 17px;
+  text-align: center;
+}
+
+.frame__say strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  color: var(--hot-pink);
+}

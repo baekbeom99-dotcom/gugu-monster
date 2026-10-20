@@ -103,6 +103,41 @@ describe('문제 생성 — 110개 사실 × 5개 유형 전수 검사', () => {
   });
 });
 
+describe('12·13단 도전 보기', () => {
+  const challengeFacts = FACTS.filter((f) => f.isChallenge);
+
+  for (const type of ['product', 'commutative', 'sequence'] as const) {
+    it(`${type}: 오답 3개 모두 정답과 1의 자리가 같은 양수`, () => {
+      for (const fact of challengeFacts) {
+        if (!isTypeEligible(type, fact, 5)) continue;
+        for (const seed of SEEDS) {
+          const q = generateQuestion(seededRng(seed * 31 + fact.a * 20 + fact.b), fact, type);
+          for (const c of q.choices) {
+            expect(c % 10).toBe(q.answer % 10);
+            if (c !== q.answer) expect(c).toBeGreaterThan(0);
+          }
+        }
+      }
+    });
+  }
+
+  it('정답 가까운 값(±10, ±20)을 우선 쓴다', () => {
+    const q = generateQuestion(seededRng(3), getFact('12x7'), 'product');
+    for (const c of q.choices) expect([64, 74, 84, 94, 104]).toContain(c);
+  });
+
+  it('범위 끝(12×0 = 0, 13×10 = 130)에서도 보기 4개를 만든다', () => {
+    expect(generateQuestion(seededRng(1), getFact('12x0'), 'product').choices.sort((x, y) => x - y)).toEqual([0, 10, 20, 30]);
+    const top = generateQuestion(seededRng(1), getFact('13x10'), 'product').choices;
+    expect(top.sort((x, y) => x - y)).toEqual([100, 110, 120, 130]);
+  });
+
+  it('2~9단 결과 찾기 보기는 기존 규칙 그대로 (1의 자리가 다른 보기가 나온다)', () => {
+    const q = generateQuestion(seededRng(1), getFact('7x8'), 'product');
+    expect(q.choices.some((c) => c % 10 !== q.answer % 10)).toBe(true);
+  });
+});
+
 describe('유형 선택', () => {
   it('상자 0이면 결과 찾기만', () => {
     const rng = seededRng(5);

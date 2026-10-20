@@ -1,5 +1,5 @@
 /** 도감: 친밀도 Lv10이면 칭호를 받고 도감으로 → 새 알 → 탐험 → 부화 → 도감에서 예전 펫과 자리 바꾸기. 관리자 '새 펫 시작하기'. */
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { collectErrors, enterPin, playExploration, seedHatchedPet } from './helpers';
 
 test('Lv10이 된 펫이 칭호를 받고 도감에 들어가고, 새 알을 키우고, 다시 예전 펫과 함께한다', async ({ page }) => {

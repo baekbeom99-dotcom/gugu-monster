@@ -1,6 +1,6 @@
 /**
  * 자체 제작 펫 SVG — 설계서 13-2, 13-3.
- * 11종 × 성장 3단계(아기·어린이·다 자람) × 표정 7종. 알은 EggSprite.
+ * 11종 × 성장 3단계(아기·어린이·다 자람) × 표정 9종(아픈·화난 표정 포함). 알은 EggSprite.
  * 굵은 검은 테두리, 큰 머리, 발그레한 볼. 어린이부터 좌우 똑같은 짧은 팔을 배 위에 모으고,
  * 다 자라면 머리 모양은 어린이와 같고 몸이 길어져 키가 크며, 무늬가 짙어지고 종마다 장신구(스카프·방울·꽃·사과)가 생긴다.
  * 고슴도치는 머리와 몸이 하나인 동그란 몸에 가시 테두리, 두 손을 배 위에 모은다.
@@ -10,7 +10,7 @@ import type { Species, Stage } from '../domain/pet';
 import { INK } from './colors';
 import { type HatArt, HatShapeG } from './HatSprite';
 
-export type PetExpression = 'idle' | 'happy' | 'excited' | 'cheer' | 'sleep' | 'request' | 'eat';
+export type PetExpression = 'idle' | 'happy' | 'excited' | 'cheer' | 'sleep' | 'request' | 'eat' | 'sick' | 'angry';
 type GrownStage = Exclude<Stage, 'egg'>;
 
 const STROKE = 5;
@@ -611,6 +611,18 @@ function whiskers(species: Species, g: Geo): ReactNode {
   );
 }
 
+/**
+ * 화난 표시(💢)의 한 조각: 가운데 십자 틈을 두고 바깥으로 휜 L자. 네 번 돌려 붙인다.
+ * 원점이 표시의 한가운데. g = 십자 틈의 절반, l = 팔 길이, te = 끝 두께(넓게 퍼짐), tc = 모서리 쪽 두께.
+ */
+const ANGER_PIECE = (() => {
+  const g = 1.4;
+  const l = 15;
+  const te = 8.5;
+  const tc = 1.6;
+  return `M${g} ${-l} L${g + te} ${-l} Q${g + tc} ${-(g + tc)} ${l} ${-(g + te)} L${l} ${-g} Q${g} ${-g} ${g} ${-l} Z`;
+})();
+
 /** 얼굴 가운데 코 모양 */
 type Nose = 'none' | 'dot' | 'pig' | 'cow' | 'beak';
 const NOSE: Partial<Record<Species, Nose>> = { hedgehog: 'dot', dog: 'dot', panda: 'dot', fox: 'dot', pig: 'pig', cow: 'cow', penguin: 'beak' };
@@ -667,6 +679,24 @@ function Face({ expression, g, species, c }: { expression: PetExpression; g: Geo
         return [L, R].map((x) => (
           <path key={x} d={`M${x - 8} ${y} Q${x} ${y + 7} ${x + 8} ${y}`} stroke={fg} strokeWidth="4.5" fill="none" strokeLinecap="round" />
         ));
+      case 'sick':
+        // 처진 눈꺼풀 + 걱정스러운 눈썹
+        return [L, R].map((x, i) => (
+          <g key={x}>
+            <path d={`M${x - 8} ${y - 1} Q${x} ${y + 5} ${x + 8} ${y - 1}`} stroke={fg} strokeWidth="4.5" fill="none" strokeLinecap="round" />
+            <path d={`M${x - 6} ${y + 6} Q${x} ${y + 9} ${x + 6} ${y + 6}`} stroke="#9a8cff" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.8" />
+            <path d={i === 0 ? `M${x - 9} ${y - 10} L${x + 7} ${y - 15}` : `M${x - 7} ${y - 15} L${x + 9} ${y - 10}`} stroke={INK} strokeWidth="3.5" strokeLinecap="round" />
+          </g>
+        ));
+      case 'angry':
+        // 또렷한 눈 + 안쪽으로 내려간 굵은 눈썹
+        return [L, R].map((x, i) => (
+          <g key={x}>
+            <ellipse cx={x} cy={y + 1} rx={er.rx} ry={er.ry - 1} fill={fg} />
+            <circle cx={x + 1.5} cy={y - 2} r="1.8" fill={hl} />
+            <path d={i === 0 ? `M${x - 10} ${y - 16} L${x + 8} ${y - 8}` : `M${x - 8} ${y - 8} L${x + 10} ${y - 16}`} stroke={INK} strokeWidth="5" strokeLinecap="round" />
+          </g>
+        ));
       case 'request':
         return [L, R].map((x) => (
           <g key={x}>
@@ -690,6 +720,10 @@ function Face({ expression, g, species, c }: { expression: PetExpression; g: Geo
       ) : (
         <path {...line} strokeWidth="3" fill={c.mark} d={`M${CX - 9} ${y + 9} L${CX + 9} ${y + 9} L${CX} ${y + 19} Z`} />
       )
+    ) : expression === 'sick' ? (
+      <path d={`M${CX - 8} ${my} Q${CX - 4} ${my - 3} ${CX} ${my} Q${CX + 4} ${my + 3} ${CX + 8} ${my}`} stroke={INK} strokeWidth="3" fill="none" strokeLinecap="round" />
+    ) : expression === 'angry' ? (
+      <path d={`M${CX - 7} ${my + 3} Q${CX} ${my - 5} ${CX + 7} ${my + 3}`} stroke={INK} strokeWidth="3.5" fill="none" strokeLinecap="round" />
     ) : expression === 'eat' ? (
       <g>
         <circle cx={CX} cy={my + 2} r="7.5" fill={INK} />
@@ -723,10 +757,31 @@ function Face({ expression, g, species, c }: { expression: PetExpression; g: Geo
       </g>
     ) : null;
 
+  // 아프면 볼이 핼쑥한 연두빛, 화나면 빨갛게
+  const blush = expression === 'sick' ? '#b8e0a6' : expression === 'angry' ? '#ff5c5c' : c.blush;
   return (
     <g>
-      <ellipse cx={L - 13} cy={y + 12} rx="12" ry="7.5" fill={c.blush} opacity="0.8" />
-      <ellipse cx={R + 13} cy={y + 12} rx="12" ry="7.5" fill={c.blush} opacity="0.8" />
+      <ellipse cx={L - 13} cy={y + 12} rx="12" ry="7.5" fill={blush} opacity="0.8" />
+      <ellipse cx={R + 13} cy={y + 12} rx="12" ry="7.5" fill={blush} opacity="0.8" />
+      {expression === 'sick' && (
+        <g className="pet-sick-marks">
+          {/* 이마의 시무룩한 줄 + 식은땀 */}
+          {[-12, 0, 12].map((dx) => (
+            <path key={dx} d={`M${CX + dx} ${y - 34} l0 10`} stroke="#7c8cff" strokeWidth="3.5" strokeLinecap="round" opacity="0.75" />
+          ))}
+          <path d={`M${R + 20} ${y - 18} q-6 9 0 12 q6 -3 0 -12 Z`} fill="#8fd3ff" stroke={INK} strokeWidth="2.5" strokeLinejoin="round" />
+        </g>
+      )}
+      {expression === 'angry' && (
+        // 화난 표시 (이마 옆 빨간 십자 핏줄)
+        <g transform={`translate(${R + 16} ${y - 32}) rotate(-10)`}>
+          <g className="pet-angry-mark">
+            {[0, 90, 180, 270].map((deg) => (
+              <path key={deg} d={ANGER_PIECE} transform={`rotate(${deg})`} fill="#ff3b3b" stroke={INK} strokeWidth="2" strokeLinejoin="round" />
+            ))}
+          </g>
+        </g>
+      )}
       {eyes}
       {noseMark}
       {mouth}

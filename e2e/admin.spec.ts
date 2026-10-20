@@ -1,5 +1,5 @@
 /** 설계서 12-3: 관리자 PIN → 사과 가격 3★→5★ → 상점 반영 → 설정 코드 내보내기 → 초기화한 기기에서 불러오기 */
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { collectErrors, enterPin, seedHatchedPet } from './helpers';
 
 test('관리자가 바꾼 상점 설정을 코드로 다른 기기에 옮긴다', async ({ page }) => {

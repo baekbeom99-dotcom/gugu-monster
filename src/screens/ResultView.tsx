@@ -118,6 +118,12 @@ export function ResultView({ monsters, tally, finish, trial, solveMs, attempts, 
           ✨ {josa(pet.name, '이가', '가')} {josa(STAGE_LABELS[finish.evolvedTo], '으로', '로')} 자랐어요!
         </div>
       )}
+      {(finish.troubles ?? []).length > 0 && (
+        <div className="banner banner--trouble">
+          {finish.troubles.includes('sick') && `🤒 ${josa(pet.name, '이가', '가')} 탐험하다 아파졌어요. 주사를 맞혀 주세요! `}
+          {finish.troubles.includes('poop') && `💩 ${josa(pet.name, '이가', '가')} 똥을 쌌어요. 치워 주세요!`}
+        </div>
+      )}
 
       <ul className="result__lines">
         {lines.map((l) => (

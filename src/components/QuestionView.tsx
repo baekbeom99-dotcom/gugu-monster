@@ -1,7 +1,9 @@
+import type { ArithDisplay } from '../domain/arith';
 import type { QuestionDisplay } from '../domain/questionGen';
 
 interface Props {
-  display: QuestionDisplay;
+  /** 구구단 문제 또는 셈 연습(덧셈·뺄셈·보수) 문제 */
+  display: QuestionDisplay | ArithDisplay;
   /** 빈칸에 보여줄 값 (키패드 입력 중이거나 힌트에서 정답 공개) */
   fill?: string;
   reveal?: boolean;
@@ -21,6 +23,16 @@ function Cell({ value, fill, reveal }: { value: number | null; fill?: string; re
 
 export function QuestionView({ display, fill, reveal }: Props) {
   switch (display.kind) {
+    case 'arith':
+      return (
+        <div className="question">
+          <Cell value={display.a} fill={fill} reveal={reveal} />
+          <span className="op">{display.op}</span>
+          <Cell value={display.b} fill={fill} reveal={reveal} />
+          <span className="op">=</span>
+          <Cell value={display.result} fill={fill} reveal={reveal} />
+        </div>
+      );
     case 'equation':
       return (
         <div className="question">
