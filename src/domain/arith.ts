@@ -1,6 +1,6 @@
 /**
  * 셈 연습 문제 생성: 받아올림·받아내림 유무 덧셈·뺄셈(기본·고수), 10의 보수, 5의 보수.
- * 기본 단계는 한 자리 수끼리 (받아내림 있는 뺄셈은 10대 − 한 자리 · 두 자리 − 한 자리),
+ * 기본 단계는 한 자리 수끼리 (받아내림 있는 뺄셈은 한 자리 − 한 자리 · 19 이하의 수 − 한 자리),
  * 고수 단계는 두 자리 ± 한·두 자리 (처음 만든 네 가지 — 예전 기록은 고수 단계로 이어진다).
  */
 import { type Rng, randomInt, shuffle } from './random';
@@ -31,7 +31,7 @@ export const ARITH_INFO: Record<ArithKind, { title: string; example: string; lev
   addNoCarryBasic: { title: '받아올림 없는 덧셈 (기본)', example: '3 + 4', level: 'basic' },
   addCarryBasic: { title: '받아올림 있는 덧셈 (기본)', example: '7 + 8', level: 'basic' },
   subNoBorrowBasic: { title: '받아내림 없는 뺄셈 (기본)', example: '8 − 3', level: 'basic' },
-  subBorrowBasic: { title: '받아내림 있는 뺄셈 (기본)', example: '13 − 7 · 42 − 5', level: 'basic' },
+  subBorrowBasic: { title: '받아내림 있는 뺄셈 (기본)', example: '9 − 4 · 13 − 7', level: 'basic' },
   addNoCarry: { title: '받아올림 없는 덧셈 (고수)', example: '23 + 14', level: 'hard' },
   addCarry: { title: '받아올림 있는 덧셈 (고수)', example: '47 + 8', level: 'hard' },
   subNoBorrow: { title: '받아내림 없는 뺄셈 (고수)', example: '58 − 23', level: 'hard' },
@@ -122,12 +122,14 @@ export function generateArith(rng: Rng, kind: ArithKind): ArithQuestion {
       return equation(rng, kind, '−', a, b, a - b);
     }
     case 'subBorrowBasic': {
-      // 한 자리끼리는 받아내림이 생기지 않으므로, 절반은 10대 − 한 자리(13 − 7), 절반은 두 자리 − 한 자리(42 − 5)
-      const a = rng() < 0.5 ? randomInt(rng, 11, 18) : (() => {
-        // 일의 자리가 9면 빌려올 일이 없으니 0~8
-        const tens = randomInt(rng, 2, 9);
-        return tens * 10 + randomInt(rng, 0, 8);
-      })();
+      // 절반은 한 자리 − 한 자리(9 − 4, 몸풀기), 절반은 19 이하의 수 − 한 자리(13 − 7, 받아내림 있음)
+      if (rng() < 0.5) {
+        const a = randomInt(rng, 2, 9);
+        const b = randomInt(rng, 1, a - 1);
+        return equation(rng, kind, '−', a, b, a - b);
+      }
+      // 10~18 (19는 일의 자리가 9라 빌려올 일이 없다), 빼는 수는 일의 자리보다 크게
+      const a = randomInt(rng, 10, 18);
       const b = randomInt(rng, (a % 10) + 1, 9);
       return equation(rng, kind, '−', a, b, a - b);
     }

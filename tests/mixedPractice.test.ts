@@ -40,20 +40,19 @@ describe('기본 단계 문제', () => {
     }
   });
 
-  it('받아내림 있는 뺄셈: 10대·두 자리 − 한 자리, 늘 받아내림이 있다', () => {
-    let teens = 0;
+  it('받아내림 있는 뺄셈: 절반은 한 자리 − 한 자리, 절반은 19 이하의 수 − 한 자리(받아내림)', () => {
+    let small = 0;
     for (const seed of SEEDS) {
       const q = generateArith(seededRng(seed), 'subBorrowBasic');
-      expect(q.a).toBeGreaterThanOrEqual(11);
-      expect(q.a).toBeLessThanOrEqual(99);
+      expect(q.a).toBeLessThanOrEqual(19);
       expect(oneDigit(q.b) && q.b > 0).toBe(true);
-      expect(hasBorrow(q.a, q.b)).toBe(true);
       expect(q.result).toBe(q.a - q.b);
-      if (q.a < 20) teens++;
+      expect(q.result).toBeGreaterThanOrEqual(1);
+      if (q.a <= 9) small++;
+      else expect(hasBorrow(q.a, q.b)).toBe(true);
     }
-    // 절반쯤은 10대 − 한 자리
-    expect(teens).toBeGreaterThan(SEEDS.length * 0.35);
-    expect(teens).toBeLessThan(SEEDS.length * 0.65);
+    expect(small).toBeGreaterThan(SEEDS.length * 0.35);
+    expect(small).toBeLessThan(SEEDS.length * 0.65);
   });
 
   it('보기는 4개, 정답 포함, 모두 0 이상', () => {
