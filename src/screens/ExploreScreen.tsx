@@ -1,7 +1,8 @@
 /** 탐험 선택 — 설계서 4-2, 9-2 */
 import { useNavigate } from 'react-router-dom';
 import { playSfx } from '../audio/sfx';
-import { ARITH_INFO, ARITH_KINDS, type ArithKind } from '../domain/arith';
+import { ARITH_INFO, type ArithLevel, BASIC_ARITH_KINDS, COMP_ARITH_KINDS, HARD_ARITH_KINDS } from '../domain/arith';
+import { practiceMasterMs } from '../domain/arithPractice';
 import { BASE_DANS, CHALLENGE_DANS, type Dan } from '../domain/facts';
 import { localDateString } from '../domain/dates';
 import type { ExploreMode } from '../domain/scheduler';
@@ -9,14 +10,8 @@ import { useGameStore } from '../store/useGameStore';
 import { battleUrl } from './BattleScreen';
 import { practiceUrl } from './PracticeScreen';
 
-const PRACTICE_TONE: Record<ArithKind, string> = {
-  addNoCarry: 'add',
-  addCarry: 'add',
-  subNoBorrow: 'sub',
-  subBorrow: 'sub',
-  comp10: 'comp',
-  comp5: 'comp',
-};
+/** 셈 연습 버튼 색: 기본 단계 흰색, 고수 단계 연한 분홍, 보수 연두 */
+const PRACTICE_TONE: Record<ArithLevel, string> = { basic: 'basic', hard: 'hard', comp: 'comp' };
 
 export function ExploreScreen() {
   const navigate = useNavigate();
@@ -67,6 +62,7 @@ export function ExploreScreen() {
         <span className="explore__main-sub">
           {firstTime ? '어떤 몬스터가 나올까?' : playedToday ? '오늘도 탐험했어요! 한 번 더?' : '오늘 첫 탐험은 별 +5'}
         </span>
+        {!firstTime && <span className="explore__main-mix">곱셈·덧셈·뺄셈이 섞여요 · 빨리 풀수록 별이 더 많아요!</span>}
       </button>
 
       {!firstTime && (
@@ -80,28 +76,45 @@ export function ExploreScreen() {
           </h2>
           <div className="dan-grid dan-grid--challenge">{CHALLENGE_DANS.map((d) => danButton(d, !learning.challengeUnlocked))}</div>
           <h2 className="explore__heading">
-            셈 연습 <span className="explore__hint">덧셈·뺄셈·보수로 몬스터를 잡아요</span>
+            셈 연습 <span className="explore__hint">9문제를 하나도 안 틀리고 빨리 풀면 MASTER! (기본·보수 27초, 고수 45초)</span>
           </h2>
-          <div className="practice-grid">
-            {ARITH_KINDS.map((kind) => {
-              const best = practice[kind]?.bestMs;
-              return (
-                <button
-                  key={kind}
-                  type="button"
-                  className={`practice-button practice-button--${PRACTICE_TONE[kind]}`}
-                  onClick={() => {
-                    playSfx('tap');
-                    navigate(practiceUrl(kind));
-                  }}
-                >
-                  <span className="practice-button__title">{ARITH_INFO[kind].title}</span>
-                  <span className="practice-button__ex">{ARITH_INFO[kind].example}</span>
-                  {best != null && <span className="practice-button__best">⏱ {(best / 1000).toFixed(1)}초</span>}
-                </button>
-              );
-            })}
-          </div>
+          {(
+            [
+              ['기본 단계', '한 자리 수', BASIC_ARITH_KINDS],
+              ['고수 단계', '두 자리 수', HARD_ARITH_KINDS],
+              ['보수', '10·5 만들기', COMP_ARITH_KINDS],
+            ] as const
+          ).map(([label, sub, kinds]) => (
+            <div key={label} className="practice-group">
+              <h3 className="practice-group__title">
+                {label} <small>{sub}</small>
+              </h3>
+              <div className="practice-grid">
+                {kinds.map((kind) => {
+                  const rec = practice[kind];
+                  const best = rec?.bestMs;
+                  return (
+                    <button
+                      key={kind}
+                      type="button"
+                      className={`practice-button practice-button--${PRACTICE_TONE[ARITH_INFO[kind].level]}`}
+                      aria-label={`${ARITH_INFO[kind].title}${rec?.master ? ' MASTER' : ''}${best != null ? `, 최고 기록 ${(best / 1000).toFixed(1)}초` : ''}`}
+                      title={`MASTER: 오답 0개 · ${practiceMasterMs(kind) / 1000}초 안`}
+                      onClick={() => {
+                        playSfx('tap');
+                        navigate(practiceUrl(kind));
+                      }}
+                    >
+                      {rec?.master && <span className="master-sticker">MASTER</span>}
+                      <span className="practice-button__title">{ARITH_INFO[kind].title.replace(/ \((기본|고수)\)$/, '')}</span>
+                      <span className="practice-button__ex">{ARITH_INFO[kind].example}</span>
+                      {best != null && <span className="practice-button__best">⏱ {(best / 1000).toFixed(1)}초</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </>
       )}
     </section>

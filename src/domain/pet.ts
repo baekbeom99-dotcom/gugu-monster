@@ -71,8 +71,8 @@ export interface PetData {
   sick: { since: number; cause: SickCause } | null;
 }
 
-/** 아픈 까닭: 오래 방치됨 · 탐험 뒤 · 음식 먹고 식중독 */
-export type SickCause = 'neglect' | 'exploration' | 'food';
+/** 아픈 까닭: 오래 방치됨 · 탐험 뒤 · 음식 먹고 식중독 · 너무 더러워서 */
+export type SickCause = 'neglect' | 'exploration' | 'food' | 'dirty';
 
 export interface LifeSnapshot {
   explorations: number;
@@ -83,9 +83,24 @@ export interface LifeSnapshot {
   studyDays: number;
 }
 
-export const STAT_MIN = 30;
+/** 상태값 범위 (v1.18: 하한 30 → 0. 펫은 그래도 죽거나 떠나지 않는다) */
+export const STAT_MIN = 0;
 export const STAT_MAX = 100;
 export const DECAY_PER_HOUR: Record<StatKey, number> = { fullness: 3, mood: 2, cleanliness: 1.5 };
+
+/** 배부름이 이만큼 이하면 밥만 먹을 수 있다 */
+export const HUNGRY_LIMIT = 15;
+/** 깨끗함이 이만큼 이하로 떨어지면 병에 걸린다 */
+export const DIRTY_LIMIT = 15;
+/** 기분이 이만큼 이하면 화난 표정 */
+export const ANGRY_MOOD = 30;
+/** 배부름·깨끗함이 이보다 낮으면 기분도 더 빨리 준다 */
+export const LOW_STAT = 50;
+/** 기분이 시간당 더 줄어드는 양: 배부름·깨끗함이 낮을 때(LOW_STAT 미만 1, HUNGRY/DIRTY 이하 2), 똥이 있을 때, 아플 때 */
+export const MOOD_LINK = { low: 1, critical: 2, poop: 2, sick: 2 } as const;
+/** 똥을 싸거나 아프면 기분이 바로 이만큼 준다 */
+export const POOP_MOOD_HIT = 10;
+export const SICK_MOOD_HIT = 15;
 /** 아무리 오래 쉬어도 이 시간만큼만 줄어든다 */
 export const MAX_DECAY_HOURS = 24;
 const HOUR_MS = 3_600_000;
@@ -97,7 +112,7 @@ export const PLAY_COST: Partial<Record<StatKey, number>> = { fullness: -30, clea
 /** 무료 기본 돌봄 (설계서 6-3). 아이템 돌봄은 M5 상점에서 추가된다. */
 export const CARE: Record<CareAction, { label: string; cooldownMin: number; effects: Partial<Record<StatKey, number>>; affection: number }> = {
   feed: { label: '기본 사료', cooldownMin: 120, effects: { fullness: 20 }, affection: 1 },
-  // 놀고 나면 배고파지고 더러워진다 (하한 30은 그대로)
+  // 놀고 나면 배고파지고 더러워진다
   pet: { label: '쓰다듬기', cooldownMin: 10, effects: { mood: 5, ...PLAY_COST }, affection: 1 },
   walk: { label: '산책하기', cooldownMin: 60, effects: { mood: 15, ...PLAY_COST }, affection: 2 },
   wash: { label: '물로 씻기', cooldownMin: 120, effects: { cleanliness: 20 }, affection: 1 },
@@ -163,22 +178,47 @@ export function needsHatch(pet: PetData, explorations: number): boolean {
 
 const clampStat = (v: number) => Math.min(STAT_MAX, Math.max(STAT_MIN, v));
 
+/** 기분이 시간당 줄어드는 양: 기본 2 + 배고프거나 더러우면 · 똥이 있으면 · 아프면 더 */
+export function moodDecayPerHour(pet: PetData): number {
+  let rate = DECAY_PER_HOUR.mood;
+  for (const key of ['fullness', 'cleanliness'] as const) {
+    rate += pet[key] <= HUNGRY_LIMIT ? MOOD_LINK.critical : pet[key] < LOW_STAT ? MOOD_LINK.low : 0;
+  }
+  if ((pet.poops ?? 0) > 0) rate += MOOD_LINK.poop;
+  if (pet.sick) rate += MOOD_LINK.sick;
+  return rate;
+}
+
+export const isHungry = (pet: PetData) => pet.fullness <= HUNGRY_LIMIT;
+/** 화난 표정: 똥이 있거나 기분이 30 이하 */
+export const isAngry = (pet: PetData) => (pet.poops ?? 0) > 0 || pet.mood <= ANGRY_MOOD;
+
+/** 깨끗함이 15 이하로 '떨어지는 순간' 병에 걸린다 (주사를 맞은 뒤 다시 씻기 전에는 또 걸리지 않는다) */
+function catchDirtSickness(before: PetData, after: PetData, now: number): PetData {
+  if (after.sick || after.stage === 'egg' || !after.species) return after;
+  if (before.cleanliness > DIRTY_LIMIT && after.cleanliness <= DIRTY_LIMIT) {
+    return { ...after, sick: { since: now, cause: 'dirty' }, mood: clampStat(after.mood - SICK_MOOD_HIT) };
+  }
+  return after;
+}
+
 /**
- * 지난 시간만큼 상태를 줄인다. 하한 30, 최대 24시간분.
- * 기기 시간이 뒤로 갔으면 아무것도 바꾸지 않는다. 알일 때는 줄지 않는다.
+ * 지난 시간만큼 상태를 줄인다. 하한 0, 최대 24시간분. 배고프거나 더럽거나 똥·병이 있으면 기분이 더 빨리 준다.
+ * 깨끗함이 15 이하로 떨어지면 병에 걸린다. 기기 시간이 뒤로 갔으면 아무것도 바꾸지 않는다. 알일 때는 줄지 않는다.
  */
 export function applyDecay(pet: PetData, now: number): PetData {
   if (now <= pet.statsUpdatedAt) return pet;
   if (pet.stage === 'egg') return { ...pet, statsUpdatedAt: now };
   const hours = Math.min(MAX_DECAY_HOURS, (now - pet.statsUpdatedAt) / HOUR_MS);
-  const decay = (key: StatKey) => (pet[key] < STAT_MIN ? pet[key] : clampStat(pet[key] - DECAY_PER_HOUR[key] * hours));
-  return {
+  const decay = (key: StatKey, perHour: number) => clampStat(pet[key] - perHour * hours);
+  const next: PetData = {
     ...pet,
-    fullness: decay('fullness'),
-    mood: decay('mood'),
-    cleanliness: decay('cleanliness'),
+    fullness: decay('fullness', DECAY_PER_HOUR.fullness),
+    mood: decay('mood', moodDecayPerHour(pet)),
+    cleanliness: decay('cleanliness', DECAY_PER_HOUR.cleanliness),
     statsUpdatedAt: now,
   };
+  return catchDirtSickness(pet, next, now);
 }
 
 export function isSleeping(pet: PetData, now: number): boolean {
@@ -205,7 +245,7 @@ function addCareXp(pet: PetData, now: number): PetData {
   return { ...pet, growthXp: pet.growthXp + gain, careXpToday: { date: today, xp: used + gain } };
 }
 
-export type CareFailure = 'cooldown' | 'sleeping' | 'egg' | 'full' | 'nothing';
+export type CareFailure = 'cooldown' | 'sleeping' | 'egg' | 'full' | 'nothing' | 'hungry';
 export type CareResult = { ok: true; pet: PetData } | { ok: false; reason: CareFailure };
 
 export interface CareSpec {
@@ -218,6 +258,8 @@ export interface CareSpec {
   refuseWhenFull?: boolean;
   /** 돌봄 종류별 횟수에 더할 키 (도감 칭호용) */
   countKeys?: string[];
+  /** 밥·먹이인가 (배부름 15 이하면 이것만 할 수 있다) */
+  isFood?: boolean;
 }
 
 /** 돌봄 한 번: 무료 행동과 아이템이 함께 쓴다. 성장 XP는 하루 10까지. */
@@ -225,8 +267,10 @@ export function applyCare(pet: PetData, spec: CareSpec, now: number): CareResult
   if (pet.stage === 'egg' || !pet.species) return { ok: false, reason: 'egg' };
   let next = applyDecay(pet, now);
   if (isSleeping(next, now)) return { ok: false, reason: 'sleeping' };
+  if (!spec.isFood && isHungry(next)) return { ok: false, reason: 'hungry' };
   if (spec.cooldownKey && cooldownLeft(next, spec.cooldownKey, now) > 0) return { ok: false, reason: 'cooldown' };
   const stats = Object.keys(spec.effects) as StatKey[];
+  const before = next;
   if (spec.refuseWhenFull && stats.length > 0 && stats.every((k) => next[k] >= STAT_MAX)) return { ok: false, reason: 'full' };
 
   next = { ...next };
@@ -242,14 +286,15 @@ export function applyCare(pet: PetData, spec: CareSpec, now: number): CareResult
   if (spec.cooldownKey && spec.cooldownMin) {
     next.cooldowns = { ...next.cooldowns, [spec.cooldownKey]: now + spec.cooldownMin * MIN_MS };
   }
-  return { ok: true, pet: addCareXp(next, now) };
+  // 놀다가 더러워져서 깨끗함이 15 이하가 되면 병에 걸린다
+  return { ok: true, pet: addCareXp(catchDirtSickness(before, next, now), now) };
 }
 
 export function doCare(pet: PetData, action: CareAction, now: number): CareResult {
   const care = CARE[action];
   const r = applyCare(
     pet,
-    { effects: care.effects, affection: care.affection, cooldownKey: action, cooldownMin: care.cooldownMin, countKeys: [action] },
+    { effects: care.effects, affection: care.affection, cooldownKey: action, cooldownMin: care.cooldownMin, countKeys: [action], isFood: action === 'feed' },
     now,
   );
   if (r.ok && action === 'sleep') return { ok: true, pet: { ...r.pet, sleepingUntil: now + SLEEP_MINUTES * MIN_MS } };
@@ -414,12 +459,13 @@ export function rollTrouble(pet: PetData, now: number, cause: Exclude<SickCause,
   if (pet.stage === 'egg' || !pet.species) return { pet, events: [] };
   const events: TroubleEvent[] = [];
   let next = pet;
+  // 똥을 싸거나 아프면 기분이 바로 준다
   if (rng() < TROUBLE_CHANCE) {
-    next = { ...next, poops: Math.min(MAX_POOPS, (next.poops ?? 0) + 1) };
+    next = { ...next, poops: Math.min(MAX_POOPS, (next.poops ?? 0) + 1), mood: clampStat(next.mood - POOP_MOOD_HIT) };
     events.push('poop');
   }
   if (!next.sick && rng() < TROUBLE_CHANCE) {
-    next = { ...next, sick: { since: now, cause } };
+    next = { ...next, sick: { since: now, cause }, mood: clampStat(next.mood - SICK_MOOD_HIT) };
     events.push('sick');
   }
   return { pet: next, events };
@@ -428,14 +474,14 @@ export function rollTrouble(pet: PetData, now: number, cause: Exclude<SickCause,
 /** 음식을 먹은 뒤: 5% 식중독 (이미 아프면 그대로) */
 export function rollFoodPoisoning(pet: PetData, now: number, rng: Rng = Math.random): { pet: PetData; poisoned: boolean } {
   if (pet.sick || pet.stage === 'egg' || rng() >= FOOD_POISON_CHANCE) return { pet, poisoned: false };
-  return { pet: { ...pet, sick: { since: now, cause: 'food' } }, poisoned: true };
+  return { pet: { ...pet, sick: { since: now, cause: 'food' }, mood: clampStat(pet.mood - SICK_MOOD_HIT) }, poisoned: true };
 }
 
 /** 똥 치우기: 모두 치우고 깨끗함 +10, 기분 +5, 친밀도 +1. 자고 있어도 치울 수 있다. */
 export function cleanPoop(pet: PetData, now: number): CareResult {
   if (pet.stage === 'egg' || !pet.species) return { ok: false, reason: 'egg' };
-  if (!(pet.poops > 0)) return { ok: false, reason: 'nothing' };
   const next = applyDecay(pet, now);
+  if (!(next.poops > 0)) return { ok: false, reason: 'nothing' };
   const counts = { ...(next.careCounts ?? {}), clean: (next.careCounts?.clean ?? 0) + 1 };
   return {
     ok: true,
@@ -449,8 +495,9 @@ export function cleanPoop(pet: PetData, now: number): CareResult {
 /** 주사 맞히기: 병이 낫고 친밀도 +1. 자고 있어도 맞힐 수 있다. */
 export function giveShot(pet: PetData, now: number): CareResult {
   if (pet.stage === 'egg' || !pet.species) return { ok: false, reason: 'egg' };
-  if (!pet.sick) return { ok: false, reason: 'nothing' };
+  // 시간이 지나 방금 더러워져서 걸린 병도 치료할 수 있게 먼저 시간을 반영한다
   const next = applyDecay(pet, now);
+  if (!next.sick) return { ok: false, reason: 'nothing' };
   const counts = { ...(next.careCounts ?? {}), shot: (next.careCounts?.shot ?? 0) + 1 };
   return { ok: true, pet: addCareXp({ ...next, sick: null, affection: next.affection + 1, careCounts: counts }, now) };
 }

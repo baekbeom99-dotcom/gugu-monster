@@ -14,6 +14,7 @@ import {
 } from './facts';
 import { type Box, DAY_MS, danFactor, type FactStat, MASTERY_BOX } from './mastery';
 import { isTypeEligible, pickQuestionType, type QuestionType } from './questionGen';
+import type { ArithQuestion } from './arith';
 import { pickOne, type Rng, randomInt, shuffle, weightedPick } from './random';
 
 export interface LearnerSnapshot {
@@ -33,6 +34,20 @@ export interface PlannedItem {
   isRetry: boolean;
   /** 몬스터마다 넣는 '자신감 문제' (상자 3 이상, 4 이상 우선) */
   isConfidence: boolean;
+}
+
+/** 추천 탐험에 섞어 내는 셈 문제 (구구단 숙련도와는 이어지지 않는다) */
+export interface ArithPlanItem {
+  arith: ArithQuestion;
+  isRetry: boolean;
+  isConfidence: false;
+}
+
+/** 전투에서 내는 문제: 구구단 사실 또는 셈 문제 */
+export type BattleItem = PlannedItem | ArithPlanItem;
+
+export function isArithItem(item: BattleItem): item is ArithPlanItem {
+  return 'arith' in item;
 }
 
 export const EXPLORATION_SIZE = 9;
@@ -232,11 +247,19 @@ export interface RetryOptions {
  * currentIndex 문제를 틀렸을 때, 2~3문제 뒤에 다시 낸다.
  * 남은 문제가 모자라면 맨 뒤에 붙인다. 보통은 MAX_RETRIES번까지.
  */
-export function insertRetry(plan: readonly PlannedItem[], currentIndex: number, rng: Rng, opts: RetryOptions = {}): PlannedItem[] {
+export function insertRetry(plan: readonly PlannedItem[], currentIndex: number, rng: Rng, opts?: RetryOptions): PlannedItem[];
+export function insertRetry(plan: readonly BattleItem[], currentIndex: number, rng: Rng, opts?: RetryOptions): BattleItem[];
+export function insertRetry(plan: readonly BattleItem[], currentIndex: number, rng: Rng, opts: RetryOptions = {}): BattleItem[] {
   const usedRetries = plan.filter((it) => it.isRetry).length;
   if (!opts.unlimited && usedRetries >= MAX_RETRIES) return [...plan];
 
   const wrong = plan[currentIndex];
+  if (isArithItem(wrong)) {
+    // 셈 문제는 같은 식을 보기 순서만 바꿔 다시
+    const retry: ArithPlanItem = { arith: { ...wrong.arith, choices: shuffle(rng, wrong.arith.choices) }, isRetry: true, isConfidence: false };
+    const at = Math.min(currentIndex + 1 + randomInt(rng, 2, 3), plan.length);
+    return [...plan.slice(0, at), retry, ...plan.slice(at)];
+  }
   const fact = getFact(wrong.factId);
   // 틀린 직후 상자는 1이다.
   const retry: PlannedItem = {

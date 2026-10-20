@@ -1,17 +1,43 @@
-/** 셈 연습 문제 생성: 받아올림·받아내림 유무 덧셈·뺄셈, 10의 보수, 5의 보수 */
+/**
+ * 셈 연습 문제 생성: 받아올림·받아내림 유무 덧셈·뺄셈(기본·고수), 10의 보수, 5의 보수.
+ * 기본 단계는 한 자리 수끼리 (받아내림 있는 뺄셈은 10대 − 한 자리 · 두 자리 − 한 자리),
+ * 고수 단계는 두 자리 ± 한·두 자리 (처음 만든 네 가지 — 예전 기록은 고수 단계로 이어진다).
+ */
 import { type Rng, randomInt, shuffle } from './random';
 
-export type ArithKind = 'addNoCarry' | 'addCarry' | 'subNoBorrow' | 'subBorrow' | 'comp10' | 'comp5';
+export type ArithKind =
+  | 'addNoCarryBasic'
+  | 'addCarryBasic'
+  | 'subNoBorrowBasic'
+  | 'subBorrowBasic'
+  | 'addNoCarry'
+  | 'addCarry'
+  | 'subNoBorrow'
+  | 'subBorrow'
+  | 'comp10'
+  | 'comp5';
 
-export const ARITH_KINDS: readonly ArithKind[] = ['addNoCarry', 'addCarry', 'subNoBorrow', 'subBorrow', 'comp10', 'comp5'];
+/** 단계: 기본(한 자리) · 고수(두 자리) · 보수 */
+export type ArithLevel = 'basic' | 'hard' | 'comp';
 
-export const ARITH_INFO: Record<ArithKind, { title: string; example: string }> = {
-  addNoCarry: { title: '받아올림 없는 덧셈', example: '23 + 14' },
-  addCarry: { title: '받아올림 있는 덧셈', example: '47 + 8' },
-  subNoBorrow: { title: '받아내림 없는 뺄셈', example: '58 − 23' },
-  subBorrow: { title: '받아내림 있는 뺄셈', example: '63 − 28' },
-  comp10: { title: '10의 보수', example: '7 + ? = 10' },
-  comp5: { title: '5의 보수', example: '2 + ? = 5' },
+export const BASIC_ARITH_KINDS: readonly ArithKind[] = ['addNoCarryBasic', 'addCarryBasic', 'subNoBorrowBasic', 'subBorrowBasic'];
+export const HARD_ARITH_KINDS: readonly ArithKind[] = ['addNoCarry', 'addCarry', 'subNoBorrow', 'subBorrow'];
+export const COMP_ARITH_KINDS: readonly ArithKind[] = ['comp10', 'comp5'];
+export const ARITH_KINDS: readonly ArithKind[] = [...BASIC_ARITH_KINDS, ...HARD_ARITH_KINDS, ...COMP_ARITH_KINDS];
+
+export const ARITH_LEVEL_LABELS: Record<ArithLevel, string> = { basic: '기본', hard: '고수', comp: '보수' };
+
+export const ARITH_INFO: Record<ArithKind, { title: string; example: string; level: ArithLevel }> = {
+  addNoCarryBasic: { title: '받아올림 없는 덧셈 (기본)', example: '3 + 4', level: 'basic' },
+  addCarryBasic: { title: '받아올림 있는 덧셈 (기본)', example: '7 + 8', level: 'basic' },
+  subNoBorrowBasic: { title: '받아내림 없는 뺄셈 (기본)', example: '8 − 3', level: 'basic' },
+  subBorrowBasic: { title: '받아내림 있는 뺄셈 (기본)', example: '13 − 7 · 42 − 5', level: 'basic' },
+  addNoCarry: { title: '받아올림 없는 덧셈 (고수)', example: '23 + 14', level: 'hard' },
+  addCarry: { title: '받아올림 있는 덧셈 (고수)', example: '47 + 8', level: 'hard' },
+  subNoBorrow: { title: '받아내림 없는 뺄셈 (고수)', example: '58 − 23', level: 'hard' },
+  subBorrow: { title: '받아내림 있는 뺄셈 (고수)', example: '63 − 28', level: 'hard' },
+  comp10: { title: '10의 보수', example: '7 + ? = 10', level: 'comp' },
+  comp5: { title: '5의 보수', example: '2 + ? = 5', level: 'comp' },
 };
 
 export type ArithOp = '+' | '−';
@@ -76,6 +102,36 @@ function sample(rng: Rng, accept: (a: number, b: number) => boolean, fallback: [
 
 export function generateArith(rng: Rng, kind: ArithKind): ArithQuestion {
   switch (kind) {
+    // ── 기본 단계: 한 자리 수 ──
+    case 'addNoCarryBasic': {
+      // 한 자리 + 한 자리, 합이 9 이하
+      const a = randomInt(rng, 1, 8);
+      const b = randomInt(rng, 1, 9 - a);
+      return equation(rng, kind, '+', a, b, a + b);
+    }
+    case 'addCarryBasic': {
+      // 한 자리 + 한 자리, 합이 10 이상
+      const a = randomInt(rng, 2, 9);
+      const b = randomInt(rng, 10 - a, 9);
+      return equation(rng, kind, '+', a, b, a + b);
+    }
+    case 'subNoBorrowBasic': {
+      // 한 자리 − 한 자리 (답 1 이상)
+      const a = randomInt(rng, 2, 9);
+      const b = randomInt(rng, 1, a - 1);
+      return equation(rng, kind, '−', a, b, a - b);
+    }
+    case 'subBorrowBasic': {
+      // 한 자리끼리는 받아내림이 생기지 않으므로, 절반은 10대 − 한 자리(13 − 7), 절반은 두 자리 − 한 자리(42 − 5)
+      const a = rng() < 0.5 ? randomInt(rng, 11, 18) : (() => {
+        // 일의 자리가 9면 빌려올 일이 없으니 0~8
+        const tens = randomInt(rng, 2, 9);
+        return tens * 10 + randomInt(rng, 0, 8);
+      })();
+      const b = randomInt(rng, (a % 10) + 1, 9);
+      return equation(rng, kind, '−', a, b, a - b);
+    }
+    // ── 고수 단계: 두 자리 ± 한·두 자리 ──
     case 'addNoCarry': {
       const [a, b] = sample(rng, (x, y) => !hasCarry(x, y), [23, 14]);
       return equation(rng, kind, '+', a, b, a + b);

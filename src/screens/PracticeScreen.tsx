@@ -18,6 +18,7 @@ import {
   finishPracticeHint,
   type PracticeBattle,
   practiceInputMode,
+  practiceMasterMs,
   topUpPractice,
 } from '../domain/arithPractice';
 import { STAR_REWARDS } from '../domain/economy';
@@ -100,12 +101,14 @@ function PracticeSession({ kind, onAgain }: { kind: ArithKind; onAgain: () => vo
       setTally((t) => ({ ...t, captureStars: t.captureStars + sleepStars, slept: sleeping.length }));
       setMessage(line('sleep'));
     }
-    const outcome = finishPractice(kind, solveMs.current, Date.now());
+    // 틀린 횟수 = 시도 − 정답 (MASTER는 하나도 틀리지 않아야 한다)
+    const mistakes = battle.attempts - battle.correctCount;
+    const outcome = finishPractice(kind, solveMs.current, mistakes, Date.now());
     setTally((t) => ({ ...t, xp: t.xp + outcome.xp }));
     if (outcome.evolvedTo) useSessionStore.getState().set({ pendingEvolution: outcome.evolvedTo });
     if (outcome.levelUp) useSessionStore.getState().set({ pendingLevelUp: outcome.levelUp });
     setFinish({ ...outcome, timeMs: solveMs.current });
-    playSfx(outcome.evolvedTo ? 'fanfare' : 'star');
+    playSfx(outcome.evolvedTo || outcome.justMastered ? 'fanfare' : 'star');
   }, [battle, finish, anim, recordCapture, finishPractice, kind]);
 
   const submit = (value: number) => {
@@ -291,18 +294,30 @@ function PracticeResult({
     ...(tally.correct > 0 ? [{ label: `정답 ${tally.correct}개`, stars: tally.correct * STAR_REWARDS.correct }] : []),
     { label: `몬스터 친구 ${monsters.length}마리`, stars: tally.captureStars },
     { label: '셈 연습 완료', stars: finish.stars },
+    ...(finish.bonus > 0 ? [{ label: 'MASTER 보너스', stars: finish.bonus }] : []),
   ];
   const total = lines.reduce((sum, l) => sum + l.stars, 0);
   const showBest = finish.newBest && finish.record.plays > 1;
+  const limitMs = practiceMasterMs(kind);
+  const mistakes = finish.mistakes ?? 0;
+  const passed = mistakes === 0 && finish.timeMs <= limitMs;
   return (
     <div className="result">
-      {(showBest || finish.evolvedTo) && <Confetti />}
+      {(showBest || finish.evolvedTo || finish.justMastered) && <Confetti />}
       <h1 className="result__title">{ARITH_INFO[kind].title} 완료!</h1>
+      {finish.justMastered && <div className="banner banner--master">🏆 MASTER! 보너스 별 +{finish.bonus}</div>}
       <div className="neo-card trial-result">
         <span className="trial-result__label">풀이에 걸린 시간</span>
         <strong className="trial-result__time">⏱ {seconds(finish.timeMs)}</strong>
         <span className="trial-result__sub">
           {attempts}문제 · {showBest ? '최고 기록!' : `최고 기록 ${seconds(finish.record.bestMs ?? finish.timeMs)}`}
+        </span>
+        <span className="trial-result__sub practice-master-note">
+          {mistakes > 0
+            ? `틀린 문제 ${mistakes}개 — MASTER는 하나도 안 틀려야 해요`
+            : passed
+              ? `MASTER 기준 통과 (오답 0개 · ${limitMs / 1000}초 안)`
+              : `오답 0개! MASTER까지 ${Math.ceil((finish.timeMs - limitMs) / 1000)}초 더 빠르게!`}
         </span>
       </div>
       {tally.slept > 0 && <p className="result__note">몬스터가 지쳐서 잠들었어요. 우리가 이겼어요!</p>}

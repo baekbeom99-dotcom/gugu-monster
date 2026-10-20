@@ -54,3 +54,50 @@ test('똥은 치우고, 아프면 주사를 맞힌다', async ({ page }) => {
   expect(saved.careCounts).toMatchObject({ clean: 1, shot: 1 });
   expect(errors).toEqual([]);
 });
+
+test('배부름 15 이하면 밥만 줄 수 있고, 똥 치우기는 된다 · 기분 30 이하면 화난 표정', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.clear();
+    localStorage.setItem(
+      'gugu-monster:save',
+      JSON.stringify({
+        version: 2,
+        state: {
+          pet: {
+            species: 'pig', stage: 'child', name: '꿀꿀', affection: 40, fullness: 10, mood: 25, cleanliness: 60,
+            statsUpdatedAt: Date.now(), lastVisitDate: new Date().toISOString().slice(0, 10), poops: 1,
+          },
+          learning: { totalExplorations: 3 },
+          economy: { stars: 20 },
+          lastSeenAt: Date.now(),
+        },
+      }),
+    );
+  });
+  await page.reload();
+  await page.goto('/#/pet');
+
+  // 밥 말고는 모두 잠김
+  await expect(page.locator('.care--blocked')).toHaveCount(4);
+  // 잠긴 버튼(aria-disabled)도 누르면 왜 안 되는지 말해 준다
+  await page.locator('.care', { hasText: '놀기' }).click({ force: true });
+  await expect(page.locator('.speech--room')).toHaveText('배가 너무 고파서 아무것도 못 하겠어… 밥부터 줘!');
+  await expect(page.locator('.drawer')).toHaveCount(0);
+  await expect(page.locator('.gauge__bar--danger')).toHaveCount(2);
+
+  // 똥 치우기는 된다
+  await page.locator('.trouble--clean').click();
+  await expect(page.locator('.room .poop')).toHaveCount(0);
+
+  // 밥을 먹으면 잠금이 풀린다 (기분은 아직 30 이하라 화난 말)
+  await page.waitForTimeout(1600);
+  await page.locator('.care', { hasText: '밥' }).click();
+  await page.locator('.bag-item', { hasText: '기본 사료' }).click();
+  await expect(page.locator('.care--blocked')).toHaveCount(0);
+  await page.waitForTimeout(1800);
+  await page.locator('.care', { hasText: '잠' }).click();
+  await expect(page.locator('.speech--room')).not.toContainText('배가 너무 고파서');
+  expect(errors).toEqual([]);
+});

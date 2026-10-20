@@ -1,7 +1,7 @@
 /** 답·포획·탐험 종료를 학습 기록과 별에 반영하는 순수 함수들 */
 import { localDateString } from './dates';
 import { BASE_DANS, type Dan, type FactId, getFact, isChallengeDan } from './facts';
-import { GROWTH_XP, STAR_REWARDS, isOvercome, type RewardLine } from './economy';
+import { GROWTH_XP, STAR_REWARDS, isOvercome, type RewardLine, speedStars } from './economy';
 import {
   applyAnswer,
   type FactStat,
@@ -101,14 +101,18 @@ export interface AnswerInput {
   now: number;
   /** trial: 단 도전(단 골라 탐험), normal: 추천·진단 탐험 */
   source?: 'trial' | 'normal';
+  /** 추천 탐험: 정답 별을 푼 시간에 반비례해서 준다 */
+  speedBonus?: boolean;
 }
 
 export interface AnswerOutcome {
   learning: LearningData;
   economy: EconomyData;
   overcome: boolean;
-  /** 이 답으로 얻은 별 (정답 1 + 극복 2) */
+  /** 이 답으로 얻은 별 (정답 1 또는 빠르기 별 2~5 + 극복 2) */
   stars: number;
+  /** 그중 정답 별 (극복 보너스 제외) */
+  baseStars: number;
   /** 펫 성장 XP (시도 1 + 정답 1 + 극복 3) */
   xp: number;
 }
@@ -158,9 +162,10 @@ export function recordAnswer(learning: LearningData, economy: EconomyData, input
     boosted: updateBoost(learning.boosted ?? {}, fact.id, input),
   };
 
-  const stars = (input.correct ? STAR_REWARDS.correct : 0) + (overcome ? STAR_REWARDS.overcome : 0);
+  const baseStars = input.correct ? (input.speedBonus ? speedStars(input.ms) : STAR_REWARDS.correct) : 0;
+  const stars = baseStars + (overcome ? STAR_REWARDS.overcome : 0);
   const xp = GROWTH_XP.attempt + (input.correct ? GROWTH_XP.correctBonus : 0) + (overcome ? GROWTH_XP.overcome : 0);
-  return { learning: nextLearning, economy: addStars(economy, stars), overcome, stars, xp };
+  return { learning: nextLearning, economy: addStars(economy, stars), overcome, stars, baseStars, xp };
 }
 
 /** 단 도전에서 틀리면 부스트를 걸고, 추천 탐험에서 처음 만나 맞히면 하나씩 줄인다 */

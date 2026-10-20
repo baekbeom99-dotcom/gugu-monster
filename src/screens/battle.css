@@ -1267,3 +1267,40 @@
   font-weight: 400;
   color: var(--hot-pink);
 }
+
+/* ── 셈 연습: 기본·고수·보수 묶음과 MASTER 스티커 ── */
+.practice-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.practice-group__title {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 18px;
+}
+.practice-group__title small {
+  margin-left: 6px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.practice-button {
+  position: relative;
+}
+.practice-button .master-sticker {
+  position: absolute;
+  top: -10px;
+  right: -6px;
+}
+
+/* 추천 탐험: 섞여 나오고 빠를수록 별이 많다는 안내 */
+.explore__main-mix {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* 셈 연습 단계별 버튼 색 (v1.18): 기본 흰색, 고수 연한 분홍 */
+.practice-button--basic { background: #ffffff; }
+.practice-button--hard { background: #ffd9e6; }

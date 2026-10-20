@@ -16,7 +16,20 @@ export const STAR_REWARDS = {
   /** 단 도전 MASTER (처음 한 번) */
   trialMaster: 30,
   trialMasterChallenge: 50,
+  /** 셈 연습 MASTER (처음 한 번): 기본·보수 / 고수 */
+  practiceMaster: 20,
+  practiceMasterHard: 30,
 } as const;
+
+/**
+ * 추천 탐험의 정답 별: 푼 시간에 반비례 (k ÷ 걸린 시간, 2~5개). 늘 일반 정답 별(1개)보다 많다.
+ * 2초 안 5개 · 2.5초 4개 · 3~4초 3개 · 4.5초부터 2개.
+ */
+export const SPEED_STARS = { k: 10_000, min: 2, max: 5 } as const;
+
+export function speedStars(ms: number): number {
+  return Math.min(SPEED_STARS.max, Math.max(SPEED_STARS.min, Math.round(SPEED_STARS.k / Math.max(ms, 1))));
+}
 
 /** 펫 성장 XP — 설계서 7-1. 시도만 해도 XP를 줘서 오답이 많아도 비슷하게 자란다. */
 export const GROWTH_XP = {

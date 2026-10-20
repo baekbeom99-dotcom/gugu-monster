@@ -32,19 +32,21 @@ interface Props {
   solveMs?: number | null;
   /** 푼 문제 수 (다시 푼 문제 포함) */
   attempts?: number;
+  /** 추천 탐험: 정답 별을 빠르기로 줬다 */
+  speedBonus?: boolean;
   onAgain: () => void;
   onPet: () => void;
 }
 
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}초`;
 
-export function ResultView({ monsters, tally, finish, trial, solveMs, attempts, onAgain, onPet }: Props) {
+export function ResultView({ monsters, tally, finish, trial, solveMs, attempts, speedBonus, onAgain, onPet }: Props) {
   const pet = useGameStore((s) => s.pet);
   const catalog = useGameStore((s) => s.catalog);
   const isEgg = pet.stage === 'egg';
   const lines = [
     // 정답이 없을 때 '0개'를 굳이 보여주지 않는다.
-    ...(tally.correct > 0 ? [{ label: `정답 ${tally.correct}개`, stars: tally.correctStars }] : []),
+    ...(tally.correct > 0 ? [{ label: speedBonus ? `정답 ${tally.correct}개 (빠를수록 별 더!)` : `정답 ${tally.correct}개`, stars: tally.correctStars }] : []),
     { label: `몬스터 친구 ${monsters.length}마리`, stars: tally.captureStars },
     ...(tally.overcome > 0 ? [{ label: `어려웠던 문제 극복 ${tally.overcome}개`, stars: tally.overcomeStars }] : []),
     ...finish.bonuses,

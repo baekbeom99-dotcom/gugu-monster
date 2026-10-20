@@ -82,7 +82,13 @@ export function applyItem(pet: PetData, economy: EconomyData, item: ItemDef, now
   const r = applyCare(
     pet,
     item.consumable
-      ? { effects: stats, affection, refuseWhenFull: true, countKeys: [`item:${item.category}`, ...(item.special ? ['special'] : [])] }
+      ? {
+          effects: stats,
+          affection,
+          refuseWhenFull: true,
+          countKeys: [`item:${item.category}`, ...(item.special ? ['special'] : [])],
+          isFood: item.category === 'food',
+        }
       : {
           // 장난감으로 놀아도 배부름·깨끗함이 줄어든다
           effects: item.category === 'toy' ? { ...stats, ...PLAY_COST } : stats,

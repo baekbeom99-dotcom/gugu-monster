@@ -942,3 +942,24 @@
 @media (prefers-reduced-motion: reduce) {
   .pet-angry-mark { animation: none; }
 }
+
+/* ── 배고픔·기분 연결 (설계서 6-6, v1.18) ── */
+.care--blocked {
+  background: var(--grey);
+  box-shadow: var(--shadow-sm);
+  opacity: 0.55;
+  filter: grayscale(0.7);
+}
+.gauge__bar--danger {
+  animation: gauge-danger 1s ease-in-out infinite;
+}
+.gauge__bar--danger > span {
+  background: #ff4d4d !important;
+}
+@keyframes gauge-danger {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 0 3px #ff9a9a; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gauge__bar--danger { animation: none; }
+}

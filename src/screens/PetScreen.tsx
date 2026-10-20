@@ -24,6 +24,11 @@ import {
   cooldownLeft,
   cooldownMinutesLabel,
   growthProgress,
+  ANGRY_MOOD,
+  DIRTY_LIMIT,
+  HUNGRY_LIMIT,
+  isAngry,
+  isHungry,
   isSleeping,
   neediest,
   type Species,
@@ -59,7 +64,12 @@ const ITEM_FAIL_LINES: Record<string, string> = {
   full: '지금은 괜찮아! 나중에 줘.',
   sleeping: '쉿, 자고 있어요. 펫을 누르면 깨울 수 있어요.',
   cooldown: '방금 그걸로 놀았어! 조금 있다가 또 하자.',
+  hungry: '배가 너무 고파서 아무것도 못 하겠어… 밥부터 줘!',
 };
+/** 배부름 15 이하: 밥만 먹을 수 있다 */
+const HUNGRY_LINE = '배가 너무 고파서 아무것도 못 하겠어… 밥부터 줘!';
+/** 기분 30 이하: 화난 표정 */
+const LOW_MOOD_LINE = '흥! 기분이 안 좋아. 밥 주고, 씻겨 주고, 놀아 줘!';
 
 const ACTIONS: { key: DrawerKey | 'sleep'; icon: string; label: string }[] = [
   { key: 'feed', icon: '🍚', label: '밥' },
@@ -100,6 +110,7 @@ const SICK_LINES: Record<SickCause, string> = {
   food: '배가 아파… 상한 걸 먹었나 봐. 주사 맞혀 줄래?',
   neglect: '혼자 있어서 몸이 아파졌어… 주사 맞혀 줄래?',
   exploration: '탐험하다 감기에 걸렸나 봐… 주사 맞혀 줄래?',
+  dirty: '너무 더러워서 병이 났어… 주사 맞고 씻겨 줄래?',
 };
 const POOP_LINE = '으으, 냄새! 똥 좀 치워 줘! 흥!';
 const POISONED_LINE = '으윽… 배가 아파! 상한 걸 먹었나 봐. 주사를 맞혀 줘!';
@@ -190,7 +201,9 @@ export function PetScreen() {
   const need = neediest(pet);
   const poops = pet.poops ?? 0;
   // 아프면 주사를 맞을 때까지 아픈 표정, 똥이 있으면 치울 때까지 화난 표정을 계속한다
-  const troubleFace: PetExpression | null = pet.sick ? 'sick' : poops > 0 ? 'angry' : null;
+  // 기분이 30 이하로 떨어져도 화난 표정
+  const troubleFace: PetExpression | null = pet.sick ? 'sick' : isAngry(pet) ? 'angry' : null;
+  const hungry = isHungry(pet);
   const expression: PetExpression = sleeping
     ? 'sleep'
     : troubleFace
@@ -212,7 +225,11 @@ export function PetScreen() {
         ? SICK_LINES[pet.sick.cause]
         : poops > 0
           ? POOP_LINE
-          : session.welcomeBack
+          : hungry
+            ? HUNGRY_LINE
+            : pet.mood <= ANGRY_MOOD
+              ? LOW_MOOD_LINE
+              : session.welcomeBack
             ? `보고 싶었어! 다시 와 줘서 고마워!`
             : session.feedTutorial
           ? "배고파! '밥' 버튼을 눌러 줄래?"
@@ -227,7 +244,7 @@ export function PetScreen() {
     const r = care(key, t);
     if (!r.ok) {
       playSfx('gentle');
-      setLine(r.reason === 'sleeping' ? '쉿, 자고 있어요. 펫을 누르면 깨울 수 있어요.' : COOLDOWN_LINES[key]);
+      setLine(r.reason === 'sleeping' ? '쉿, 자고 있어요. 펫을 누르면 깨울 수 있어요.' : r.reason === 'hungry' ? HUNGRY_LINE : COOLDOWN_LINES[key]);
       return;
     }
     playSfx(key === 'sleep' ? 'lullaby' : key === 'walk' ? 'combo' : 'correct');
@@ -309,10 +326,10 @@ export function PetScreen() {
       setLine('하암~ 잘 잤다!');
       return;
     }
-    // 아프거나 똥이 있으면 놀아 줄 기분이 아니다
-    if (pet.sick || poops > 0) {
+    // 아프거나 똥이 있거나 너무 배고프면 놀아 줄 기분이 아니다
+    if (pet.sick || poops > 0 || hungry) {
       playSfx('gentle');
-      setLine(pet.sick ? '아야… 몸이 안 좋아. 주사 맞혀 줄래?' : '흥! 똥부터 치워 줘!');
+      setLine(pet.sick ? '아야… 몸이 안 좋아. 주사 맞혀 줄래?' : poops > 0 ? '흥! 똥부터 치워 줘!' : HUNGRY_LINE);
       return;
     }
     // 친밀도가 오르면 새 반응이 열린다: Lv3 하이파이브, Lv5 춤추기 (설계서 6-4)
@@ -388,7 +405,9 @@ export function PetScreen() {
             <span className="gauge__label">
               <span aria-hidden>{s.icon}</span> {s.label}
             </span>
-            <span className={`gauge__bar gauge__bar--${s.key}`} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pet[s.key])} aria-label={s.label}>
+            <span
+              className={`gauge__bar gauge__bar--${s.key} ${pet[s.key] <= (s.key === 'mood' ? ANGRY_MOOD : s.key === 'fullness' ? HUNGRY_LIMIT : DIRTY_LIMIT) ? 'gauge__bar--danger' : ''}`}
+              role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pet[s.key])} aria-label={s.label}>
               <span style={{ width: `${Math.round(pet[s.key])}%` }} />
             </span>
           </div>
@@ -418,12 +437,23 @@ export function PetScreen() {
           const tutorial = a.key === 'feed' && session.feedTutorial;
           const hasItems = a.key !== 'sleep' && bagItems(economy, catalog, DRAWER_CATEGORY[a.key]).length > 0;
           const waiting = a.key !== 'decorate' && (sleeping || (left > 0 && !hasItems));
+          // 배부름 15 이하면 밥만 (똥 치우기·주사는 위의 버튼으로 언제든)
+          const blocked = hungry && a.key !== 'feed';
           return (
             <button
               key={a.key}
               type="button"
-              className={`care ${waiting ? 'care--waiting' : ''} ${tutorial ? 'care--tutorial' : ''}`}
-              onClick={() => (a.key === 'sleep' ? doAction('sleep') : openDrawer(a.key))}
+              className={`care ${waiting ? 'care--waiting' : ''} ${tutorial || (hungry && a.key === 'feed') ? 'care--tutorial' : ''} ${blocked ? 'care--blocked' : ''}`}
+              aria-disabled={blocked || undefined}
+              onClick={() => {
+                if (blocked) {
+                  playSfx('gentle');
+                  setLine(HUNGRY_LINE);
+                  return;
+                }
+                if (a.key === 'sleep') doAction('sleep');
+                else openDrawer(a.key);
+              }}
             >
               <span className="care__icon" aria-hidden>
                 {a.icon}

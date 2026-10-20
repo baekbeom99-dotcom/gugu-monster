@@ -56,22 +56,31 @@ export type ExplorationOutcome = FinishOutcome & PetChange & { grantedHats: Item
 /** 밥·먹이를 먹고 5% 확률로 식중독에 걸렸는가 */
 export type FeedChange = PetChange & { poisoned: boolean };
 
-export type PracticeOutcome = PetChange & { stars: number; xp: number; newBest: boolean; record: PracticeRecord };
+export type PracticeOutcome = PetChange & {
+  stars: number;
+  xp: number;
+  newBest: boolean;
+  record: PracticeRecord;
+  mistakes: number | null;
+  justMastered: boolean;
+  bonus: number;
+};
 
 interface GameActions {
   updateSettings: (patch: Partial<Settings>) => void;
   /** 앱을 열 때: 펫 상태 감소·하루 첫 방문·오랜만의 방문 */
   openApp: (now: number) => { welcomeBack: boolean; troubles: TroubleEvent[] };
   /** 답 하나를 즉시 저장. 이번 답으로 얻은 별·XP와 극복 여부를 돌려준다. */
-  recordAnswer: (input: AnswerInput) => { stars: number; xp: number; overcome: boolean };
+  recordAnswer: (input: AnswerInput) => { stars: number; baseStars: number; xp: number; overcome: boolean };
   recordCapture: (golden: boolean) => number;
   finishExploration: (completed: boolean, now: number) => ExplorationOutcome;
   /** 단 도전을 끝까지 마쳤을 때: 기록·MASTER·보너스 */
   finishDanTrial: (dan: Dan, timeMs: number, mistakes: number, now: number) => TrialOutcome;
   /** 셈 연습 답 하나: 별·XP·셈 연습 기록 (구구단 기록은 건드리지 않는다) */
-  recordPracticeAnswer: (kind: ArithKind, correct: boolean, now: number) => { stars: number; xp: number };
+  /** speedMs: 추천 탐험에 섞여 나온 셈 문제는 빠를수록 별을 더 준다 */
+  recordPracticeAnswer: (kind: ArithKind, correct: boolean, now: number, speedMs?: number) => { stars: number; xp: number };
   /** 셈 연습을 끝까지 마쳤을 때: 완료 별·최고 기록·펫 친밀도 */
-  finishPractice: (kind: ArithKind, timeMs: number, now: number) => PracticeOutcome;
+  finishPractice: (kind: ArithKind, timeMs: number, mistakes: number, now: number) => PracticeOutcome;
   chooseEgg: (species: Species) => void;
   hatchPet: (name: string, now: number) => void;
   care: (action: CareAction, now: number) => ({ ok: true } & FeedChange) | { ok: false; reason: string };
@@ -166,7 +175,7 @@ export const useGameStore = create<GameStore>()(
         const s = get();
         const r = recordAnswer(s.learning, s.economy, input);
         set({ learning: r.learning, economy: r.economy, pet: addGrowthXp(s.pet, r.xp), lastSeenAt: input.now });
-        return { stars: r.stars, xp: r.xp, overcome: r.overcome };
+        return { stars: r.stars, baseStars: r.baseStars, xp: r.xp, overcome: r.overcome };
       },
       recordCapture: (golden) => {
         const stars = captureStars(golden);
@@ -199,20 +208,30 @@ export const useGameStore = create<GameStore>()(
         set({ learning: r.learning, economy: r.economy });
         return r;
       },
-      recordPracticeAnswer: (kind, correct, now) => {
+      recordPracticeAnswer: (kind, correct, now, speedMs) => {
         const s = get();
-        const r = recordPracticeAnswer(s.practice, s.economy, kind, correct);
+        const r = recordPracticeAnswer(s.practice, s.economy, kind, correct, speedMs);
         set({ practice: r.practice, economy: r.economy, pet: addGrowthXp(s.pet, r.xp), lastSeenAt: now });
         return { stars: r.stars, xp: r.xp };
       },
-      finishPractice: (kind, timeMs, now) => {
+      finishPractice: (kind, timeMs, mistakes, now) => {
         const s = get();
-        const r = finishPractice(s.practice, s.economy, kind, timeMs);
+        const r = finishPractice(s.practice, s.economy, kind, timeMs, { mistakes, now });
         let pet = addGrowthXp(s.pet, r.xp);
         if (pet.stage !== 'egg') pet = addAffection(pet, EXPLORATION_AFFECTION);
         const settled = settlePet(s.pet, pet, now);
         set({ practice: r.practice, economy: r.economy, pet: settled.pet, lastSeenAt: now });
-        return { stars: r.stars, xp: r.xp, newBest: r.newBest, record: r.record, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
+        return {
+          stars: r.stars,
+          xp: r.xp,
+          newBest: r.newBest,
+          record: r.record,
+          mistakes: r.mistakes,
+          justMastered: r.justMastered,
+          bonus: r.bonus,
+          evolvedTo: settled.evolvedTo,
+          levelUp: settled.levelUp,
+        };
       },
       chooseEgg: (species) => set((s) => ({ pet: chooseEgg(s.pet, species) })),
       hatchPet: (name, now) =>

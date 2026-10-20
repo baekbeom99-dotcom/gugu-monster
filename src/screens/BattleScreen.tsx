@@ -6,6 +6,7 @@ import { MONSTER_NAMES, MonsterSprite, type MonsterMood } from '../art/MonsterSp
 import { playSfx } from '../audio/sfx';
 import { ChoiceGrid, Keypad } from '../components/AnswerInput';
 import { Buddy, type BuddyMood } from '../components/Buddy';
+import { ArithHintPanel } from '../components/ArithHintPanel';
 import { HintPanel } from '../components/HintPanel';
 import { QuestionView } from '../components/QuestionView';
 import { line } from '../data/dialogues';
@@ -26,7 +27,9 @@ import { inputModeForBox } from '../domain/mastery';
 import { generateQuestion } from '../domain/questionGen';
 import type { Rng } from '../domain/random';
 import { DAN_TRIAL_MASTER_MS, type TrialOutcome } from '../domain/progress';
-import { DAN_TRIAL_SIZE, type ExploreMode, type LearnerSnapshot, planExploration } from '../domain/scheduler';
+import { practiceInputMode } from '../domain/arithPractice';
+import { mixArithmetic } from '../domain/mixedExploration';
+import { DAN_TRIAL_SIZE, type ExploreMode, isArithItem, type LearnerSnapshot, planExploration } from '../domain/scheduler';
 import { affectionLevel } from '../domain/pet';
 import { type ExplorationOutcome, useGameStore } from '../store/useGameStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -84,14 +87,18 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
   const navigate = useNavigate();
   const stars = useGameStore((s) => s.economy.stars);
   const forceChoice = useGameStore((s) => s.settings.inputMode === 'choice');
-  const { recordAnswer, recordCapture, finishExploration, finishDanTrial } = useGameStore.getState();
+  const { recordAnswer, recordPracticeAnswer, recordCapture, finishExploration, finishDanTrial } = useGameStore.getState();
   // 단 골라 탐험 = 단 도전: 그 단 11문제를 모두 맞힐 때까지, 시간을 잰다
   const trialDan = mode.kind === 'dan' ? mode.dan : null;
 
   const [startedAt] = useState(() => Date.now());
-  const [battle, setBattle] = useState<BattleState>(() =>
-    createBattle(planExploration(snapshot(), mode, Date.now(), rng), rng, trialDan !== null ? TRIAL_RULES : NORMAL_RULES),
-  );
+  // 추천 탐험: 몬스터마다 셈 연습 문제 하나를 섞고, 정답 별은 빠를수록 많이
+  const speedBonus = mode.kind === 'recommended';
+  const [battle, setBattle] = useState<BattleState>(() => {
+    const plan = planExploration(snapshot(), mode, Date.now(), rng);
+    const mixed = speedBonus ? mixArithmetic(plan, useGameStore.getState().practice, rng) : plan;
+    return createBattle(mixed, rng, trialDan !== null ? TRIAL_RULES : NORMAL_RULES);
+  });
   const [anim, setAnim] = useState<Anim>(null);
   const [message, setMessage] = useState<string | null>(() =>
     affectionLevel(useGameStore.getState().pet.affection) >= SPECIAL_CHEER_LEVEL ? '우리 둘이면 문제없어! 가자!' : line('start'),
@@ -111,12 +118,23 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
   const shownAt = useRef(performance.now());
 
   const item = currentItem(battle);
-  const fact = item ? getFact(item.factId) : null;
-  const questionKey = item ? `${battle.index}:${item.factId}:${item.type}:${item.isRetry}` : 'none';
+  const arithItem = item && isArithItem(item) ? item : null;
+  const factItem = item && !isArithItem(item) ? item : null;
+  const fact = factItem ? getFact(factItem.factId) : null;
+  const questionKey = arithItem
+    ? `${battle.index}:arith:${arithItem.arith.a}${arithItem.arith.op}${arithItem.arith.b}:${arithItem.isRetry}`
+    : factItem
+      ? `${battle.index}:${factItem.factId}:${factItem.type}:${factItem.isRetry}`
+      : 'none';
   const question = useMemo(() => {
-    if (!item || !fact) return null;
+    if (arithItem) {
+      const q = arithItem.arith;
+      const inputMode = practiceInputMode(q.kind, useGameStore.getState().practice[q.kind], forceChoice);
+      return { display: q.display, answer: q.answer, choices: q.choices, inputMode };
+    }
+    if (!factItem || !fact) return null;
     const box = useGameStore.getState().learning.facts[fact.id].box;
-    return { ...generateQuestion(rng, fact, item.type), inputMode: inputModeForBox(box, forceChoice) };
+    return { ...generateQuestion(rng, fact, factItem.type), inputMode: inputModeForBox(box, forceChoice) };
   }, [questionKey, forceChoice]);
 
   useEffect(() => {
@@ -166,22 +184,27 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
   }, [battle, finish, anim, recordCapture, finishExploration, finishDanTrial, trialDan]);
 
   const submit = (value: number) => {
-    if (!item || !question || !fact || anim || battle.phase !== 'question') return;
+    if (!item || !question || (!fact && !arithItem) || anim || battle.phase !== 'question') return;
     const correct = value === question.answer;
     const ms = Math.round(performance.now() - shownAt.current);
     trialMs.current += ms;
-    const res = recordAnswer({
-      factId: item.factId,
-      type: item.type,
-      correct,
-      ms,
-      inputMode: question.inputMode,
-      isRetry: item.isRetry,
-      firstAttemptInBattle: isFirstAttempt(battle, item.factId),
-      battleStartedAt: startedAt,
-      now: Date.now(),
-      source: trialDan !== null ? 'trial' : 'normal',
-    });
+    // 셈 문제는 셈 연습 기록에, 구구단 문제는 숙련도에 남긴다
+    const res = arithItem
+      ? { ...recordPracticeAnswer(arithItem.arith.kind, correct, Date.now(), speedBonus ? ms : undefined), overcome: false }
+      : recordAnswer({
+          factId: factItem!.factId,
+          type: factItem!.type,
+          correct,
+          ms,
+          inputMode: question.inputMode,
+          isRetry: factItem!.isRetry,
+          firstAttemptInBattle: isFirstAttempt(battle, factItem!.factId),
+          battleStartedAt: startedAt,
+          now: Date.now(),
+          source: trialDan !== null ? 'trial' : 'normal',
+          speedBonus,
+        });
+    const baseStars = 'baseStars' in res ? res.baseStars : res.stars;
     const next = answer(battle, correct, ms, rng);
     const monster = battle.current;
 
@@ -211,9 +234,9 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
     setTally((t) => ({
       ...t,
       correct: t.correct + 1,
-      correctStars: t.correctStars + 1,
+      correctStars: t.correctStars + baseStars,
       overcome: t.overcome + (res.overcome ? 1 : 0),
-      overcomeStars: t.overcomeStars + (res.stars - 1),
+      overcomeStars: t.overcomeStars + (res.stars - baseStars),
     }));
     setBuddyMood(res.overcome || last.captured || last.comboBurst ? 'party' : 'cheer');
     setMessage(
@@ -254,6 +277,7 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
         trial={trial && trialDan !== null ? { ...trial, dan: trialDan } : null}
         solveMs={solveMs}
         attempts={battle.attempts}
+        speedBonus={speedBonus}
         onAgain={onAgain}
         onPet={() => navigate(useGameStore.getState().pet.stage === 'egg' ? '/hatch' : '/pet', { replace: true })}
       />
@@ -300,8 +324,10 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
       </header>
 
       <section className={`battle__stage ${inHint ? 'battle__stage--hint' : ''} ${shown.golden && !inHint ? 'battle__stage--golden' : ''}`}>
-        {inHint && fact && item ? (
-          <HintPanel fact={fact} type={item.type} />
+        {inHint && arithItem ? (
+          <ArithHintPanel question={arithItem.arith} />
+        ) : inHint && fact && factItem ? (
+          <HintPanel fact={fact} type={factItem.type} />
         ) : (
           <>
             <span className="stage-tag">{shown.golden ? `황금 ${MONSTER_NAMES[shown.kind]}` : MONSTER_NAMES[shown.kind]}</span>

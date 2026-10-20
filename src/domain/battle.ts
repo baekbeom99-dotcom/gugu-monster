@@ -1,7 +1,7 @@
 /** 전투 상태 머신 — 설계서 4-1, 4-3. 실패 상태가 없다. */
 import { type Dan, type FactId, getFact } from './facts';
 import { pickOne, type Rng, shuffle } from './random';
-import { insertRetry, type PlannedItem, type RetryOptions } from './scheduler';
+import { type BattleItem, insertRetry, isArithItem, type RetryOptions } from './scheduler';
 
 export const MONSTER_COUNT = 3;
 export const MONSTER_HP = 3;
@@ -48,7 +48,7 @@ export interface LastHit {
 
 export interface BattleState {
   rules: BattleRules;
-  plan: PlannedItem[];
+  plan: BattleItem[];
   index: number;
   monsters: MonsterSlot[];
   current: number;
@@ -62,11 +62,12 @@ export interface BattleState {
   last: LastHit | null;
 }
 
-export function createBattle(plan: PlannedItem[], rng: Rng, rules: BattleRules = NORMAL_RULES): BattleState {
+export function createBattle(plan: BattleItem[], rng: Rng, rules: BattleRules = NORMAL_RULES): BattleState {
   const starts = rules.hp.map((_, m) => rules.hp.slice(0, m).reduce((a, b) => a + b, 0));
   const kinds = shuffle(rng, MONSTER_KINDS);
   const monsters: MonsterSlot[] = Array.from({ length: rules.hp.length }, (_, m) => {
-    const group = plan.slice(starts[m], starts[m] + rules.hp[m]).map((it) => getFact(it.factId));
+    // 몬스터 몸 색은 구구단 문제의 단으로 (셈 문제는 빼고)
+    const group = plan.slice(starts[m], starts[m] + rules.hp[m]).flatMap((it) => (isArithItem(it) ? [] : [getFact(it.factId)]));
     const golden = group.some((f) => f.isChallenge);
     const dans = group.length > 0 ? group.map((f) => f.a) : [2 as Dan];
     return {
@@ -93,7 +94,7 @@ export function createBattle(plan: PlannedItem[], rng: Rng, rules: BattleRules =
   };
 }
 
-export function currentItem(state: BattleState): PlannedItem | null {
+export function currentItem(state: BattleState): BattleItem | null {
   return state.phase === 'done' ? null : (state.plan[state.index] ?? null);
 }
 
@@ -112,7 +113,8 @@ export function answer(state: BattleState, correct: boolean, ms: number, rng: Rn
   if (!item) return state;
 
   const attempts = state.attempts + 1;
-  const seenFacts = state.seenFacts.includes(item.factId) ? state.seenFacts : [...state.seenFacts, item.factId];
+  // 오답 극복 판정은 구구단 사실만 (셈 문제는 숙련도와 이어지지 않는다)
+  const seenFacts = isArithItem(item) || state.seenFacts.includes(item.factId) ? state.seenFacts : [...state.seenFacts, item.factId];
 
   if (!correct) {
     return {
@@ -159,7 +161,7 @@ export function finishHint(state: BattleState): BattleState {
   return settleAttemptLimit({ ...state, index: state.index + 1, phase: 'question' });
 }
 
-export function extendPlan(state: BattleState, items: PlannedItem[]): BattleState {
+export function extendPlan(state: BattleState, items: BattleItem[]): BattleState {
   return { ...state, plan: [...state.plan, ...items] };
 }
 

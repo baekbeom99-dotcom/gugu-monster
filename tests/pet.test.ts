@@ -37,11 +37,13 @@ describe('상태 감소', () => {
     expect(p.cleanliness).toBe(87);
   });
 
-  it('30일을 쉬어도 하한 30, 최대 24시간분만 줄어든다', () => {
+  it('30일을 쉬어도 최대 24시간분만 줄어든다 (하한 0)', () => {
     const p = applyDecay(hatched({ fullness: 100, mood: 100, cleanliness: 100 }), NOW + 30 * DAY);
-    expect(p.fullness).toBe(STAT_MIN);
+    expect(p.fullness).toBe(100 - 3 * 24);
     expect(p.mood).toBe(100 - 2 * 24);
     expect(p.cleanliness).toBe(100 - 1.5 * 24);
+    expect(STAT_MIN).toBe(0);
+    expect(applyDecay(hatched({ fullness: 20 }), NOW + 30 * DAY).fullness).toBe(0);
   });
 
   it('기기 시간이 뒤로 가면 아무것도 바뀌지 않는다', () => {
@@ -75,7 +77,8 @@ describe('돌봄', () => {
   it('돌봄 성장 XP는 하루 10까지', () => {
     let p = hatched();
     for (let i = 0; i < 20; i++) {
-      const r = doCare(p, 'pet', NOW + i * 11 * 60_000);
+      // 놀면 배고파지므로(배부름 15 이하면 밥만) 매번 배부르게 해 둔다
+      const r = doCare({ ...p, fullness: 100, cleanliness: 100 }, 'pet', NOW + i * 11 * 60_000);
       if (r.ok) p = r.pet;
     }
     expect(p.growthXp).toBe(CARE_XP_DAILY_CAP);
@@ -192,12 +195,15 @@ describe('조사', () => {
 });
 
 describe('놀기·잠의 대가', () => {
-  it('쓰다듬기·산책: 배부름·깨끗함 −30 (하한 30)', () => {
+  it('쓰다듬기·산책: 배부름·깨끗함 −30, 깨끗함이 15 이하가 되면 병에 걸린다', () => {
     for (const action of ['pet', 'walk'] as const) {
       const r = doCare(hatched({ fullness: 90, cleanliness: 45, mood: 50 }), action, NOW);
       if (!r.ok) throw new Error(r.reason);
       expect(r.pet.fullness).toBe(60);
-      expect(r.pet.cleanliness).toBe(STAT_MIN);
+      expect(r.pet.cleanliness).toBe(15);
+      expect(r.pet.sick).toEqual({ since: NOW, cause: 'dirty' });
+      // 놀아서 기분 +5(+15) 뒤 아파서 −15
+      expect(r.pet.mood).toBe(action === 'pet' ? 40 : 50);
     }
   });
 
@@ -207,6 +213,6 @@ describe('놀기·잠의 대가', () => {
     expect(r.pet.fullness).toBe(50);
     expect(r.pet.mood).toBe(60);
     const low = doCare(hatched({ fullness: 60 }), 'sleep', NOW);
-    expect(low.ok && low.pet.fullness).toBe(STAT_MIN);
+    expect(low.ok && low.pet.fullness).toBe(10);
   });
 });

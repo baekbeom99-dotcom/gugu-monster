@@ -13,7 +13,14 @@ async function solveOnScreen(page: Page): Promise<number> {
       const step = (known[1][1] - known[0][1]) / (known[1][0] - known[0][0]);
       return known[0][1] + (t.indexOf(null) - known[0][0]) * step;
     }
-    const [a, , b, , r] = parts;
+    const [a, op, b, , r] = parts;
+    // 추천 탐험에는 덧셈·뺄셈(셈 연습 문제)도 섞여 나온다
+    if (op === '+' || op === '−') {
+      const add = op === '+';
+      if (r === '?') return add ? Number(a) + Number(b) : Number(a) - Number(b);
+      if (a === '?') return add ? Number(r) - Number(b) : Number(r) + Number(b);
+      return add ? Number(r) - Number(a) : Number(a) - Number(r);
+    }
     if (r === '?') return Number(a) * Number(b);
     if (a === '?') return Number(r) / Number(b);
     return Number(r) / Number(a);
