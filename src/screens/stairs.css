@@ -161,7 +161,7 @@
 .stairs__question {
   position: relative;
 }
-.stairs__question--hard {
+.stairs__question--wrong {
   background: #fff1d6;
 }
 .stairs__question--challenge {

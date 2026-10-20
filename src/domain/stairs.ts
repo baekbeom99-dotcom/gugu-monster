@@ -1,13 +1,14 @@
 /**
  * 무한의 계단 — 설계서 4-5.
  * 구구단 2~9·12·13단 문제를 맞힐 때마다 계단을 한 칸 오른다. 5초 안에 답하지 못하거나 틀리면 끝.
- * 문제 순서: 쉬운 문제 3개 → 자주 틀리는 문제 1개를 되풀이하고, 자주 틀리는 문제 자리 3번에 1번은 12·13단 문제.
- * 쉬움·어려움은 학습 기록(숙련도 상자·정답률·최근 오답)으로 정한다. 기록이 없으면 규칙 문제·작은 단을 쉬운 문제로 본다.
+ * 문제 배치 (v1.24): 2~9단 중 '자주 틀리는 문제'를 뺀 문제 3개 → 자주 틀리는 문제 1개를 되풀이한다.
+ * 10의 배수 층(10·20·30…층으로 오르는 문제)은 12·13단 문제.
+ * '자주 틀리는 문제'는 학습 기록(틀린 횟수·정답률·최근 오답·숙련도 상자)으로 정한다.
  */
 import { BASE_DANS, CHALLENGE_DANS, type Fact, type FactId, FACTS } from './facts';
 import { DAY_MS, type FactStat } from './mastery';
 import { addStars, type EconomyData } from './progress';
-import { type Rng, weightedPick } from './random';
+import { pickOne, type Rng, weightedPick } from './random';
 import { localDateString } from './dates';
 
 /** 한 문제에 주어진 시간 */
@@ -16,27 +17,26 @@ export const STAIRS_TIME_MS = 5000;
 export const STAIRS_STAR_PER_STEP = 1;
 /** 같은 문제가 이만큼 지나기 전에는 다시 나오지 않는다 */
 const RECENT_SIZE = 6;
-/** 쉬운·어려운 문제 후보 수 (기록 순위 위쪽에서) */
-const EASY_POOL = 30;
-const HARD_POOL = 14;
-const CHALLENGE_POOL = 12;
+/** 기록에 자주 틀리는 문제가 없을 때 대신 쓸 '어려운 문제' 수 (큰 곱부터) */
+const FALLBACK_WRONG = 14;
+/** 12·13단 층은 이 층마다 */
+export const CHALLENGE_FLOOR_EVERY = 10;
 
-export type StairsSlot = 'easy' | 'hard' | 'challenge';
+/** normal: 2~9단 (자주 틀리는 문제 빼고), wrong: 자주 틀리는 문제, challenge: 12·13단 (10의 배수 층) */
+export type StairsSlot = 'normal' | 'wrong' | 'challenge';
 
 export interface StairsDeck {
   /** 지금까지 낸 문제 수 */
   issued: number;
-  /** 지금까지 낸 '자주 틀리는 문제' 자리 수 (3번째마다 12·13단) */
-  hardSlots: number;
   recent: FactId[];
 }
 
-export const newStairsDeck = (): StairsDeck => ({ issued: 0, hardSlots: 0, recent: [] });
+export const newStairsDeck = (): StairsDeck => ({ issued: 0, recent: [] });
 
-/** n번째(0부터) 문제 자리: 쉬움 3개 → 어려움 1개, 어려움 자리 3번째마다 12·13단 */
-export function slotAt(issued: number, hardSlots: number): StairsSlot {
-  if (issued % 4 !== 3) return 'easy';
-  return hardSlots % 3 === 2 ? 'challenge' : 'hard';
+/** n번째(0부터) 문제 자리. 이 문제를 맞히면 n+1층. 10의 배수 층은 12·13단, 아니면 보통 3개 → 자주 틀리는 문제 1개. */
+export function slotAt(issued: number): StairsSlot {
+  if ((issued + 1) % CHALLENGE_FLOOR_EVERY === 0) return 'challenge';
+  return issued % 4 === 3 ? 'wrong' : 'normal';
 }
 
 const BASE = FACTS.filter((f) => (BASE_DANS as readonly number[]).includes(f.a));
@@ -45,25 +45,36 @@ const CHALLENGE = FACTS.filter((f) => (CHALLENGE_DANS as readonly number[]).incl
 const accuracy = (s: FactStat) => (s.attempts > 0 ? s.correct / s.attempts : 0.5);
 const recentlyWrong = (s: FactStat, now: number) => s.lastWrongAt !== null && now - s.lastWrongAt < 3 * DAY_MS;
 
-/** 쉬움 점수: 상자가 높고 정답률이 높을수록. 기록이 없으면 규칙 문제(×0·×1·×10)와 작은 곱이 쉽다. */
-export function easeScore(f: Fact, s: FactStat, now: number): number {
-  const noHistory = s.attempts === 0 ? (f.isRule ? 3 : 2 - f.product / 45) : 0;
-  return s.box * 2 + accuracy(s) * 3 + noHistory - (recentlyWrong(s, now) ? 4 : 0);
-}
-
-/** 어려움 점수: 틀린 횟수·최근 오답·낮은 상자. 기록이 없으면 큰 곱이 어렵다. 규칙 문제는 어려움에서 뺀다. */
+/** 어려움 점수: 틀린 횟수·최근 오답·낮은 상자. 기록이 없으면 큰 곱이 어렵다. 규칙 문제(×0·×1·×10)는 낮게. */
 export function hardScore(f: Fact, s: FactStat, now: number): number {
   const wrong = s.attempts - s.correct;
   const noHistory = s.attempts === 0 ? f.product / 30 : 0;
   return wrong * 2 + (1 - accuracy(s)) * 3 + (recentlyWrong(s, now) ? 3 : 0) + (5 - s.box) * 0.4 + noHistory - (f.isRule ? 6 : 0);
 }
 
-function pickFrom(pool: readonly Fact[], score: (f: Fact) => number, size: number, recent: FactId[], rng: Rng): Fact {
-  const ranked = [...pool].sort((x, y) => score(y) - score(x)).slice(0, size);
-  const fresh = ranked.filter((f) => !recent.includes(f.id));
-  const candidates = fresh.length > 0 ? fresh : ranked;
-  // 순위가 높을수록 조금 더 자주 (맨 위만 계속 나오지 않게)
-  return weightedPick(rng, candidates, (f) => size + 1 - ranked.indexOf(f)) ?? candidates[0];
+/** 자주 틀리는 문제: 한 번 이상 틀렸고, 정답률 85% 미만이거나 최근 3일 안에 틀렸거나 숙련도 상자 2 이하 */
+export function isFrequentlyWrong(s: FactStat, now: number): boolean {
+  const wrong = s.attempts - s.correct;
+  return wrong >= 1 && (accuracy(s) < 0.85 || recentlyWrong(s, now) || s.box <= 2);
+}
+
+/**
+ * 2~9단을 '자주 틀리는 문제'와 나머지로 나눈다.
+ * 기록에 자주 틀리는 문제가 없으면 어려움 점수가 높은 문제(기록이 없으면 큰 곱) 14개를 대신 쓴다.
+ */
+export function splitBasePool(facts: Record<FactId, FactStat>, now: number): { wrong: Fact[]; normal: Fact[] } {
+  let wrong = BASE.filter((f) => isFrequentlyWrong(facts[f.id], now));
+  if (wrong.length === 0) {
+    wrong = [...BASE].sort((x, y) => hardScore(y, facts[y.id], now) - hardScore(x, facts[x.id], now)).slice(0, FALLBACK_WRONG);
+  }
+  const ids = new Set(wrong.map((f) => f.id));
+  return { wrong, normal: BASE.filter((f) => !ids.has(f.id)) };
+}
+
+/** 최근에 나온 문제는 빼고 고른다 (모두 최근이면 그냥 고른다) */
+function fresh(pool: readonly Fact[], recent: FactId[]): Fact[] {
+  const f = pool.filter((x) => !recent.includes(x.id));
+  return f.length > 0 ? f : [...pool];
 }
 
 /** 다음 문제를 고른다 */
@@ -73,23 +84,20 @@ export function nextStairsFact(
   now: number,
   rng: Rng,
 ): { fact: Fact; slot: StairsSlot; deck: StairsDeck } {
-  const slot = slotAt(deck.issued, deck.hardSlots);
-  const stat = (f: Fact) => facts[f.id];
-  const fact =
-    slot === 'easy'
-      ? pickFrom(BASE, (f) => easeScore(f, stat(f), now), EASY_POOL, deck.recent, rng)
-      : slot === 'hard'
-        ? pickFrom(BASE, (f) => hardScore(f, stat(f), now), HARD_POOL, deck.recent, rng)
-        : pickFrom(CHALLENGE, (f) => hardScore(f, stat(f), now), CHALLENGE_POOL, deck.recent, rng);
-  return {
-    fact,
-    slot,
-    deck: {
-      issued: deck.issued + 1,
-      hardSlots: deck.hardSlots + (slot === 'easy' ? 0 : 1),
-      recent: [...deck.recent, fact.id].slice(-RECENT_SIZE),
-    },
-  };
+  const slot = slotAt(deck.issued);
+  const score = (f: Fact) => Math.max(0.5, hardScore(f, facts[f.id], now));
+  let fact: Fact;
+  if (slot === 'challenge') {
+    fact = weightedPick(rng, fresh(CHALLENGE, deck.recent), score) ?? pickOne(rng, CHALLENGE);
+  } else {
+    const { wrong, normal } = splitBasePool(facts, now);
+    // 보통 자리는 고르게, 자주 틀리는 자리는 더 자주 틀린 문제일수록 자주
+    fact =
+      slot === 'normal'
+        ? pickOne(rng, fresh(normal, deck.recent))
+        : (weightedPick(rng, fresh(wrong, deck.recent), score) ?? pickOne(rng, wrong));
+  }
+  return { fact, slot, deck: { issued: deck.issued + 1, recent: [...deck.recent, fact.id].slice(-RECENT_SIZE) } };
 }
 
 // ── 기록과 보상 ──────────────────────────────────────

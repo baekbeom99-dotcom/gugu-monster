@@ -53,7 +53,7 @@ interface Result {
   missed: Current;
 }
 
-const SLOT_LABEL: Record<StairsSlot, string | null> = { easy: null, hard: '도전!', challenge: '황금 계단' };
+const SLOT_LABEL: Record<StairsSlot, string | null> = { normal: null, wrong: '자주 틀린 문제', challenge: '황금 계단 12·13단' };
 
 /** 오른 높이에 따라 하늘이 바뀐다 */
 function skyOf(steps: number): string {
@@ -229,7 +229,7 @@ export function StairsScreen() {
             <li>
               <strong>5초</strong> 안에 답하지 못하거나 틀리면 떨어져요!
             </li>
-            <li>쉬운 문제 3개 다음엔 자주 틀린 문제, 가끔 12·13단 황금 계단도 나와요.</li>
+            <li>세 문제마다 내가 자주 틀린 문제가 나오고, 10·20·30…층은 12·13단 황금 계단이에요.</li>
             <li>
               올라간 계단 한 칸마다 별 <strong>{STAIRS_STAR_PER_STEP}개</strong>!
             </li>
@@ -248,7 +248,7 @@ export function StairsScreen() {
           <div className={`stairs__timer ${timeRatio < 0.35 ? 'stairs__timer--hurry' : ''}`} role="timer" aria-label={`남은 시간 ${(left / 1000).toFixed(1)}초`}>
             <span style={{ width: `${timeRatio * 100}%` }} />
           </div>
-          <div className={`battle__question stairs__question ${current.slot !== 'easy' ? `stairs__question--${current.slot}` : ''}`}>
+          <div className={`battle__question stairs__question ${current.slot !== 'normal' ? `stairs__question--${current.slot}` : ''}`}>
             {SLOT_LABEL[current.slot] && <span className="stairs__slot">{SLOT_LABEL[current.slot]}</span>}
             <QuestionView display={current.question.display} />
           </div>

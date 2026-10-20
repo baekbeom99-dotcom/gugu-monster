@@ -9,6 +9,7 @@ import {
   newStairsDeck,
   nextStairsFact,
   slotAt,
+  splitBasePool,
   STAIRS_TIME_MS,
   stairsPath,
 } from '../src/domain/stairs';
@@ -17,44 +18,54 @@ import { createInitialSave, mergeSave } from '../src/store/saveData';
 const NOW = new Date(2026, 9, 21, 10).getTime();
 
 describe('문제 순서', () => {
-  it('쉬움 3 → 자주 틀리는 문제 1을 되풀이하고, 그 자리 3번에 1번은 12·13단', () => {
+  it('보통 3 → 자주 틀리는 문제 1을 되풀이하고, 10의 배수 층은 12·13단', () => {
     let deck = newStairsDeck();
-    const facts = initialFactStats();
     const slots: string[] = [];
     const rng = seededRng(3);
-    for (let i = 0; i < 24; i++) {
-      const r = nextStairsFact(deck, facts, NOW, rng);
+    for (let i = 0; i < 40; i++) {
+      const r = nextStairsFact(deck, initialFactStats(), NOW, rng);
       deck = r.deck;
       slots.push(r.slot);
-      if (r.slot === 'challenge') expect([12, 13]).toContain(r.fact.a);
+      // i번째 문제를 맞히면 i+1층
+      if ((i + 1) % 10 === 0) expect([12, 13]).toContain(r.fact.a);
       else expect(r.fact.a).toBeLessThanOrEqual(9);
     }
-    expect(slots.slice(0, 12)).toEqual(['easy', 'easy', 'easy', 'hard', 'easy', 'easy', 'easy', 'hard', 'easy', 'easy', 'easy', 'challenge']);
-    expect(slots.filter((s) => s === 'challenge')).toHaveLength(2);
-    expect(slotAt(3, 0)).toBe('hard');
-    expect(slotAt(3, 2)).toBe('challenge');
+    expect(slots.slice(0, 12)).toEqual(['normal', 'normal', 'normal', 'wrong', 'normal', 'normal', 'normal', 'wrong', 'normal', 'challenge', 'normal', 'wrong']);
+    expect(slots.filter((s) => s === 'challenge')).toHaveLength(4);
+    expect(slotAt(19)).toBe('challenge');
+    expect(slotAt(39)).toBe('challenge');
+    expect(slotAt(7)).toBe('wrong');
   });
 
-  it('기록에 따라: 잘 아는 문제는 쉬운 자리에, 자주 틀린 문제는 어려운 자리에', () => {
+  it('보통 자리에는 자주 틀리는 문제가 나오지 않고, 넷째 자리는 자주 틀리는 문제에서만', () => {
     const facts = initialFactStats();
-    // 7×8은 자주 틀렸고, 2×3은 잘 안다
+    // 7×8·6×9는 자주 틀렸고, 2×3은 잘 안다
     facts['7x8'] = { ...facts['7x8'], box: 1, attempts: 10, correct: 2, lastWrongAt: NOW - 3_600_000 };
+    facts['6x9'] = { ...facts['6x9'], box: 2, attempts: 6, correct: 3 };
     facts['2x3'] = { ...facts['2x3'], box: 5, attempts: 10, correct: 10 };
-    let hard78 = 0;
-    let easy23 = 0;
+    expect(splitBasePool(facts, NOW).wrong.map((f) => f.id).sort()).toEqual(['6x9', '7x8']);
+    let normal23 = 0;
     for (let seed = 0; seed < 200; seed++) {
       let deck = newStairsDeck();
       const rng = seededRng(seed);
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 8; i++) {
         const r = nextStairsFact(deck, facts, NOW, rng);
         deck = r.deck;
-        if (r.slot === 'hard' && r.fact.id === '7x8') hard78++;
-        if (r.slot === 'easy' && r.fact.id === '2x3') easy23++;
-        expect(r.slot === 'easy' && r.fact.id === '7x8').toBe(false);
+        if (r.slot === 'normal') expect(['7x8', '6x9']).not.toContain(r.fact.id);
+        if (r.slot === 'wrong') expect(['7x8', '6x9']).toContain(r.fact.id);
+        if (r.slot === 'normal' && r.fact.id === '2x3') normal23++;
       }
     }
-    expect(hard78).toBeGreaterThan(10);
-    expect(easy23).toBeGreaterThan(10);
+    // 잘 아는 문제도 보통 자리에 고르게 나온다
+    expect(normal23).toBeGreaterThan(0);
+  });
+
+  it('기록에 자주 틀린 문제가 없으면 큰 곱을 대신 쓰고, 보통 자리에서는 뺀다', () => {
+    const { wrong, normal } = splitBasePool(initialFactStats(), NOW);
+    expect(wrong).toHaveLength(14);
+    expect(wrong.every((f) => !f.isRule && f.product >= 40)).toBe(true);
+    expect(normal.some((f) => wrong.includes(f))).toBe(false);
+    expect(wrong.length + normal.length).toBe(88);
   });
 
   it('같은 문제가 바로 다시 나오지 않는다', () => {
