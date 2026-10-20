@@ -1306,141 +1306,39 @@
 .practice-button--basic { background: #ffffff; }
 .practice-button--hard { background: #ffd9e6; }
 
-/* ── 타격 연출 (v1.21): 체력이 줄수록 작아지고, 맞을 때 크게 번쩍 ── */
+/* ── 타격 연출 (v1.22): 맞으면 몬스터가 흔들리고, 체력이 줄수록 작아진다 ── */
 .monster-scale {
   transform-origin: 50% 85%;
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .monster--hit {
-  animation: hit-big 0.5s ease-out;
-}
-.monster--hit.monster--critical {
-  animation: hit-big 0.6s ease-out, hit-flash 0.6s steps(2);
-}
-.monster--hit svg,
-.monster--capture svg {
-  animation: hit-flash 0.45s steps(2);
+  animation: hit-wobble 0.5s ease-out;
 }
 
-@keyframes hit-big {
-  0% { transform: translate(0, 0) scale(1, 1); }
-  15% { transform: translate(-6px, 6px) scale(1.18, 0.78) rotate(-6deg); }
-  35% { transform: translate(14px, -8px) scale(0.86, 1.14) rotate(8deg); }
-  55% { transform: translate(-10px, 2px) scale(1.06, 0.94) rotate(-4deg); }
-  75% { transform: translate(5px, 0) scale(0.98, 1.02) rotate(2deg); }
-  100% { transform: translate(0, 0) scale(1, 1); }
-}
-@keyframes hit-flash {
-  0%, 100% { filter: none; }
-  50% { filter: brightness(2.2) saturate(0.4); }
+@keyframes hit-wobble {
+  0% { transform: translate(0, 0) rotate(0); }
+  20% { transform: translate(-12px, 2px) rotate(-8deg); }
+  40% { transform: translate(11px, -2px) rotate(7deg); }
+  60% { transform: translate(-7px, 1px) rotate(-4deg); }
+  80% { transform: translate(4px, 0) rotate(2deg); }
+  100% { transform: translate(0, 0) rotate(0); }
 }
 
-.battle__stage--shake {
-  animation: stage-shake 0.35s steps(6);
-}
-@keyframes stage-shake {
-  0%, 100% { translate: 0 0; }
-  20% { translate: -6px 3px; }
-  40% { translate: 5px -3px; }
-  60% { translate: -4px -2px; }
-  80% { translate: 3px 2px; }
-}
-
-.hit-burst {
-  position: absolute;
-  left: 50%;
-  top: 52%;
-  width: 0;
-  height: 0;
-  pointer-events: none;
-  z-index: 3;
-}
-/* 폭발 그림과 글자는 몬스터 오른쪽 위에 (몬스터의 맞은 얼굴이 가려지지 않게), 별 조각은 몬스터 둘레로 */
-.hit-burst__star {
-  position: absolute;
-  left: 18px;
-  top: -112px;
-  width: 104px;
-  height: 104px;
-  animation: burst-pop 0.55s ease-out forwards;
-}
-.hit-burst--big .hit-burst__star {
-  left: 10px;
-  top: -124px;
-  width: 128px;
-  height: 128px;
-}
-.hit-burst__word {
-  position: absolute;
-  left: 70px;
-  top: -60px;
-  translate: -50% -50%;
-  font-family: var(--font-display);
-  font-size: 34px;
-  color: var(--ink);
-  white-space: nowrap;
-  -webkit-text-stroke: 1px var(--ink);
-  animation: burst-word 0.6s ease-out forwards;
-}
-.hit-burst--big .hit-burst__word {
-  left: 74px;
-  top: -60px;
-  font-size: 34px;
-}
-.hit-burst--capture .hit-burst__word {
-  font-size: 22px;
-}
-/* 받은 별은 폭발 반대쪽(왼쪽)에, 폭발보다 앞에 */
+/* 받은 별은 몬스터 왼쪽에 */
 .float-stars {
   z-index: 4;
   right: auto;
   left: 12%;
 }
-/* 긴 이름표(셈 연습 종류 · 몬스터 이름)가 오른쪽 체력 칸을 덮지 않게 */
+/* 긴 이름표(셈 연습 종류)가 오른쪽 체력 칸을 덮지 않게 */
 .battle__stage .stage-tag {
   max-width: calc(100% - 150px);
   line-height: 1.25;
   z-index: 2;
 }
-.hit-burst__bit {
-  position: absolute;
-  left: 0;
-  top: 0;
-  translate: -50% -50%;
-  font-size: 22px;
-  color: #ffe14d;
-  -webkit-text-stroke: 1.5px var(--ink);
-  animation: burst-bit 0.6s ease-out forwards;
-}
-.hit-burst__bit:nth-child(3n) { color: #ff8fc1; }
-.hit-burst__bit:nth-child(3n + 1) { color: #ffffff; }
-
-@keyframes burst-pop {
-  0% { transform: scale(0.2) rotate(0deg); opacity: 1; }
-  45% { transform: scale(1.1) rotate(12deg); opacity: 1; }
-  100% { transform: scale(1.35) rotate(20deg); opacity: 0; }
-}
-@keyframes burst-word {
-  0% { scale: 0.3; rotate: -12deg; opacity: 1; }
-  40% { scale: 1.25; rotate: -6deg; opacity: 1; }
-  100% { scale: 1; rotate: -6deg; opacity: 0; translate: -50% -110%; }
-}
-@keyframes burst-bit {
-  0% { transform: rotate(var(--a)) translateY(0) scale(0.6); opacity: 1; }
-  100% { transform: rotate(var(--a)) translateY(calc(var(--d) * -1)) scale(1.1); opacity: 0; }
-}
 
 @media (prefers-reduced-motion: reduce) {
-  .monster--hit, .monster--hit svg, .monster--capture svg, .battle__stage--shake,
-  .hit-burst__star, .hit-burst__word, .hit-burst__bit { animation-duration: 0.01s; }
+  .monster--hit { animation-duration: 0.01s; }
   .monster-scale { transition: none; }
-}
-
-/* 높이가 낮은 화면에서는 폭발도 작게 (체력 칸을 가리지 않게) */
-@media (max-height: 760px) {
-  .hit-burst__star { left: 14px; top: -84px; width: 80px; height: 80px; }
-  .hit-burst--big .hit-burst__star { left: 8px; top: -92px; width: 96px; height: 96px; }
-  .hit-burst__word, .hit-burst--big .hit-burst__word { left: 55px; top: -44px; font-size: 26px; }
-  .hit-burst--capture .hit-burst__word { font-size: 17px; }
 }

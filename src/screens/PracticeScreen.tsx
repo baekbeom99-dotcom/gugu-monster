@@ -8,7 +8,7 @@ import { ArithHintPanel } from '../components/ArithHintPanel';
 import { ChoiceGrid, Keypad } from '../components/AnswerInput';
 import { Buddy, type BuddyMood } from '../components/Buddy';
 import { Confetti } from '../components/Confetti';
-import { HitBurst, monsterScale } from '../components/HitBurst';
+import { monsterScale } from '../components/monsterScale';
 import { QuestionView } from '../components/QuestionView';
 import { line } from '../data/dialogues';
 import { ARITH_INFO, ARITH_KINDS, type ArithKind } from '../domain/arith';
@@ -187,7 +187,6 @@ function PracticeSession({ kind, onAgain }: { kind: ArithKind; onAgain: () => vo
     anim?.type === 'hit' ? 'hit' : anim?.type === 'capture' ? 'happy' : shown.status === 'sleeping' ? 'sleep' : 'idle';
   // 맞히는 순간 체력이 줄고(잡으면 0) 몬스터도 그만큼 작아진다
   const hp = anim?.type === 'capture' ? 0 : anim?.type === 'hit' ? Math.max(0, shown.hp - 1) : shown.hp;
-  const struck = anim && anim.type !== 'dodge';
   const inHint = battle.phase === 'hint';
 
   return (
@@ -209,7 +208,7 @@ function PracticeSession({ kind, onAgain }: { kind: ArithKind; onAgain: () => vo
         </div>
       </header>
 
-      <section className={`battle__stage ${inHint ? 'battle__stage--hint' : ''} ${struck ? 'battle__stage--shake' : ''}`}>
+      <section className={`battle__stage ${inHint ? 'battle__stage--hint' : ''}`}>
         {inHint && question ? (
           <ArithHintPanel question={question} />
         ) : (
@@ -223,11 +222,10 @@ function PracticeSession({ kind, onAgain }: { kind: ArithKind; onAgain: () => vo
               ))}
             </div>
             <div className="monster-scale" style={{ transform: `scale(${monsterScale(hp, 3)})` }}>
-              <div key={`${shownIndex}-${anim?.type ?? 'idle'}`} className={`monster monster--${anim?.type ?? 'idle'} ${anim?.critical ? 'monster--critical' : ''}`}>
+              <div key={`${shownIndex}-${anim?.type ?? 'idle'}`} className={`monster monster--${anim?.type ?? 'idle'}`}>
                 <MonsterSprite kind={shown.kind} color={DAN_COLORS[shown.dan]} golden={false} mood={mood} size={260} />
               </div>
             </div>
-            {struck && <HitBurst key={`burst-${battle.attempts}`} seed={battle.attempts} strong={anim.critical} capture={anim.type === 'capture'} />}
             {anim && anim.stars > 0 && <div className="float-stars">+{anim.stars} ★</div>}
             {anim?.critical && <div className="critical">크리티컬!</div>}
             {battle.combo >= 3 && !anim && <div className="combo">{battle.combo} 콤보!</div>}
