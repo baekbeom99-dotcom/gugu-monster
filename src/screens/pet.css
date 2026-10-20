@@ -963,3 +963,20 @@
 @media (prefers-reduced-motion: reduce) {
   .gauge__bar--danger { animation: none; }
 }
+
+/* 똥 치우기·주사 값 (v1.20) */
+.trouble__price {
+  margin-left: 4px;
+  padding: 0 6px;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  background: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 14px;
+}
+.trouble--short {
+  opacity: 0.6;
+}
+.trouble--short .trouble__price {
+  background: var(--grey);
+}

@@ -7,7 +7,7 @@ import type { Dan } from '../domain/facts';
 import type { AdminData } from '../domain/admin';
 import { addMissingDefaults, deleteItem, moveItem, restoreDefaults, setOnSale, upsertItem } from '../domain/catalogRules';
 import { canGraduate, type DexEntry, lifeSnapshot, sendToDex, type SwapResult, swapWithDex } from '../domain/dex';
-import { STAR_REWARDS } from '../domain/economy';
+import { STAR_REWARDS, TROUBLE_PRICE } from '../domain/economy';
 import {
   addAffection,
   addGrowthXp,
@@ -84,10 +84,10 @@ interface GameActions {
   chooseEgg: (species: Species) => void;
   hatchPet: (name: string, now: number) => void;
   care: (action: CareAction, now: number) => ({ ok: true } & FeedChange) | { ok: false; reason: string };
-  /** 똥 치우기 */
-  cleanPoop: (now: number) => ({ ok: true } & PetChange) | { ok: false; reason: string };
-  /** 주사 맞히기 (병이 낫는다) */
-  giveShot: (now: number) => ({ ok: true } & PetChange) | { ok: false; reason: string };
+  /** 똥 치우기 (별 50개) */
+  cleanPoop: (now: number) => ({ ok: true } & PetChange) | { ok: false; reason: string; need?: number };
+  /** 주사 맞히기 (별 50개, 병이 낫는다) */
+  giveShot: (now: number) => ({ ok: true } & PetChange) | { ok: false; reason: string; need?: number };
   wakePet: () => void;
   buyItem: (id: ItemId) => { ok: true } | { ok: false; reason: string; need?: number };
   /** 먹이·위생용품·장난감을 펫에게 쓴다 */
@@ -261,16 +261,18 @@ export const useGameStore = create<GameStore>()(
         const s = get();
         const r = cleanPoop(s.pet, now);
         if (!r.ok) return r;
+        if (s.economy.stars < TROUBLE_PRICE.clean) return { ok: false, reason: 'stars', need: TROUBLE_PRICE.clean - s.economy.stars };
         const settled = settlePet(s.pet, r.pet, now);
-        set({ pet: settled.pet, lastSeenAt: now });
+        set({ pet: settled.pet, economy: { ...s.economy, stars: s.economy.stars - TROUBLE_PRICE.clean }, lastSeenAt: now });
         return { ok: true, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
       },
       giveShot: (now) => {
         const s = get();
         const r = giveShot(s.pet, now);
         if (!r.ok) return r;
+        if (s.economy.stars < TROUBLE_PRICE.shot) return { ok: false, reason: 'stars', need: TROUBLE_PRICE.shot - s.economy.stars };
         const settled = settlePet(s.pet, r.pet, now);
-        set({ pet: settled.pet, lastSeenAt: now });
+        set({ pet: settled.pet, economy: { ...s.economy, stars: s.economy.stars - TROUBLE_PRICE.shot }, lastSeenAt: now });
         return { ok: true, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
       },
       wakePet: () => set((s) => ({ pet: wake(s.pet) })),
@@ -355,6 +357,7 @@ export const useGameStore = create<GameStore>()(
         admin: s.admin,
         dex: s.dex,
         practice: s.practice,
+        catalogPriceScale: s.catalogPriceScale,
       }),
       merge: (persisted, current) => ({ ...current, ...mergeSave(createInitialSave(current.createdAt), persisted) }),
     },

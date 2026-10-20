@@ -21,6 +21,9 @@ export const STAR_REWARDS = {
   practiceMasterHard: 30,
 } as const;
 
+/** 똥 치우기·주사 맞히기에 드는 별 (v1.20) */
+export const TROUBLE_PRICE = { clean: 50, shot: 50 } as const;
+
 /**
  * 추천 탐험의 정답 별: 푼 시간에 반비례 (k ÷ 걸린 시간, 2~5개). 늘 일반 정답 별(1개)보다 많다.
  * 2초 안 5개 · 2.5초 4개 · 3~4초 3개 · 4.5초부터 2개.

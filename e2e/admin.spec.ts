@@ -1,4 +1,4 @@
-/** 설계서 12-3: 관리자 PIN → 사과 가격 3★→5★ → 상점 반영 → 설정 코드 내보내기 → 초기화한 기기에서 불러오기 */
+/** 설계서 12-3: 관리자 PIN → 사과 가격 6★→5★ → 상점 반영 → 설정 코드 내보내기 → 초기화한 기기에서 불러오기 */
 import { expect, test } from './fixtures';
 import { collectErrors, enterPin, seedHatchedPet } from './helpers';
 
@@ -13,7 +13,7 @@ test('관리자가 바꾼 상점 설정을 코드로 다른 기기에 옮긴다'
   await expect(page.locator('.recovery__code')).toHaveText(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
   await page.getByRole('button', { name: '적어 두었어요' }).click();
 
-  // 사과 가격 3 → 5
+  // 사과 가격 6 → 5
   await page.locator('.admin-menu__item', { hasText: '상점 아이템 관리' }).click();
   await page.locator('.item-row__main', { hasText: '사과' }).click();
   await page.locator('.field', { hasText: /^가격/ }).locator('input').fill('5');
@@ -44,7 +44,7 @@ test('관리자가 바꾼 상점 설정을 코드로 다른 기기에 옮긴다'
   // 새 기기처럼: 펫을 다시 두고, 새 PIN으로 들어가 코드 불러오기
   await seedHatchedPet(page);
   await page.getByRole('link', { name: /별 상점/ }).click();
-  await expect(page.locator('.shop-card', { hasText: '사과' }).locator('.price')).toHaveText('★ 3');
+  await expect(page.locator('.shop-card', { hasText: '사과' }).locator('.price')).toHaveText('★ 6');
   await page.getByRole('link', { name: /관리/ }).click();
   await enterPin(page, '9876');
   await enterPin(page, '9876');

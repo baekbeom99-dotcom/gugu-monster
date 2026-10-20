@@ -108,7 +108,7 @@ describe('판매 중지·삭제·순서·복원', () => {
     const added = upsertItem(c.catalog, { ...draftItem('food', 9), name: '바나나' });
     if (!added.ok) throw new Error();
     const restored = restoreDefaults(added.catalog, defaultCatalog(), 'food');
-    expect(findItem(restored, 'food_apple')?.price).toBe(3);
+    expect(findItem(restored, 'food_apple')?.price).toBe(6);
     const banana = restored.items.find((i) => i.name === '바나나');
     expect(banana?.onSale).toBe(false);
     expect(restored.items.filter((i) => i.id === 'food_apple')).toHaveLength(1);

@@ -15,7 +15,10 @@ function oldCatalog(): CatalogData {
   const items = defaultCatalog().items.filter((i) => i.source === 'reward' || i.order <= 5 || (i.category === 'hygiene' && i.order <= 2) || (i.category === 'toy' && i.order <= 3));
   return {
     version: 7,
-    items: items.filter((i) => !(i.category === 'hygiene' && i.order > 2) && !(i.category === 'toy' && i.order > 3)),
+    // v1.19까지는 가격이 지금의 절반
+    items: items
+      .filter((i) => !(i.category === 'hygiene' && i.order > 2) && !(i.category === 'toy' && i.order > 3))
+      .map((i) => (i.source === 'reward' ? i : { ...i, price: i.price / 2 })),
   };
 }
 
@@ -74,5 +77,47 @@ describe('저장된 상점에 새 아이템 더하기', () => {
     expect(shopItems(merged.catalog, 'food')).toHaveLength(15);
     expect(shopItems(merged.catalog, 'toy')).toHaveLength(15);
     expect(shopItems(merged.catalog, 'hat')).toHaveLength(13);
+  });
+});
+
+describe('가격 2배 (v1.20)', () => {
+  it('기본 가격은 처음의 2배 (사과 6, 공 30, 왕관 240), 보상 모자는 0 그대로', () => {
+    const c = defaultCatalog();
+    expect(findItem(c, 'food_apple')!.price).toBe(6);
+    expect(findItem(c, 'toy_ball')!.price).toBe(30);
+    expect(findItem(c, 'hat_crown')!.price).toBe(240);
+    expect(c.items.filter((i) => i.source === 'reward').every((i) => i.price === 0)).toBe(true);
+  });
+
+  it('예전 저장의 상점은 한 번만 2배가 된다 (관리자가 바꾼 가격도 같은 비율, 별·가방은 그대로)', () => {
+    const old = oldCatalog();
+    const edited = { ...old, items: old.items.map((i) => (i.id === 'food_apple' ? { ...i, price: 1 } : i)) };
+    const once = mergeSave(createInitialSave(NOW), { catalog: edited, economy: { stars: 77 } });
+    expect(findItem(once.catalog, 'food_apple')!.price).toBe(2);
+    expect(findItem(once.catalog, 'food_milk')!.price).toBe(8);
+    expect(once.catalogPriceScale).toBe(2);
+    expect(once.economy.stars).toBe(77);
+    // 새 기본 아이템은 이미 2배 가격으로 들어온다
+    expect(findItem(once.catalog, 'food_cake')!.price).toBe(60);
+    // 다시 불러와도 또 2배가 되지 않는다
+    const twice = mergeSave(createInitialSave(NOW), JSON.parse(JSON.stringify(once)));
+    expect(findItem(twice.catalog, 'food_apple')!.price).toBe(2);
+    expect(findItem(twice.catalog, 'food_cake')!.price).toBe(60);
+  });
+});
+
+describe('상점 설정 공유 코드와 가격 배율', () => {
+  it('예전(버전 1) 코드는 가격을 2배로 맞춰 들이고, 새 코드(버전 2)는 그대로', async () => {
+    const { encodeShopCode, exportShopSettings, parseShopSettings } = await import('../src/domain/shareCode');
+    const now = defaultCatalog();
+    const fresh = exportShopSettings(now, NOW);
+    expect(fresh.version).toBe(2);
+    const sameAgain = parseShopSettings(encodeShopCode(fresh), now);
+    expect(sameAgain.ok && sameAgain.preview.priceChanged).toBe(0);
+
+    const oldFile = { ...fresh, version: 1 as const, items: fresh.items.map((i) => ({ ...i, price: i.price / 2 })) };
+    const r = parseShopSettings(encodeShopCode(oldFile), now);
+    expect(r.ok && r.preview.priceChanged).toBe(0);
+    expect(r.ok && r.preview.valid.find((i) => i.id === 'food_apple')!.price).toBe(6);
   });
 });

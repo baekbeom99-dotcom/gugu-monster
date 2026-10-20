@@ -1,6 +1,6 @@
 /** 저장 데이터 스키마 — 설계서 11-1 */
 import { defaultCatalog } from '../data/defaultCatalog';
-import { addMissingDefaults } from '../domain/catalogRules';
+import { addMissingDefaults, CATALOG_PRICE_SCALE, scaleItemPrices } from '../domain/catalogRules';
 import { type AdminData, initialAdmin } from '../domain/admin';
 import type { PracticeData } from '../domain/arithPractice';
 import type { DexEntry } from '../domain/dex';
@@ -39,6 +39,8 @@ export interface SaveData {
   dex: DexEntry[];
   /** 셈 연습(덧셈·뺄셈·보수) 기록 — 구구단 학습 기록과 따로 둔다 */
   practice: PracticeData;
+  /** 저장된 상점 가격에 적용된 배율 (없으면 1 = v1.19까지의 가격). 불러올 때 CATALOG_PRICE_SCALE로 맞춘다. */
+  catalogPriceScale: number;
 }
 
 export function createInitialSave(now: number): SaveData {
@@ -54,6 +56,7 @@ export function createInitialSave(now: number): SaveData {
     admin: initialAdmin(),
     dex: [],
     practice: {},
+    catalogPriceScale: CATALOG_PRICE_SCALE,
   };
 }
 
@@ -79,8 +82,14 @@ export function mergeSave(initial: SaveData, persisted: unknown): SaveData {
     economy: { ...initial.economy, ...p.economy },
     // 예전 펫 종류(펭귄·공룡)는 새 종류로 이어받는다
     pet: { ...initial.pet, ...p.pet, species: p.pet?.species ? normalizeSpecies(p.pet.species) : initial.pet.species },
-    // 저장된 상점은 그대로 두고, 새 버전에서 늘어난 기본 아이템만 더한다
-    catalog: p.catalog?.items?.length ? addMissingDefaults(p.catalog, initial.catalog) : initial.catalog,
+    // 저장된 상점은 그대로 두고, 가격은 한 번만 새 배율(2배)로 맞추고, 새 버전에서 늘어난 기본 아이템만 더한다
+    catalog: p.catalog?.items?.length
+      ? addMissingDefaults(
+          { ...p.catalog, items: scaleItemPrices(p.catalog.items, CATALOG_PRICE_SCALE / (p.catalogPriceScale ?? 1)) },
+          initial.catalog,
+        )
+      : initial.catalog,
+    catalogPriceScale: CATALOG_PRICE_SCALE,
     admin: { ...initial.admin, ...p.admin },
     practice: p.practice && typeof p.practice === 'object' ? { ...initial.practice, ...p.practice } : initial.practice,
     dex: Array.isArray(p.dex) ? p.dex.map((e) => ({ ...e, species: normalizeSpecies(e.species) ?? 'cat', pet: e.pet && { ...e.pet, species: normalizeSpecies(e.pet.species) } })) : initial.dex,

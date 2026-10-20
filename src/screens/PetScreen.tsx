@@ -37,6 +37,7 @@ import {
   STAGE_LABELS,
   type StatKey,
 } from '../domain/pet';
+import { TROUBLE_PRICE } from '../domain/economy';
 import { useGameStore } from '../store/useGameStore';
 import { useSessionStore } from '../store/useSessionStore';
 import './pet.css';
@@ -303,7 +304,13 @@ export function PetScreen() {
     setDrawer(null);
     const t = Date.now();
     const r = kind === 'clean' ? useGameStore.getState().cleanPoop(t) : useGameStore.getState().giveShot(t);
-    if (!r.ok) return;
+    if (!r.ok) {
+      if (r.reason === 'stars') {
+        playSfx('gentle');
+        setLine(`별이 ${TROUBLE_PRICE[kind]}개 필요해요! 별이 ${r.need}개 모자라요. 탐험해서 별을 모아 오자!`);
+      }
+      return;
+    }
     playSfx(kind === 'clean' ? 'correct' : 'star');
     setFx({ kind, at: t });
     setLine(kind === 'clean' ? '와, 깨끗해졌다! 고마워!' : '따끔! …이제 다 나았어! 고마워!');
@@ -417,13 +424,21 @@ export function PetScreen() {
       {(pet.sick || poops > 0) && (
         <div className="trouble-bar">
           {poops > 0 && (
-            <button type="button" className="trouble trouble--clean" onClick={() => fixTrouble('clean')}>
-              <span aria-hidden>🧹</span> 똥 치우기{poops > 1 ? ` (${poops})` : ''}
+            <button
+              type="button"
+              className={`trouble trouble--clean ${economy.stars < TROUBLE_PRICE.clean ? 'trouble--short' : ''}`}
+              onClick={() => fixTrouble('clean')}
+            >
+              <span aria-hidden>🧹</span> 똥 치우기{poops > 1 ? ` (${poops})` : ''} <small className="trouble__price">★{TROUBLE_PRICE.clean}</small>
             </button>
           )}
           {pet.sick && (
-            <button type="button" className="trouble trouble--shot" onClick={() => fixTrouble('shot')}>
-              <span aria-hidden>💉</span> 주사 맞히기
+            <button
+              type="button"
+              className={`trouble trouble--shot ${economy.stars < TROUBLE_PRICE.shot ? 'trouble--short' : ''}`}
+              onClick={() => fixTrouble('shot')}
+            >
+              <span aria-hidden>💉</span> 주사 맞히기 <small className="trouble__price">★{TROUBLE_PRICE.shot}</small>
             </button>
           )}
         </div>

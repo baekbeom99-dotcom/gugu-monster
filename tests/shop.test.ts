@@ -31,9 +31,9 @@ describe('기본 카탈로그', () => {
     expect(catalog.items.filter((i) => i.source === 'reward')).toHaveLength(10);
   });
 
-  it('카테고리 첫 칸은 가장 싼 아이템 (첫 구매 성공 경험)', () => {
-    expect(shopItems(catalog, 'food')[0].price).toBe(3);
-    expect(shopItems(catalog, 'hygiene')[0].price).toBe(3);
+  it('카테고리 첫 칸은 가장 싼 아이템 (첫 구매 성공 경험, v1.20 가격 2배)', () => {
+    expect(shopItems(catalog, 'food')[0].price).toBe(6);
+    expect(shopItems(catalog, 'hygiene')[0].price).toBe(6);
   });
 
   it('아이템 ID 중복 없음, 그림 키는 모두 그림 세트에 있다', () => {
@@ -45,20 +45,20 @@ describe('기본 카탈로그', () => {
 
 describe('구매', () => {
   it('별을 내고 소모품은 수량이, 영구 아이템은 소유가 늘어난다', () => {
-    let e = rich(20);
+    let e = rich(40);
     const r1 = buy(e, item('food_apple'));
     if (!r1.ok) throw new Error(r1.reason);
     e = r1.economy;
-    expect(e.stars).toBe(17);
+    expect(e.stars).toBe(34);
     expect(ownedCount(e, item('food_apple'))).toBe(1);
     const r2 = buy(e, item('toy_ball'));
     if (!r2.ok) throw new Error(r2.reason);
     expect(r2.economy.owned).toContain('toy_ball');
-    expect(r2.economy.stars).toBe(2);
+    expect(r2.economy.stars).toBe(4);
   });
 
   it('별이 모자라면 몇 개 더 필요한지 알려준다', () => {
-    expect(canBuy(rich(10), item('food_lunchbox'))).toEqual({ ok: false, reason: 'stars', need: 2 });
+    expect(canBuy(rich(10), item('food_lunchbox'))).toEqual({ ok: false, reason: 'stars', need: 14 });
   });
 
   it('소모품은 9개까지, 영구 아이템은 한 번만', () => {

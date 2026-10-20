@@ -178,3 +178,14 @@ export function addMissingDefaults(catalog: CatalogData, defaults: CatalogData):
   });
   return bump(catalog, [...catalog.items, ...added]);
 }
+
+/** 상점 가격 배율 (v1.20: 모든 가격 2배). 저장된 상점·예전 공유 코드는 이 배율로 맞춘다. */
+export const CATALOG_PRICE_SCALE = 2;
+
+/** 보상 모자를 뺀 모든 아이템 가격에 factor를 곱한다 (1~999★ 안으로). 관리자가 바꾼 가격도 같은 비율로. */
+export function scaleItemPrices(items: ItemDef[], factor: number): ItemDef[] {
+  if (factor === 1) return items;
+  return items.map((i) =>
+    i.source === 'reward' ? i : { ...i, price: Math.min(LIMITS.price.max, Math.max(LIMITS.price.min, Math.round(i.price * factor))) },
+  );
+}

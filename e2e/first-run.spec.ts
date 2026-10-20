@@ -46,11 +46,12 @@ test('처음 시작한 학생이 펫을 부화시키고 돌보고 상점에서 �
   await page.getByRole('button', { name: '바로 주기' }).click();
   await expect(page.locator('.modal__title')).toHaveText('냠냠! 고마워!');
   await page.getByRole('button', { name: '좋아!' }).click();
-  await expect(page.locator('.topbar .stars')).toContainText('30');
+  // 사과 6★ (v1.20 가격 2배)
+  await expect(page.locator('.topbar .stars')).toContainText('27');
 
   // 새로고침해도 그대로
   await page.reload();
-  await expect(page.locator('.topbar .stars')).toContainText('30');
+  await expect(page.locator('.topbar .stars')).toContainText('27');
   await page.getByRole('link', { name: /나의 펫/ }).click();
   await expect(page.locator('.pet-name')).toHaveText('꼬북');
   await page.getByRole('link', { name: /기록/ }).click();

@@ -2,7 +2,7 @@
  * 상점 설정 공유 — 설계서 10-4. 학생마다 자기 기기를 쓰므로, 한 기기에서 만든 상점 설정을
  * 파일이나 복사용 코드로 다른 기기에 옮긴다. 학습 기록·별·펫은 들어가지 않는다.
  */
-import { validateItem } from './catalogRules';
+import { CATALOG_PRICE_SCALE, scaleItemPrices, validateItem } from './catalogRules';
 import type { CatalogData, ItemDef } from './shop';
 
 export const SHOP_FORMAT = 'gugu-monster/shop';
@@ -10,7 +10,8 @@ export const CODE_PREFIX = 'GUGU1-';
 
 interface ShopSettingsFile {
   format: typeof SHOP_FORMAT;
-  version: 1;
+  /** 1: v1.19까지(가격 1배), 2: v1.20부터(가격 2배) */
+  version: 1 | 2;
   exportedAt: string;
   items: ItemDef[];
 }
@@ -19,7 +20,7 @@ interface ShopSettingsFile {
 export function exportShopSettings(catalog: CatalogData, now: number): ShopSettingsFile {
   return {
     format: SHOP_FORMAT,
-    version: 1,
+    version: 2,
     exportedAt: new Date(now).toISOString(),
     items: catalog.items.filter((i) => i.source !== 'reward'),
   };
@@ -68,7 +69,9 @@ export function parseShopSettings(input: string, current: CatalogData): ParseRes
   if (file?.format !== SHOP_FORMAT || !Array.isArray(file.items)) return { ok: false, error: '상점 설정 코드나 파일이 아니에요.' };
 
   const preview: ImportPreview = { valid: [], skipped: [], added: 0, priceChanged: 0, saleChanged: 0, otherChanged: 0 };
-  for (const raw of file.items) {
+  // 예전 버전에서 만든 코드는 가격이 절반이라 지금 배율로 맞춘다
+  const incoming = file.version === 2 ? file.items : scaleItemPrices(file.items as ItemDef[], CATALOG_PRICE_SCALE);
+  for (const raw of incoming) {
     const item = raw as ItemDef;
     const mine = current.items.find((i) => i.id === item?.id);
     if (!item || typeof item.id !== 'string' || item.source === 'reward' || mine?.source === 'reward' || validateItem(item).length > 0) {
@@ -94,7 +97,7 @@ export function applyShopSettings(current: CatalogData, valid: ItemDef[]): Catal
   const incoming = new Map(valid.map((i) => [i.id, i]));
   const items = current.items.map((i) => incoming.get(i.id) ?? i);
   for (const item of valid) if (!current.items.some((i) => i.id === item.id)) items.push(item);
-  return { version: current.version + 1, items };
+  return { ...current, version: current.version + 1, items };
 }
 
 // ── 전체 백업 (설계서 11-2) ─────────────────────
