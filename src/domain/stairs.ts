@@ -13,8 +13,17 @@ import { localDateString } from './dates';
 
 /** 한 문제에 주어진 시간 */
 export const STAIRS_TIME_MS = 5000;
-/** 오른 계단 한 칸마다 받는 별 */
-export const STAIRS_STAR_PER_STEP = 1;
+/** 오른 계단 한 칸마다 받는 별 (v1.25: 2개) */
+export const STAIRS_STAR_PER_STEP = 2;
+/** 10층을 넘을 때마다 보너스 별 */
+export const STAIRS_BONUS_EVERY = 10;
+export const STAIRS_BONUS_STARS = 10;
+
+/** 받는 별: 계단 수 × 2 + 10층마다 10 (예: 12층 → 24 + 10 = 34) */
+export function stairsStars(steps: number): number {
+  const n = Math.max(0, steps);
+  return n * STAIRS_STAR_PER_STEP + Math.floor(n / STAIRS_BONUS_EVERY) * STAIRS_BONUS_STARS;
+}
 /** 같은 문제가 이만큼 지나기 전에는 다시 나오지 않는다 */
 const RECENT_SIZE = 6;
 /** 기록에 자주 틀리는 문제가 없을 때 대신 쓸 '어려운 문제' 수 (큰 곱부터) */
@@ -112,14 +121,14 @@ export interface StairsRecord {
 
 export const emptyStairsRecord = (): StairsRecord => ({ best: 0, bestAt: null, plays: 0, totalSteps: 0 });
 
-/** 한 판이 끝났을 때: 오른 계단 × 1별, 최고 기록 */
+/** 한 판이 끝났을 때: 계단 × 2별 + 10층마다 10별, 최고 기록 */
 export function finishStairs(
   record: StairsRecord,
   economy: EconomyData,
   steps: number,
   now: number,
 ): { record: StairsRecord; economy: EconomyData; stars: number; newBest: boolean } {
-  const stars = Math.max(0, steps) * STAIRS_STAR_PER_STEP;
+  const stars = stairsStars(steps);
   const newBest = steps > record.best;
   return {
     record: {

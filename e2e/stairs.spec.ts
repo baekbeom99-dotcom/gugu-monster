@@ -12,7 +12,7 @@ async function answerStairs(page: Page, correct: boolean): Promise<void> {
   await choices.filter({ hasText: new RegExp(`^${pick}$`) }).first().click();
 }
 
-test('무한의 계단: 세 칸 오르고 틀리면 끝, 별 3개와 최고 기록', async ({ page }) => {
+test('무한의 계단: 세 칸 오르고 틀리면 끝, 별 6개(계단 × 2)와 최고 기록', async ({ page }) => {
   const errors = collectErrors(page);
   await seedHatchedPet(page);
   await page.getByRole('link', { name: /탐험/ }).click();
@@ -29,12 +29,12 @@ test('무한의 계단: 세 칸 오르고 틀리면 끝, 별 3개와 최고 기�
   await answerStairs(page, false);
   await expect(page.locator('.stairs__reason')).toHaveText('앗, 헛디뎠어요!');
   await expect(page.locator('.stairs__result')).toContainText('3칸 올랐어요');
-  await expect(page.locator('.stairs__stars')).toHaveText('+3 ★');
+  await expect(page.locator('.stairs__stars')).toHaveText('+6 ★');
   await expect(page.locator('.banner--master')).toContainText('최고 기록');
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state);
   expect(saved.stairs).toMatchObject({ best: 3, plays: 1, totalSteps: 3 });
-  expect(saved.economy.stars).toBe(53);
+  expect(saved.economy.stars).toBe(56);
 
   // 다시 오르면 5초 안에 답하지 않아 떨어진다
   await page.getByRole('button', { name: '다시 오르기' }).click();

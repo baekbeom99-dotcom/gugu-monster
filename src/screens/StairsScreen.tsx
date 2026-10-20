@@ -17,6 +17,8 @@ import type { Rng } from '../domain/random';
 import {
   newStairsDeck,
   nextStairsFact,
+  STAIRS_BONUS_EVERY,
+  STAIRS_BONUS_STARS,
   STAIRS_STAR_PER_STEP,
   STAIRS_TIME_MS,
   type StairsDeck,
@@ -231,7 +233,8 @@ export function StairsScreen() {
             </li>
             <li>세 문제마다 내가 자주 틀린 문제가 나오고, 10·20·30…층은 12·13단 황금 계단이에요.</li>
             <li>
-              올라간 계단 한 칸마다 별 <strong>{STAIRS_STAR_PER_STEP}개</strong>!
+              올라간 계단 한 칸마다 별 <strong>{STAIRS_STAR_PER_STEP}개</strong>, {STAIRS_BONUS_EVERY}층을 넘을 때마다 보너스{' '}
+              <strong>+{STAIRS_BONUS_STARS}</strong>!
             </li>
           </ul>
           <p className="stairs__record">

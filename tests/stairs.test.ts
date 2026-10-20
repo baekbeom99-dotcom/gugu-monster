@@ -12,6 +12,7 @@ import {
   splitBasePool,
   STAIRS_TIME_MS,
   stairsPath,
+  stairsStars,
 } from '../src/domain/stairs';
 import { createInitialSave, mergeSave } from '../src/store/saveData';
 
@@ -86,12 +87,16 @@ describe('문제 순서', () => {
 });
 
 describe('기록과 별', () => {
-  it('오른 계단만큼 별, 최고 기록은 더 높을 때만 바뀐다', () => {
+  it('별 = 계단 × 2 + 10층마다 10', () => {
+    expect([0, 1, 9, 10, 12, 19, 20, 35].map(stairsStars)).toEqual([0, 2, 18, 30, 34, 48, 60, 100]);
+  });
+
+  it('최고 기록은 더 높을 때만 바뀐다', () => {
     const a = finishStairs(emptyStairsRecord(), initialEconomy(), 12, NOW);
-    expect(a).toMatchObject({ stars: 12, newBest: true, record: { best: 12, plays: 1, totalSteps: 12, bestAt: '2026-10-21' } });
-    expect(a.economy.stars).toBe(12);
+    expect(a).toMatchObject({ stars: 34, newBest: true, record: { best: 12, plays: 1, totalSteps: 12, bestAt: '2026-10-21' } });
+    expect(a.economy.stars).toBe(34);
     const b = finishStairs(a.record, a.economy, 5, NOW);
-    expect(b).toMatchObject({ stars: 5, newBest: false, record: { best: 12, plays: 2, totalSteps: 17 } });
+    expect(b).toMatchObject({ stars: 10, newBest: false, record: { best: 12, plays: 2, totalSteps: 17 } });
     expect(finishStairs(b.record, b.economy, 0, NOW).stars).toBe(0);
   });
 
