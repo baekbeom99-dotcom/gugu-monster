@@ -1342,3 +1342,36 @@
   .monster--hit { animation-duration: 0.01s; }
   .monster-scale { transition: none; }
 }
+
+/* 탐험 맨 위: 추천 탐험(왼쪽 절반) + 무한의 계단(오른쪽 절반) */
+.explore__top--split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.explore__top--split .explore__main {
+  min-width: 0;
+  padding: 16px 8px;
+  text-align: center;
+}
+.explore__top--split .explore__main-icon {
+  width: 60px;
+  height: 60px;
+  font-size: 36px;
+}
+.explore__top--split .explore__main-title {
+  font-size: 24px;
+}
+.explore__top--split .explore__main-sub {
+  font-size: 13px;
+}
+.explore__top--split .explore__main-mix {
+  font-size: 12px;
+}
+.explore__main--stairs {
+  background: var(--sky);
+}
+.explore__top:not(.explore__top--split) {
+  display: flex;
+  flex-direction: column;
+}

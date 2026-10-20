@@ -24,6 +24,7 @@ function currentSave(): SaveData {
     practice: s.practice,
     // 가격 배율이 없으면 불러올 때 예전 백업으로 보고 다시 2배로 만든다
     catalogPriceScale: s.catalogPriceScale,
+    stairs: s.stairs,
     // 백업 파일에는 PIN 정보를 넣지 않는다
     admin: { pinHash: null, salt: '', recoveryHash: null, failedAttempts: 0, lockedUntil: null },
   };

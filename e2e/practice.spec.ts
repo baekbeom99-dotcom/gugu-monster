@@ -85,6 +85,8 @@ test('받아올림 덧셈 연습: 힌트, 결과, 별 유지·적립, 기록', a
 
 test('10의 보수 연습: 10칸 틀 힌트', async ({ page }) => {
   await seedHatchedPet(page);
+  // 앱이 첫 화면(/pet)으로 옮겨 간 뒤에 이동한다 (그 전에 옮기면 시작 리다이렉트가 덮어쓴다)
+  await expect(page.locator('.topbar, .tabbar').first()).toBeVisible();
   await page.goto('/#/practice?kind=comp10');
   await expect(page.locator('.battle__question .question')).toContainText('10');
   await answerArith(page, false);
@@ -119,8 +121,8 @@ test('추천 탐험: 곱셈과 셈 문제가 섞여 나오고, 빠를수록 별�
   const errors = collectErrors(page);
   await seedHatchedPet(page);
   await page.getByRole('link', { name: /탐험/ }).click();
-  await expect(page.locator('.explore__main')).toContainText('빨리 풀수록 별이 더 많아요');
-  await page.locator('.explore__main').click();
+  await expect(page.locator('.explore__main--recommended')).toContainText('빨리 풀수록 별이 더 많아요');
+  await page.locator('.explore__main--recommended').click();
   await expect(page).toHaveURL(/mode=recommended/);
   const ops = new Set<string>();
   for (let i = 0; i < 30 && !(await page.locator('.result').isVisible()); i++) {

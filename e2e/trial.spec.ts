@@ -40,7 +40,7 @@ test('7단 도전: 11문제 모두, 틀리면 MASTER 아님, 틀린 문제는 �
   expect(await boostOf()).toBe(3);
   await page.getByRole('button', { name: '펫에게 가기' }).click();
   await page.getByRole('link', { name: /탐험/ }).click();
-  await page.locator('.explore__main').click();
+  await page.locator('.explore__main--recommended').click();
   await expect(page).toHaveURL(/mode=recommended/);
   await playExploration(page);
   await expect(page.locator('.trial-result__label')).toHaveText('풀이에 걸린 시간');

@@ -18,6 +18,7 @@ export function ExploreScreen() {
   const learning = useGameStore((s) => s.learning);
   const dailyBonusDates = useGameStore((s) => s.economy.dailyBonusDates);
   const practice = useGameStore((s) => s.practice);
+  const stairsBest = useGameStore((s) => s.stairs.best);
   const firstTime = learning.totalExplorations === 0;
   const playedToday = dailyBonusDates.includes(localDateString(Date.now()));
 
@@ -50,20 +51,39 @@ export function ExploreScreen() {
 
   return (
     <section className="explore">
-      <button
-        type="button"
-        className="explore__main"
-        onClick={() => go(firstTime ? { kind: 'diagnostic' } : { kind: 'recommended' })}
-      >
-        <span className="explore__main-icon" aria-hidden>
-          👾
-        </span>
-        <span className="explore__main-title">{firstTime ? '첫 탐험 시작!' : '추천 탐험'}</span>
-        <span className="explore__main-sub">
-          {firstTime ? '어떤 몬스터가 나올까?' : playedToday ? '오늘도 탐험했어요! 한 번 더?' : '오늘 첫 탐험은 별 +5'}
-        </span>
-        {!firstTime && <span className="explore__main-mix">곱셈·덧셈·뺄셈이 섞여요 · 빨리 풀수록 별이 더 많아요!</span>}
-      </button>
+      <div className={`explore__top ${firstTime ? '' : 'explore__top--split'}`}>
+        <button
+          type="button"
+          className="explore__main explore__main--recommended"
+          onClick={() => go(firstTime ? { kind: 'diagnostic' } : { kind: 'recommended' })}
+        >
+          <span className="explore__main-icon" aria-hidden>
+            👾
+          </span>
+          <span className="explore__main-title">{firstTime ? '첫 탐험 시작!' : '추천 탐험'}</span>
+          <span className="explore__main-sub">
+            {firstTime ? '어떤 몬스터가 나올까?' : playedToday ? '오늘도 탐험했어요! 한 번 더?' : '오늘 첫 탐험은 별 +5'}
+          </span>
+          {!firstTime && <span className="explore__main-mix">곱셈·덧셈·뺄셈이 섞여요 · 빨리 풀수록 별이 더 많아요!</span>}
+        </button>
+        {!firstTime && (
+          <button
+            type="button"
+            className="explore__main explore__main--stairs"
+            onClick={() => {
+              playSfx('tap');
+              navigate('/stairs');
+            }}
+          >
+            <span className="explore__main-icon" aria-hidden>
+              🪜
+            </span>
+            <span className="explore__main-title">무한의 계단</span>
+            <span className="explore__main-sub">{stairsBest > 0 ? `최고 ${stairsBest}칸` : '5초 안에 답하기!'}</span>
+            <span className="explore__main-mix">맞힐수록 한 칸씩 위로</span>
+          </button>
+        )}
+      </div>
 
       {!firstTime && (
         <>

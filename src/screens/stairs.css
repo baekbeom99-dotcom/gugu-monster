@@ -1,0 +1,255 @@
+/* ── 무한의 계단 (설계서 4-5) ── */
+.stairs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+
+.stairs__top {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stairs__count {
+  padding: 4px 14px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+.stairs__count strong {
+  font-size: 28px;
+  font-weight: 400;
+}
+
+.stairs__best {
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+/* 하늘: 높이 오를수록 노을 → 밤 → 우주 */
+.stairs__scene {
+  position: relative;
+  flex: 1;
+  min-height: 230px;
+  border: var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  background: linear-gradient(#8fd8ff, #d6f2ff);
+  transition: background 1s;
+}
+.stairs--sunset .stairs__scene { background: linear-gradient(#ffb27a, #ffe1a8); }
+.stairs--night .stairs__scene { background: linear-gradient(#3b3f8f, #7b6fd1); }
+.stairs--space .stairs__scene { background: radial-gradient(circle at 30% 20%, #4b3f86, #15152e 70%); }
+
+/* 세계 원점: 가로 가운데, 세로 아래쪽 68% — 지금 계단이 늘 그 자리에 오도록 움직인다 */
+.stairs__world {
+  position: absolute;
+  left: 50%;
+  top: 68%;
+  width: 0;
+  height: 0;
+  transition: transform 0.18s ease-out;
+}
+
+.stair {
+  position: absolute;
+  width: 60px;
+  height: 20px;
+  margin-left: -30px;
+  border: 3.5px solid var(--ink);
+  border-radius: 6px;
+  background: #ffd66b;
+  box-shadow: 0 5px 0 var(--ink);
+}
+.stair:nth-child(odd) {
+  background: #ffc34d;
+}
+.stair.stair--ten {
+  background: #b8f25c;
+}
+.stair.stair--here {
+  background: #ff8fc1;
+}
+.stair__mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  font-family: var(--font-display);
+  font-size: 13px;
+}
+
+.stairs__pet {
+  position: absolute;
+  width: 84px;
+  height: 84px;
+  margin-left: -42px;
+  margin-top: -80px;
+  display: grid;
+  place-items: center;
+  transition:
+    left 0.18s ease-out,
+    top 0.18s ease-out;
+}
+.stairs__pet svg {
+  width: 84px;
+  height: 84px;
+}
+.stairs__pet--hop {
+  animation: stair-hop 0.22s ease-out;
+}
+.stairs__pet--fall {
+  animation: stair-fall 0.9s ease-in forwards;
+}
+
+@keyframes stair-hop {
+  0% { translate: 0 0; }
+  45% { translate: 0 -18px; }
+  100% { translate: 0 0; }
+}
+@keyframes stair-fall {
+  0% { translate: 0 0; rotate: 0deg; }
+  25% { translate: 0 -16px; rotate: -10deg; }
+  100% { translate: 0 260px; rotate: 160deg; opacity: 0.2; }
+}
+
+.stairs__countdown {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  translate: -50% -50%;
+  font-family: var(--font-display);
+  font-size: 84px;
+  color: var(--paper);
+  -webkit-text-stroke: 3px var(--ink);
+  animation: pop 0.5s ease-out;
+}
+
+.stairs__play {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stairs__timer {
+  height: 16px;
+  border: var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  overflow: hidden;
+}
+.stairs__timer > span {
+  display: block;
+  height: 100%;
+  background: var(--lime);
+}
+.stairs__timer--hurry > span {
+  background: var(--red);
+}
+
+.stairs__question {
+  position: relative;
+}
+.stairs__question--hard {
+  background: #fff1d6;
+}
+.stairs__question--challenge {
+  background: #fff3a8;
+}
+.stairs__slot {
+  position: absolute;
+  top: -12px;
+  left: 10px;
+  padding: 0 8px;
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  background: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 14px;
+  transform: rotate(-4deg);
+}
+.stairs__question--challenge .stairs__slot {
+  background: var(--orange);
+}
+
+.stairs__panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+}
+.stairs__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 30px;
+}
+.stairs__rules {
+  margin: 0;
+  padding-left: 18px;
+  text-align: left;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.stairs__record {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.stairs__start {
+  width: 100%;
+}
+.stairs__reason {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+.stairs__answer {
+  margin: 0;
+  font-size: 20px;
+}
+.stairs__result {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 26px;
+}
+.stairs__result strong {
+  font-size: 48px;
+  font-weight: 400;
+}
+.stairs__stars {
+  margin: 0;
+  padding: 2px 14px;
+  border: var(--border);
+  border-radius: 8px;
+  background: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 24px;
+}
+.stairs__panel .result__actions {
+  width: 100%;
+}
+
+@media (max-height: 700px) {
+  .stairs__scene { min-height: 170px; }
+  .stairs__rules { font-size: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stairs__world, .stairs__pet { transition: none; }
+  .stairs__pet--hop { animation: none; }
+}

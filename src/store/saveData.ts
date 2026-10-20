@@ -5,6 +5,7 @@ import { type AdminData, initialAdmin } from '../domain/admin';
 import type { PracticeData } from '../domain/arithPractice';
 import type { DexEntry } from '../domain/dex';
 import { initialPet, normalizeSpecies, type PetData } from '../domain/pet';
+import { emptyStairsRecord, type StairsRecord } from '../domain/stairs';
 import type { CatalogData } from '../domain/shop';
 import { type EconomyData, initialEconomy, initialLearning, type LearningData, repairChallengeUnlock } from '../domain/progress';
 
@@ -39,6 +40,8 @@ export interface SaveData {
   dex: DexEntry[];
   /** 셈 연습(덧셈·뺄셈·보수) 기록 — 구구단 학습 기록과 따로 둔다 */
   practice: PracticeData;
+  /** 무한의 계단 기록 (최고 계단·판 수) */
+  stairs: StairsRecord;
   /** 저장된 상점 가격에 적용된 배율 (없으면 1 = v1.19까지의 가격). 불러올 때 CATALOG_PRICE_SCALE로 맞춘다. */
   catalogPriceScale: number;
 }
@@ -56,6 +59,7 @@ export function createInitialSave(now: number): SaveData {
     admin: initialAdmin(),
     dex: [],
     practice: {},
+    stairs: emptyStairsRecord(),
     catalogPriceScale: CATALOG_PRICE_SCALE,
   };
 }
@@ -90,6 +94,7 @@ export function mergeSave(initial: SaveData, persisted: unknown): SaveData {
         )
       : initial.catalog,
     catalogPriceScale: CATALOG_PRICE_SCALE,
+    stairs: { ...initial.stairs, ...p.stairs },
     admin: { ...initial.admin, ...p.admin },
     practice: p.practice && typeof p.practice === 'object' ? { ...initial.practice, ...p.practice } : initial.practice,
     dex: Array.isArray(p.dex) ? p.dex.map((e) => ({ ...e, species: normalizeSpecies(e.species) ?? 'cat', pet: e.pet && { ...e.pet, species: normalizeSpecies(e.pet.species) } })) : initial.dex,

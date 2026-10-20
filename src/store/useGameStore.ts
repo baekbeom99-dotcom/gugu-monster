@@ -8,6 +8,7 @@ import type { AdminData } from '../domain/admin';
 import { addMissingDefaults, deleteItem, moveItem, restoreDefaults, setOnSale, upsertItem } from '../domain/catalogRules';
 import { canGraduate, type DexEntry, lifeSnapshot, sendToDex, type SwapResult, swapWithDex } from '../domain/dex';
 import { STAR_REWARDS, TROUBLE_PRICE } from '../domain/economy';
+import { finishStairs, type StairsRecord } from '../domain/stairs';
 import {
   addAffection,
   addGrowthXp,
@@ -81,6 +82,8 @@ interface GameActions {
   recordPracticeAnswer: (kind: ArithKind, correct: boolean, now: number, speedMs?: number) => { stars: number; xp: number };
   /** 셈 연습을 끝까지 마쳤을 때: 완료 별·최고 기록·펫 친밀도 */
   finishPractice: (kind: ArithKind, timeMs: number, mistakes: number, now: number) => PracticeOutcome;
+  /** 무한의 계단 한 판이 끝났을 때: 오른 계단만큼 별, 최고 기록 */
+  finishStairs: (steps: number, now: number) => { stars: number; newBest: boolean; record: StairsRecord };
   chooseEgg: (species: Species) => void;
   hatchPet: (name: string, now: number) => void;
   care: (action: CareAction, now: number) => ({ ok: true } & FeedChange) | { ok: false; reason: string };
@@ -233,6 +236,12 @@ export const useGameStore = create<GameStore>()(
           levelUp: settled.levelUp,
         };
       },
+      finishStairs: (steps, now) => {
+        const s = get();
+        const r = finishStairs(s.stairs, s.economy, steps, now);
+        set({ stairs: r.record, economy: r.economy, lastSeenAt: now });
+        return { stars: r.stars, newBest: r.newBest, record: r.record };
+      },
       chooseEgg: (species) => set((s) => ({ pet: chooseEgg(s.pet, species) })),
       hatchPet: (name, now) =>
         set((s) => ({
@@ -358,6 +367,7 @@ export const useGameStore = create<GameStore>()(
         dex: s.dex,
         practice: s.practice,
         catalogPriceScale: s.catalogPriceScale,
+        stairs: s.stairs,
       }),
       merge: (persisted, current) => ({ ...current, ...mergeSave(createInitialSave(current.createdAt), persisted) }),
     },
