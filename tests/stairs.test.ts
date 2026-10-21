@@ -1,5 +1,6 @@
 /** 무한의 계단 — 설계서 4-5 */
 import { describe, expect, it } from 'vitest';
+import { FACTS } from '../src/domain/facts';
 import { initialFactStats } from '../src/domain/mastery';
 import { initialEconomy } from '../src/domain/progress';
 import { seededRng } from '../src/domain/random';
@@ -11,6 +12,7 @@ import {
   slotAt,
   splitBasePool,
   STAIRS_TIME_MS,
+  stairsTimeFor,
   stairsPath,
   stairsStars,
 } from '../src/domain/stairs';
@@ -81,8 +83,11 @@ describe('문제 순서', () => {
     for (let i = 1; i < ids.length; i++) expect(ids[i]).not.toBe(ids[i - 1]);
   });
 
-  it('한 문제에 5초', () => {
+  it('한 문제에 5초, 12·13단은 10초', () => {
     expect(STAIRS_TIME_MS).toBe(5000);
+    expect(stairsTimeFor(FACTS.find((f) => f.id === '7x8')!)).toBe(5000);
+    expect(stairsTimeFor(FACTS.find((f) => f.id === '12x7')!)).toBe(10000);
+    expect(stairsTimeFor(FACTS.find((f) => f.id === '13x9')!)).toBe(10000);
   });
 });
 

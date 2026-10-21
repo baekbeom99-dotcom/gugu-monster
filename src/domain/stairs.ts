@@ -1,6 +1,6 @@
 /**
  * 무한의 계단 — 설계서 4-5.
- * 구구단 2~9·12·13단 문제를 맞힐 때마다 계단을 한 칸 오른다. 5초 안에 답하지 못하거나 틀리면 끝.
+ * 구구단 2~9·12·13단 문제를 맞힐 때마다 계단을 한 칸 오른다. 5초(12·13단은 10초) 안에 답하지 못하거나 틀리면 끝.
  * 문제 배치 (v1.24): 2~9단 중 '자주 틀리는 문제'를 뺀 문제 3개 → 자주 틀리는 문제 1개를 되풀이한다.
  * 10의 배수 층(10·20·30…층으로 오르는 문제)은 12·13단 문제.
  * '자주 틀리는 문제'는 학습 기록(틀린 횟수·정답률·최근 오답·숙련도 상자)으로 정한다.
@@ -11,8 +11,15 @@ import { addStars, type EconomyData } from './progress';
 import { pickOne, type Rng, weightedPick } from './random';
 import { localDateString } from './dates';
 
-/** 한 문제에 주어진 시간 */
+/** 한 문제에 주어진 시간 (2~9단) */
 export const STAIRS_TIME_MS = 5000;
+/** 12·13단 문제에 주어진 시간 (v1.26) */
+export const STAIRS_CHALLENGE_TIME_MS = 10000;
+
+/** 이 문제에 주어진 시간: 12·13단은 10초, 나머지는 5초 */
+export function stairsTimeFor(fact: Fact): number {
+  return fact.isChallenge ? STAIRS_CHALLENGE_TIME_MS : STAIRS_TIME_MS;
+}
 /** 오른 계단 한 칸마다 받는 별 (v1.25: 2개) */
 export const STAIRS_STAR_PER_STEP = 2;
 /** 10층을 넘을 때마다 보너스 별 */

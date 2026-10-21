@@ -1,6 +1,6 @@
 /**
  * 무한의 계단 — 설계서 4-5.
- * 키우는 펫이 계단을 오른다. 구구단 문제를 5초 안에 맞히면 한 칸, 틀리거나 시간이 지나면 떨어져서 끝.
+ * 키우는 펫이 계단을 오른다. 구구단 문제를 5초(12·13단은 10초) 안에 맞히면 한 칸, 틀리거나 시간이 지나면 떨어져서 끝.
  * 답은 빠르게 고를 수 있도록 언제나 보기 4개. 오른 계단만큼 별을 받는다.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -21,6 +21,7 @@ import {
   STAIRS_BONUS_STARS,
   STAIRS_STAR_PER_STEP,
   STAIRS_TIME_MS,
+  stairsTimeFor,
   type StairsDeck,
   type StairsSlot,
   stairsPath,
@@ -78,6 +79,8 @@ export function StairsScreen() {
   const [path, setPath] = useState<number[]>(() => stairsPath(40, rng));
   const [current, setCurrent] = useState<Current | null>(null);
   const [left, setLeft] = useState(STAIRS_TIME_MS);
+  /** 지금 문제에 주어진 시간 (12·13단은 더 길다) */
+  const [limit, setLimit] = useState(STAIRS_TIME_MS);
   const [result, setResult] = useState<Result | null>(null);
   const deck = useRef<StairsDeck>(newStairsDeck());
   const deadline = useRef(0);
@@ -87,8 +90,10 @@ export function StairsScreen() {
     const r = nextStairsFact(deck.current, useGameStore.getState().learning.facts, Date.now(), rng);
     deck.current = r.deck;
     setCurrent({ fact: r.fact, slot: r.slot, question: generateQuestion(rng, r.fact, 'product') });
-    deadline.current = performance.now() + STAIRS_TIME_MS;
-    setLeft(STAIRS_TIME_MS);
+    const ms = stairsTimeFor(r.fact);
+    deadline.current = performance.now() + ms;
+    setLimit(ms);
+    setLeft(ms);
   }, []);
 
   const start = () => {
@@ -174,7 +179,7 @@ export function StairsScreen() {
   const camY = steps * STEP_H;
   const first = Math.max(0, steps - BELOW);
   const lastStep = Math.min(path.length - 1, steps + ABOVE);
-  const timeRatio = left / STAIRS_TIME_MS;
+  const timeRatio = left / limit;
 
   return (
     <div className={`stairs stairs--${skyOf(steps)}`}>
@@ -229,7 +234,7 @@ export function StairsScreen() {
           <ul className="stairs__rules">
             <li>구구단을 맞힐 때마다 계단을 한 칸씩 올라요.</li>
             <li>
-              <strong>5초</strong> 안에 답하지 못하거나 틀리면 떨어져요!
+              <strong>5초</strong>(12·13단은 <strong>10초</strong>) 안에 답하지 못하거나 틀리면 떨어져요!
             </li>
             <li>세 문제마다 내가 자주 틀린 문제가 나오고, 10·20·30…층은 12·13단 황금 계단이에요.</li>
             <li>
