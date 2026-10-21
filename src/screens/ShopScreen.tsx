@@ -142,26 +142,14 @@ export function ShopScreen() {
                   <ItemArt item={modal.item} size={96} />
                 )}
                 <p className="modal__title">{modal.phase === 'bought' ? `${josa(modal.item.name, '을', '를')} 샀어요!` : modal.message}</p>
-                {modal.phase === 'bought' ? (
-                  <div className="modal__actions">
-                    <button type="button" className="btn btn--ghost" onClick={() => setModal(null)}>
-                      나중에
-                    </button>
-                    {hatched ? (
-                      <button type="button" className="btn btn--primary" onClick={() => giveNow(modal.item)}>
-                        {modal.item.category === 'hat' ? '바로 써 보기' : '바로 주기'}
-                      </button>
-                    ) : (
-                      <button type="button" className="btn btn--primary" onClick={() => setModal(null)}>
-                        좋아!
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <button type="button" className="btn btn--primary" onClick={() => setModal(null)}>
-                    좋아!
-                  </button>
+                {modal.phase === 'bought' && (
+                  <p className="modal__body">
+                    {modal.item.category === 'hat' ? '나의 펫 화면에서 씌워 줄 수 있어요.' : '가방에 넣었어요. 나의 펫 화면에서 줄 수 있어요.'}
+                  </p>
                 )}
+                <button type="button" className="btn btn--primary" onClick={() => setModal(null)}>
+                  좋아!
+                </button>
               </>
             )}
           </div>

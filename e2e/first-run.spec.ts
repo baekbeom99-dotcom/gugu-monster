@@ -39,13 +39,14 @@ test('처음 시작한 학생이 펫을 부화시키고 돌보고 상점에서 �
   await page.locator('.bag-item', { hasText: '기본 사료' }).click();
   await expect(page.locator('.speech--room')).toHaveText('냠냠! 맛있다!');
 
-  // 상점에서 사과 사서 바로 주기
+  // 상점에서 사과 사면 가방에 들어간다 (바로 주기 버튼은 없다, v1.29)
   await page.getByRole('link', { name: /별 상점/ }).click();
   await page.locator('.shop-card', { hasText: '사과' }).click();
   await page.getByRole('button', { name: '살래!' }).click();
-  await page.getByRole('button', { name: '바로 주기' }).click();
-  await expect(page.locator('.modal__title')).toHaveText('냠냠! 고마워!');
+  await expect(page.locator('.modal__title')).toHaveText('사과를 샀어요!');
+  await expect(page.getByRole('button', { name: '바로 주기' })).toHaveCount(0);
   await page.getByRole('button', { name: '좋아!' }).click();
+  await expect(page.locator('.shop-card', { hasText: '사과' })).toContainText('가방 1개');
   // 사과 6★ (v1.20 가격 2배)
   await expect(page.locator('.topbar .stars')).toContainText('27');
 
