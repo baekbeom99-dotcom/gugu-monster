@@ -85,6 +85,16 @@ export async function seedHatchedPet(page: Page): Promise<void> {
   await page.reload();
 }
 
+/** 펫 화면에 진화 축하 창이 뜨면 닫는다 (탐험으로 친밀도가 올라 진화할 수 있다) */
+export async function closeEvolutionIfShown(page: Page): Promise<void> {
+  const dialog = page.getByRole('dialog', { name: '진화' });
+  const shown = await dialog
+    .waitFor({ state: 'visible', timeout: 1500 })
+    .then(() => true)
+    .catch(() => false);
+  if (shown) await dialog.getByRole('button', { name: '멋져!' }).click();
+}
+
 /** 앱에서 잡히지 않은 오류를 모은다 */
 export function collectErrors(page: Page): string[] {
   const errors: string[] = [];

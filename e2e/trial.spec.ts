@@ -1,6 +1,6 @@
 /** 단 골라 탐험 = 단 도전: 그 단의 11문제만, 모두 맞힐 때까지, 33초 안이면 MASTER + 보너스. 틀린 문제는 추천 탐험에 다시 나온다. */
 import { expect, test } from './fixtures';
-import { answerCurrent, collectErrors, playExploration, seedHatchedPet } from './helpers';
+import { answerCurrent, closeEvolutionIfShown, collectErrors, playExploration, seedHatchedPet } from './helpers';
 
 test('7단 도전: 11문제 모두, 틀리면 MASTER 아님, 틀린 문제는 추천 탐험에서 다시, 오답 0개면 MASTER', async ({ page }) => {
   const errors = collectErrors(page);
@@ -39,6 +39,7 @@ test('7단 도전: 11문제 모두, 틀리면 MASTER 아님, 틀린 문제는 �
   const boostOf = () => page.evaluate((id) => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.learning.boosted[id], factId);
   expect(await boostOf()).toBe(3);
   await page.getByRole('button', { name: '펫에게 가기' }).click();
+  await closeEvolutionIfShown(page);
   await page.getByRole('link', { name: /탐험/ }).click();
   await page.locator('.explore__main--recommended').click();
   await expect(page).toHaveURL(/mode=recommended/);
@@ -49,6 +50,7 @@ test('7단 도전: 11문제 모두, 틀리면 MASTER 아님, 틀린 문제는 �
 
   // 다시 7단 도전: 하나도 틀리지 않으면 MASTER + 보너스
   await page.getByRole('button', { name: '펫에게 가기' }).click();
+  await closeEvolutionIfShown(page);
   await page.getByRole('link', { name: /탐험/ }).click();
   await page.locator('.dan-button', { hasText: /^7단/ }).click();
   await playExploration(page);
@@ -59,6 +61,7 @@ test('7단 도전: 11문제 모두, 틀리면 MASTER 아님, 틀린 문제는 �
 
   // 탐험 선택: 7단 버튼에 MASTER와 최고 기록
   await page.getByRole('button', { name: '펫에게 가기' }).click();
+  await closeEvolutionIfShown(page);
   await page.getByRole('link', { name: /탐험/ }).click();
   const btn = page.locator('.dan-button', { hasText: /^MASTER7단/ });
   await expect(btn.locator('.master-sticker')).toHaveText('MASTER');
