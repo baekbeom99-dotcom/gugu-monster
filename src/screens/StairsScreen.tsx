@@ -17,6 +17,9 @@ import type { Rng } from '../domain/random';
 import {
   newStairsDeck,
   nextStairsFact,
+  STAIRS_AFFECTION_PER_TEN,
+  STAIRS_CHALLENGE_AFFECTION,
+  STAIRS_CHALLENGE_STARS,
   STAIRS_BONUS_EVERY,
   STAIRS_BONUS_STARS,
   STAIRS_STAR_PER_STEP,
@@ -28,6 +31,7 @@ import {
 } from '../domain/stairs';
 import { findItem } from '../domain/shop';
 import { useGameStore } from '../store/useGameStore';
+import { useSessionStore } from '../store/useSessionStore';
 import './battle.css';
 import './stairs.css';
 
@@ -54,6 +58,8 @@ interface Result {
   best: number;
   reason: 'timeout' | 'wrong';
   missed: Current;
+  /** 이번 판에 오른 친밀도 */
+  affection: number;
 }
 
 const SLOT_LABEL: Record<StairsSlot, string | null> = { normal: null, wrong: '자주 틀린 문제', challenge: '황금 계단 12·13단' };
@@ -76,6 +82,10 @@ export function StairsScreen() {
   const [phase, setPhase] = useState<Phase>('ready');
   const [count, setCount] = useState(3);
   const [steps, setSteps] = useState(0);
+  /** 이번 판에 맞힌 12·13단 문제 수 */
+  const [challenges, setChallenges] = useState(0);
+  /** 방금 맞힌 문제가 12·13단인지 (보상 표시) */
+  const [goldAt, setGoldAt] = useState(-1);
   const [path, setPath] = useState<number[]>(() => stairsPath(40, rng));
   const [current, setCurrent] = useState<Current | null>(null);
   const [left, setLeft] = useState(STAIRS_TIME_MS);
@@ -87,7 +97,8 @@ export function StairsScreen() {
   const ended = useRef(false);
 
   const draw = useCallback(() => {
-    const r = nextStairsFact(deck.current, useGameStore.getState().learning.facts, Date.now(), rng);
+    const s = useGameStore.getState();
+    const r = nextStairsFact(deck.current, s.learning.facts, Date.now(), rng, s.stairs.includeChallenge !== false);
     deck.current = r.deck;
     setCurrent({ fact: r.fact, slot: r.slot, question: generateQuestion(rng, r.fact, 'product') });
     const ms = stairsTimeFor(r.fact);
@@ -101,6 +112,8 @@ export function StairsScreen() {
     deck.current = newStairsDeck();
     ended.current = false;
     setSteps(0);
+    setChallenges(0);
+    setGoldAt(-1);
     setPath(stairsPath(40, rng));
     setResult(null);
     setCurrent(null);
@@ -124,12 +137,14 @@ export function StairsScreen() {
     (reason: Result['reason']) => {
       if (ended.current || !current) return;
       ended.current = true;
-      const r = useGameStore.getState().finishStairs(steps, Date.now());
-      setResult({ steps, stars: r.stars, newBest: r.newBest, best: r.record.best, reason, missed: current });
+      const r = useGameStore.getState().finishStairs(steps, Date.now(), challenges);
+      if (r.evolvedTo) useSessionStore.getState().set({ pendingEvolution: r.evolvedTo });
+      if (r.levelUp) useSessionStore.getState().set({ pendingLevelUp: r.levelUp });
+      setResult({ steps, stars: r.stars, newBest: r.newBest, best: r.record.best, reason, missed: current, affection: r.affection });
       setPhase('over');
       playSfx(r.newBest && steps > 0 ? 'fanfare' : 'gentle');
     },
-    [current, steps],
+    [current, steps, challenges],
   );
 
   // 남은 시간: 0.05초마다. 다 되면 떨어진다.
@@ -151,6 +166,10 @@ export function StairsScreen() {
     }
     playSfx(steps > 0 && (steps + 1) % 10 === 0 ? 'combo' : 'correct');
     setSteps((s) => s + 1);
+    if (current.fact.isChallenge) {
+      setChallenges((c) => c + 1);
+      setGoldAt(steps + 1);
+    }
     // 계단이 모자라면 더 이어 붙인다
     if (steps + ABOVE + 2 >= path.length) {
       setPath((p) => {
@@ -173,6 +192,22 @@ export function StairsScreen() {
         <PetSprite species={pet.species} stage={pet.stage} expression={expression} size={84} hat={hat} />
       ),
     [pet.species, pet.stage, expression, hat],
+  );
+
+  const includeChallenge = record.includeChallenge !== false;
+  const challengeToggle = (
+    <label className="stairs__toggle">
+      <input
+        type="checkbox"
+        checked={includeChallenge}
+        onChange={(e) => {
+          playSfx('tap');
+          useGameStore.getState().setStairsChallenge(e.target.checked);
+        }}
+      />
+      <span className="stairs__switch" aria-hidden />
+      12·13단도 내기
+    </label>
   );
 
   const camX = (path[steps] ?? 0) * STEP_W;
@@ -221,6 +256,21 @@ export function StairsScreen() {
             {climber}
           </div>
         </div>
+        {phase === 'play' && goldAt === steps && steps > 0 ? (
+          <div key={`gold-${steps}`} className="stairs__heart stairs__heart--gold">
+            황금 계단! ★+{STAIRS_CHALLENGE_STARS}
+            {pet.stage !== 'egg' && ` ♥+${STAIRS_CHALLENGE_AFFECTION + (steps % 10 === 0 ? STAIRS_AFFECTION_PER_TEN : 0)}`}
+          </div>
+        ) : (
+          phase === 'play' &&
+          steps > 0 &&
+          steps % 10 === 0 &&
+          pet.stage !== 'egg' && (
+            <div key={`heart-${steps}`} className="stairs__heart">
+              ♥ 친밀도 +{STAIRS_AFFECTION_PER_TEN}
+            </div>
+          )
+        )}
         {phase === 'count' && (
           <div key={count} className="stairs__countdown">
             {count > 0 ? count : '출발!'}
@@ -234,14 +284,32 @@ export function StairsScreen() {
           <ul className="stairs__rules">
             <li>구구단을 맞힐 때마다 계단을 한 칸씩 올라요.</li>
             <li>
-              <strong>5초</strong>(12·13단은 <strong>10초</strong>) 안에 답하지 못하거나 틀리면 떨어져요!
+              <strong>5초</strong>
+              {includeChallenge && (
+                <>
+                  (12·13단은 <strong>10초</strong>)
+                </>
+              )}{' '}
+              안에 답하지 못하거나 틀리면 떨어져요!
             </li>
-            <li>세 문제마다 내가 자주 틀린 문제가 나오고, 10·20·30…층은 12·13단 황금 계단이에요.</li>
+            <li>
+              세 문제마다 내가 자주 틀린 문제가 나오고, 10·20·30…층은{' '}
+              {includeChallenge ? '12·13단 황금 계단이에요.' : '자주 틀린 문제예요.'}
+            </li>
+            {includeChallenge && (
+              <li>
+                12·13단을 맞히면 <strong>★+{STAIRS_CHALLENGE_STARS}</strong>, 친밀도 <strong>+{STAIRS_CHALLENGE_AFFECTION}</strong>!
+              </li>
+            )}
+            <li>
+              10층을 지날 때마다 {pet.name || '펫'}의 친밀도 <strong>+{STAIRS_AFFECTION_PER_TEN}</strong>!
+            </li>
             <li>
               올라간 계단 한 칸마다 별 <strong>{STAIRS_STAR_PER_STEP}개</strong>, {STAIRS_BONUS_EVERY}층을 넘을 때마다 보너스{' '}
               <strong>+{STAIRS_BONUS_STARS}</strong>!
             </li>
           </ul>
+          {challengeToggle}
           <p className="stairs__record">
             {record.best > 0 ? `내 최고 기록 ${record.best}칸 · ${record.plays}번 도전` : '아직 기록이 없어요. 첫 기록을 세워 볼까요?'}
           </p>
@@ -280,6 +348,12 @@ export function StairsScreen() {
             <p className="stairs__record">최고 기록 {result.best}칸</p>
           )}
           <p className="stairs__stars">+{result.stars} ★</p>
+          {result.affection > 0 && (
+            <p className="stairs__love">
+              ♥ {pet.name}의 친밀도 +{result.affection}
+            </p>
+          )}
+          {challengeToggle}
           <div className="result__actions">
             <button type="button" className="btn btn--ghost" onClick={() => navigate('/explore', { replace: true })}>
               탐험으로

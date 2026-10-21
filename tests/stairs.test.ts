@@ -13,6 +13,7 @@ import {
   splitBasePool,
   STAIRS_TIME_MS,
   stairsTimeFor,
+  stairsAffection,
   stairsPath,
   stairsStars,
 } from '../src/domain/stairs';
@@ -83,6 +84,20 @@ describe('문제 순서', () => {
     for (let i = 1; i < ids.length; i++) expect(ids[i]).not.toBe(ids[i - 1]);
   });
 
+  it('12·13단을 빼면 10의 배수 층도 자주 틀리는 문제', () => {
+    expect(slotAt(9, false)).toBe('wrong');
+    expect(slotAt(19, false)).toBe('wrong');
+    expect(slotAt(4, false)).toBe('normal');
+    let deck = newStairsDeck();
+    const rng = seededRng(5);
+    for (let i = 0; i < 40; i++) {
+      const r = nextStairsFact(deck, initialFactStats(), NOW, rng, false);
+      deck = r.deck;
+      expect(r.slot).not.toBe('challenge');
+      expect(r.fact.a).toBeLessThanOrEqual(9);
+    }
+  });
+
   it('한 문제에 5초, 12·13단은 10초', () => {
     expect(STAIRS_TIME_MS).toBe(5000);
     expect(stairsTimeFor(FACTS.find((f) => f.id === '7x8')!)).toBe(5000);
@@ -93,7 +108,26 @@ describe('문제 순서', () => {
 
 describe('기록과 별', () => {
   it('별 = 계단 × 2 + 10층마다 10', () => {
-    expect([0, 1, 9, 10, 12, 19, 20, 35].map(stairsStars)).toEqual([0, 2, 18, 30, 34, 48, 60, 100]);
+    expect([0, 1, 9, 10, 12, 19, 20, 35].map((n) => stairsStars(n))).toEqual([0, 2, 18, 30, 34, 48, 60, 100]);
+  });
+
+  it('친밀도 = 10층마다 3', () => {
+    expect([0, 9, 10, 19, 20, 35].map((n) => stairsAffection(n))).toEqual([0, 0, 3, 3, 6, 9]);
+  });
+
+  it('12·13단을 맞히면 하나마다 별 30, 친밀도 10을 더 받는다', () => {
+    expect(stairsStars(12, 1)).toBe(34 + 30);
+    expect(stairsAffection(12, 1)).toBe(3 + 10);
+    expect(stairsAffection(25, 2)).toBe(6 + 20);
+    const r = finishStairs(emptyStairsRecord(), initialEconomy(), 21, NOW, 2);
+    expect(r.stars).toBe(42 + 20 + 60);
+    expect(r.economy.stars).toBe(122);
+  });
+
+  it('12·13단 선택은 기록을 마쳐도 그대로 남는다', () => {
+    const r = finishStairs({ ...emptyStairsRecord(), includeChallenge: false }, initialEconomy(), 4, NOW);
+    expect(r.record.includeChallenge).toBe(false);
+    expect(emptyStairsRecord().includeChallenge).toBe(true);
   });
 
   it('최고 기록은 더 높을 때만 바뀐다', () => {

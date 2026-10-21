@@ -42,6 +42,14 @@ test('무한의 계단: 세 칸 오르고 틀리면 끝, 별 6개(계단 × 2)�
   await expect(page.locator('.stairs__reason')).toHaveText('⏰ 시간이 다 됐어요!', { timeout: 8000 });
   await expect(page.locator('.stairs__record')).toContainText('최고 기록 3칸');
 
+  // 12·13단 넣기 스위치는 저장된다
+  const toggle = page.getByRole('checkbox', { name: '12·13단도 내기' });
+  await expect(toggle).toBeChecked();
+  await page.locator('.stairs__toggle').click();
+  await expect(toggle).not.toBeChecked();
+  const saved2 = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state);
+  expect(saved2.stairs.includeChallenge).toBe(false);
+
   await page.getByRole('button', { name: '탐험으로' }).click();
   await expect(page.locator('.explore__main--stairs')).toContainText('최고 3칸');
   expect(errors).toEqual([]);

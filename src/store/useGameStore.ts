@@ -8,7 +8,7 @@ import type { AdminData } from '../domain/admin';
 import { addMissingDefaults, deleteItem, moveItem, restoreDefaults, setOnSale, upsertItem } from '../domain/catalogRules';
 import { canGraduate, type DexEntry, lifeSnapshot, sendToDex, type SwapResult, swapWithDex } from '../domain/dex';
 import { STAR_REWARDS, TROUBLE_PRICE } from '../domain/economy';
-import { finishStairs, type StairsRecord } from '../domain/stairs';
+import { finishStairs, type StairsRecord, stairsAffection } from '../domain/stairs';
 import {
   addAffection,
   addGrowthXp,
@@ -51,7 +51,7 @@ export interface PetChange {
   levelUp: number | null;
 }
 
-/** 탐험을 마친 뒤 펫에게 생긴 일 (10% 똥, 10% 병) */
+/** 탐험을 마친 뒤 펫에게 생긴 일 (25% 똥, 10% 병) */
 export type ExplorationOutcome = FinishOutcome & PetChange & { grantedHats: ItemId[]; troubles: TroubleEvent[] };
 
 /** 밥·먹이를 먹고 5% 확률로 식중독에 걸렸는가 */
@@ -83,7 +83,9 @@ interface GameActions {
   /** 셈 연습을 끝까지 마쳤을 때: 완료 별·최고 기록·펫 친밀도 */
   finishPractice: (kind: ArithKind, timeMs: number, mistakes: number, now: number) => PracticeOutcome;
   /** 무한의 계단 한 판이 끝났을 때: 오른 계단만큼 별, 최고 기록 */
-  finishStairs: (steps: number, now: number) => { stars: number; newBest: boolean; record: StairsRecord };
+  finishStairs: (steps: number, now: number, challenges?: number) => { stars: number; newBest: boolean; record: StairsRecord; affection: number } & PetChange;
+  /** 무한의 계단에 12·13단을 넣을지 */
+  setStairsChallenge: (include: boolean) => void;
   chooseEgg: (species: Species) => void;
   hatchPet: (name: string, now: number) => void;
   care: (action: CareAction, now: number) => ({ ok: true } & FeedChange) | { ok: false; reason: string };
@@ -193,7 +195,7 @@ export const useGameStore = create<GameStore>()(
         let pet = addGrowthXp(s.pet, r.xp);
         if (completed && pet.stage !== 'egg') pet = addAffection(pet, EXPLORATION_AFFECTION);
         const settled = settlePet(s.pet, pet, now);
-        // 끝까지 마친 탐험 뒤에는 10% 똥, 10% 병
+        // 끝까지 마친 탐험 뒤에는 25% 똥, 10% 병
         const trouble = completed ? rollTrouble(settled.pet, now, 'exploration', troubleRng) : { pet: settled.pet, events: [] };
         set({ learning: r.learning, economy: hats.economy, pet: trouble.pet, lastSeenAt: now });
         return {
@@ -236,12 +238,16 @@ export const useGameStore = create<GameStore>()(
           levelUp: settled.levelUp,
         };
       },
-      finishStairs: (steps, now) => {
+      finishStairs: (steps, now, challenges = 0) => {
         const s = get();
-        const r = finishStairs(s.stairs, s.economy, steps, now);
-        set({ stairs: r.record, economy: r.economy, lastSeenAt: now });
-        return { stars: r.stars, newBest: r.newBest, record: r.record };
+        const r = finishStairs(s.stairs, s.economy, steps, now, challenges);
+        // 10층을 지날 때마다 친밀도 +3 (알은 아직 친밀도가 없다)
+        const affection = s.pet.stage === 'egg' ? 0 : stairsAffection(steps, challenges);
+        const settled = settlePet(s.pet, affection > 0 ? addAffection(s.pet, affection) : s.pet, now);
+        set({ stairs: r.record, economy: r.economy, pet: settled.pet, lastSeenAt: now });
+        return { stars: r.stars, newBest: r.newBest, record: r.record, affection, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
       },
+      setStairsChallenge: (include) => set((s) => ({ stairs: { ...s.stairs, includeChallenge: include } })),
       chooseEgg: (species) => set((s) => ({ pet: chooseEgg(s.pet, species) })),
       hatchPet: (name, now) =>
         set((s) => ({

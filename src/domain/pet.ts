@@ -442,8 +442,10 @@ export function neediest(pet: PetData): StatKey | null {
 
 // ── 똥·병 (설계서 6-6) ─────────────────────────────
 
-/** 오래 방치되거나 탐험을 마쳤을 때 똥을 쌀 확률, 병에 걸릴 확률 (따로따로 굴린다) */
-export const TROUBLE_CHANCE = 0.1;
+/** 오래 방치되거나 탐험을 마쳤을 때 똥을 쌀 확률 (v1.28: 10% → 25%) */
+export const POOP_CHANCE = 0.25;
+/** 오래 방치되거나 탐험을 마쳤을 때 병에 걸릴 확률 (똥과 따로 굴린다) */
+export const SICK_CHANCE = 0.1;
 /** 음식을 먹고 식중독에 걸릴 확률 */
 export const FOOD_POISON_CHANCE = 0.05;
 /** 이만큼 앱을 열지 않으면 '오래 방치' */
@@ -454,17 +456,17 @@ export const MAX_POOPS = 3;
 export type Rng = () => number;
 export type TroubleEvent = 'poop' | 'sick';
 
-/** 오래 방치되거나 탐험을 마쳤을 때: 10% 똥, 10% 병. 알이거나 이미 아프면 병은 더 걸리지 않는다. */
+/** 오래 방치되거나 탐험을 마쳤을 때: 25% 똥, 10% 병. 알이거나 이미 아프면 병은 더 걸리지 않는다. */
 export function rollTrouble(pet: PetData, now: number, cause: Exclude<SickCause, 'food'>, rng: Rng = Math.random): { pet: PetData; events: TroubleEvent[] } {
   if (pet.stage === 'egg' || !pet.species) return { pet, events: [] };
   const events: TroubleEvent[] = [];
   let next = pet;
   // 똥을 싸거나 아프면 기분이 바로 준다
-  if (rng() < TROUBLE_CHANCE) {
+  if (rng() < POOP_CHANCE) {
     next = { ...next, poops: Math.min(MAX_POOPS, (next.poops ?? 0) + 1), mood: clampStat(next.mood - POOP_MOOD_HIT) };
     events.push('poop');
   }
-  if (!next.sick && rng() < TROUBLE_CHANCE) {
+  if (!next.sick && rng() < SICK_CHANCE) {
     next = { ...next, sick: { since: now, cause }, mood: clampStat(next.mood - SICK_MOOD_HIT) };
     events.push('sick');
   }

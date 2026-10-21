@@ -2,7 +2,8 @@
  * 무한의 계단 — 설계서 4-5.
  * 구구단 2~9·12·13단 문제를 맞힐 때마다 계단을 한 칸 오른다. 5초(12·13단은 10초) 안에 답하지 못하거나 틀리면 끝.
  * 문제 배치 (v1.24): 2~9단 중 '자주 틀리는 문제'를 뺀 문제 3개 → 자주 틀리는 문제 1개를 되풀이한다.
- * 10의 배수 층(10·20·30…층으로 오르는 문제)은 12·13단 문제.
+ * 10의 배수 층(10·20·30…층으로 오르는 문제)은 12·13단 문제 (v1.27: 12·13단을 빼고 하면 그 층은 자주 틀리는 문제).
+ * 10의 배수 층을 지날 때마다 펫 친밀도가 오른다.
  * '자주 틀리는 문제'는 학습 기록(틀린 횟수·정답률·최근 오답·숙련도 상자)으로 정한다.
  */
 import { BASE_DANS, CHALLENGE_DANS, type Fact, type FactId, FACTS } from './facts';
@@ -27,9 +28,14 @@ export const STAIRS_BONUS_EVERY = 10;
 export const STAIRS_BONUS_STARS = 10;
 
 /** 받는 별: 계단 수 × 2 + 10층마다 10 (예: 12층 → 24 + 10 = 34) */
-export function stairsStars(steps: number): number {
+/** 12·13단 문제를 하나 맞힐 때마다 더 받는 별 (v1.28) */
+export const STAIRS_CHALLENGE_STARS = 30;
+/** 12·13단 문제를 하나 맞힐 때마다 더 오르는 친밀도 (v1.28) */
+export const STAIRS_CHALLENGE_AFFECTION = 10;
+
+export function stairsStars(steps: number, challenges = 0): number {
   const n = Math.max(0, steps);
-  return n * STAIRS_STAR_PER_STEP + Math.floor(n / STAIRS_BONUS_EVERY) * STAIRS_BONUS_STARS;
+  return n * STAIRS_STAR_PER_STEP + Math.floor(n / STAIRS_BONUS_EVERY) * STAIRS_BONUS_STARS + Math.max(0, challenges) * STAIRS_CHALLENGE_STARS;
 }
 /** 같은 문제가 이만큼 지나기 전에는 다시 나오지 않는다 */
 const RECENT_SIZE = 6;
@@ -37,6 +43,13 @@ const RECENT_SIZE = 6;
 const FALLBACK_WRONG = 14;
 /** 12·13단 층은 이 층마다 */
 export const CHALLENGE_FLOOR_EVERY = 10;
+/** 10의 배수 층을 지날 때마다 오르는 펫 친밀도 (탐험 한 번과 같다) */
+export const STAIRS_AFFECTION_PER_TEN = 3;
+
+/** 이번 판에서 오른 친밀도: 10층마다 3 (예: 23층 → 6) */
+export function stairsAffection(steps: number, challenges = 0): number {
+  return Math.floor(Math.max(0, steps) / CHALLENGE_FLOOR_EVERY) * STAIRS_AFFECTION_PER_TEN + Math.max(0, challenges) * STAIRS_CHALLENGE_AFFECTION;
+}
 
 /** normal: 2~9단 (자주 틀리는 문제 빼고), wrong: 자주 틀리는 문제, challenge: 12·13단 (10의 배수 층) */
 export type StairsSlot = 'normal' | 'wrong' | 'challenge';
@@ -49,9 +62,12 @@ export interface StairsDeck {
 
 export const newStairsDeck = (): StairsDeck => ({ issued: 0, recent: [] });
 
-/** n번째(0부터) 문제 자리. 이 문제를 맞히면 n+1층. 10의 배수 층은 12·13단, 아니면 보통 3개 → 자주 틀리는 문제 1개. */
-export function slotAt(issued: number): StairsSlot {
-  if ((issued + 1) % CHALLENGE_FLOOR_EVERY === 0) return 'challenge';
+/**
+ * n번째(0부터) 문제 자리. 이 문제를 맞히면 n+1층. 10의 배수 층은 12·13단(빼고 하면 자주 틀리는 문제),
+ * 아니면 보통 3개 → 자주 틀리는 문제 1개.
+ */
+export function slotAt(issued: number, includeChallenge = true): StairsSlot {
+  if ((issued + 1) % CHALLENGE_FLOOR_EVERY === 0) return includeChallenge ? 'challenge' : 'wrong';
   return issued % 4 === 3 ? 'wrong' : 'normal';
 }
 
@@ -99,8 +115,9 @@ export function nextStairsFact(
   facts: Record<FactId, FactStat>,
   now: number,
   rng: Rng,
+  includeChallenge = true,
 ): { fact: Fact; slot: StairsSlot; deck: StairsDeck } {
-  const slot = slotAt(deck.issued);
+  const slot = slotAt(deck.issued, includeChallenge);
   const score = (f: Fact) => Math.max(0.5, hardScore(f, facts[f.id], now));
   let fact: Fact;
   if (slot === 'challenge') {
@@ -124,9 +141,11 @@ export interface StairsRecord {
   bestAt: string | null;
   plays: number;
   totalSteps: number;
+  /** 12·13단을 넣고 할지 (시작 화면에서 고른다, 기본 넣기) */
+  includeChallenge: boolean;
 }
 
-export const emptyStairsRecord = (): StairsRecord => ({ best: 0, bestAt: null, plays: 0, totalSteps: 0 });
+export const emptyStairsRecord = (): StairsRecord => ({ best: 0, bestAt: null, plays: 0, totalSteps: 0, includeChallenge: true });
 
 /** 한 판이 끝났을 때: 계단 × 2별 + 10층마다 10별, 최고 기록 */
 export function finishStairs(
@@ -134,11 +153,13 @@ export function finishStairs(
   economy: EconomyData,
   steps: number,
   now: number,
+  challenges = 0,
 ): { record: StairsRecord; economy: EconomyData; stars: number; newBest: boolean } {
-  const stars = stairsStars(steps);
+  const stars = stairsStars(steps, challenges);
   const newBest = steps > record.best;
   return {
     record: {
+      ...record,
       best: newBest ? steps : record.best,
       bestAt: newBest ? localDateString(now) : record.bestAt,
       plays: record.plays + 1,

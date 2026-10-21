@@ -12,7 +12,8 @@ import {
   type PetData,
   rollFoodPoisoning,
   rollTrouble,
-  TROUBLE_CHANCE,
+  POOP_CHANCE,
+  SICK_CHANCE,
   visit,
 } from '../src/domain/pet';
 import { createInitialSave, mergeSave } from '../src/store/saveData';
@@ -27,18 +28,20 @@ const dice = (...values: number[]) => {
 };
 
 describe('똥·병 굴리기 (오래 방치 / 탐험 뒤)', () => {
-  it('확률은 똥 10%, 병 10%, 식중독 5%', () => {
-    expect(TROUBLE_CHANCE).toBe(0.1);
+  it('확률은 똥 25%, 병 10%, 식중독 5%', () => {
+    expect(POOP_CHANCE).toBe(0.25);
+    expect(SICK_CHANCE).toBe(0.1);
     expect(FOOD_POISON_CHANCE).toBe(0.05);
   });
 
-  it('주사위가 0.1보다 작으면 똥을 싸고, 따로 굴려 병에도 걸린다', () => {
+  it('주사위가 0.25보다 작으면 똥을 싸고, 따로 굴려 0.1보다 작으면 병에도 걸린다', () => {
     expect(rollTrouble(pet(), NOW, 'exploration', dice(0.05, 0.5)).events).toEqual(['poop']);
     expect(rollTrouble(pet(), NOW, 'exploration', dice(0.5, 0.05)).events).toEqual(['sick']);
     const both = rollTrouble(pet(), NOW, 'exploration', dice(0.09, 0.09));
     expect(both.events).toEqual(['poop', 'sick']);
     expect(both.pet).toMatchObject({ poops: 1, sick: { since: NOW, cause: 'exploration' } });
-    expect(rollTrouble(pet(), NOW, 'exploration', dice(0.1, 0.1)).events).toEqual([]);
+    expect(rollTrouble(pet(), NOW, 'exploration', dice(0.2, 0.5)).events).toEqual(['poop']);
+    expect(rollTrouble(pet(), NOW, 'exploration', dice(0.25, 0.1)).events).toEqual([]);
   });
 
   it('똥은 3개까지만 쌓이고, 이미 아프면 다시 걸리지 않으며, 알은 아무 일도 없다', () => {
