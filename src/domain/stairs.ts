@@ -43,7 +43,7 @@ const RECENT_SIZE = 6;
 const FALLBACK_WRONG = 14;
 /** 12·13단 층은 이 층마다 */
 export const CHALLENGE_FLOOR_EVERY = 10;
-/** 10의 배수 층을 지날 때마다 오르는 펫 친밀도 (탐험 한 번과 같다) */
+/** 10의 배수 층을 지날 때마다 오르는 펫 친밀도 */
 export const STAIRS_AFFECTION_PER_TEN = 3;
 
 /** 이번 판에서 오른 친밀도: 10층마다 3 (예: 23층 → 6) */

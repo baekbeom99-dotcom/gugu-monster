@@ -149,7 +149,7 @@ export function ResultView({ monsters, tally, finish, trial, solveMs, attempts, 
           )}
           <span className="result__say">
             {!isEgg && <span className="buddy__bubble">{petLine}</span>}
-            <span className="result__xp">{isEgg ? '알이 따뜻해졌어요!' : `성장 점수 +${tally.xp}`}</span>
+            <span className="result__xp">{isEgg ? '알이 따뜻해졌어요!' : `성장 점수 +${tally.xp}${finish.affection > 0 ? ` · ♥ 친밀도 +${finish.affection}` : ''}`}</span>
           </span>
         </div>
       )}

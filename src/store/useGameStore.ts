@@ -20,7 +20,7 @@ import {
   cleanPoop,
   doCare,
   equipHat,
-  EXPLORATION_AFFECTION,
+  solveAffection,
   giveShot,
   hatch,
   type PetData,
@@ -52,7 +52,7 @@ export interface PetChange {
 }
 
 /** 탐험을 마친 뒤 펫에게 생긴 일 (25% 똥, 10% 병) */
-export type ExplorationOutcome = FinishOutcome & PetChange & { grantedHats: ItemId[]; troubles: TroubleEvent[] };
+export type ExplorationOutcome = FinishOutcome & PetChange & { grantedHats: ItemId[]; troubles: TroubleEvent[]; affection: number };
 
 /** 밥·먹이를 먹고 5% 확률로 식중독에 걸렸는가 */
 export type FeedChange = PetChange & { poisoned: boolean };
@@ -65,6 +65,8 @@ export type PracticeOutcome = PetChange & {
   mistakes: number | null;
   justMastered: boolean;
   bonus: number;
+  /** 오른 친밀도 */
+  affection: number;
 };
 
 interface GameActions {
@@ -74,14 +76,15 @@ interface GameActions {
   /** 답 하나를 즉시 저장. 이번 답으로 얻은 별·XP와 극복 여부를 돌려준다. */
   recordAnswer: (input: AnswerInput) => { stars: number; baseStars: number; xp: number; overcome: boolean };
   recordCapture: (golden: boolean) => number;
-  finishExploration: (completed: boolean, now: number) => ExplorationOutcome;
+  /** correct: 이번 판에 맞힌 문제 수 (친밀도) */
+  finishExploration: (completed: boolean, now: number, correct?: number) => ExplorationOutcome;
   /** 단 도전을 끝까지 마쳤을 때: 기록·MASTER·보너스 */
   finishDanTrial: (dan: Dan, timeMs: number, mistakes: number, now: number) => TrialOutcome;
   /** 셈 연습 답 하나: 별·XP·셈 연습 기록 (구구단 기록은 건드리지 않는다) */
   /** speedMs: 추천 탐험에 섞여 나온 셈 문제는 빠를수록 별을 더 준다 */
   recordPracticeAnswer: (kind: ArithKind, correct: boolean, now: number, speedMs?: number) => { stars: number; xp: number };
   /** 셈 연습을 끝까지 마쳤을 때: 완료 별·최고 기록·펫 친밀도 */
-  finishPractice: (kind: ArithKind, timeMs: number, mistakes: number, now: number) => PracticeOutcome;
+  finishPractice: (kind: ArithKind, timeMs: number, mistakes: number, now: number, correct?: number) => PracticeOutcome;
   /** 무한의 계단 한 판이 끝났을 때: 오른 계단만큼 별, 최고 기록 */
   finishStairs: (steps: number, now: number, challenges?: number) => { stars: number; newBest: boolean; record: StairsRecord; affection: number } & PetChange;
   /** 무한의 계단에 12·13단을 넣을지 */
@@ -187,13 +190,15 @@ export const useGameStore = create<GameStore>()(
         set((s) => ({ economy: addStars(s.economy, stars) }));
         return stars;
       },
-      finishExploration: (completed, now) => {
+      finishExploration: (completed, now, correct = 0) => {
         const s = get();
         const r = finishExploration(s.learning, s.economy, { completed, now });
         // 단 마스터 보상 모자
         const hats = grantMasterHats(r.economy, s.catalog, r.newlyMastered);
         let pet = addGrowthXp(s.pet, r.xp);
-        if (completed && pet.stage !== 'egg') pet = addAffection(pet, EXPLORATION_AFFECTION);
+        // 끝까지 마치면 친밀도 5 + 맞힌 문제마다 1
+        const affection = completed && pet.stage !== 'egg' ? solveAffection(correct) : 0;
+        if (affection > 0) pet = addAffection(pet, affection);
         const settled = settlePet(s.pet, pet, now);
         // 끝까지 마친 탐험 뒤에는 25% 똥, 10% 병
         const trouble = completed ? rollTrouble(settled.pet, now, 'exploration', troubleRng) : { pet: settled.pet, events: [] };
@@ -205,6 +210,7 @@ export const useGameStore = create<GameStore>()(
           levelUp: settled.levelUp,
           grantedHats: hats.granted,
           troubles: trouble.events,
+          affection,
         };
       },
       finishDanTrial: (dan, timeMs, mistakes, now) => {
@@ -219,11 +225,12 @@ export const useGameStore = create<GameStore>()(
         set({ practice: r.practice, economy: r.economy, pet: addGrowthXp(s.pet, r.xp), lastSeenAt: now });
         return { stars: r.stars, xp: r.xp };
       },
-      finishPractice: (kind, timeMs, mistakes, now) => {
+      finishPractice: (kind, timeMs, mistakes, now, correct = 0) => {
         const s = get();
         const r = finishPractice(s.practice, s.economy, kind, timeMs, { mistakes, now });
         let pet = addGrowthXp(s.pet, r.xp);
-        if (pet.stage !== 'egg') pet = addAffection(pet, EXPLORATION_AFFECTION);
+        const affection = pet.stage !== 'egg' ? solveAffection(correct) : 0;
+        if (affection > 0) pet = addAffection(pet, affection);
         const settled = settlePet(s.pet, pet, now);
         set({ practice: r.practice, economy: r.economy, pet: settled.pet, lastSeenAt: now });
         return {
@@ -234,6 +241,7 @@ export const useGameStore = create<GameStore>()(
           mistakes: r.mistakes,
           justMastered: r.justMastered,
           bonus: r.bonus,
+          affection,
           evolvedTo: settled.evolvedTo,
           levelUp: settled.levelUp,
         };

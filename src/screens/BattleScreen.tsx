@@ -174,7 +174,7 @@ function BattleSession({ mode, onAgain }: { mode: ExploreMode; onAgain: () => vo
     const trialResult = trialDan !== null ? finishDanTrial(trialDan, trialMs.current, mistakes, Date.now()) : null;
     setSolveMs(trialMs.current);
     if (trialResult) setTrial(trialResult);
-    const outcome = finishExploration(true, Date.now());
+    const outcome = finishExploration(true, Date.now(), battle.correctCount);
     setTally((t) => ({ ...t, xp: t.xp + outcome.xp }));
     if (outcome.evolvedTo) useSessionStore.getState().set({ pendingEvolution: outcome.evolvedTo });
     if (outcome.levelUp) useSessionStore.getState().set({ pendingLevelUp: outcome.levelUp });

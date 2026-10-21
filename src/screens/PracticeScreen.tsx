@@ -104,7 +104,7 @@ function PracticeSession({ kind, onAgain }: { kind: ArithKind; onAgain: () => vo
     }
     // 틀린 횟수 = 시도 − 정답 (MASTER는 하나도 틀리지 않아야 한다)
     const mistakes = battle.attempts - battle.correctCount;
-    const outcome = finishPractice(kind, solveMs.current, mistakes, Date.now());
+    const outcome = finishPractice(kind, solveMs.current, mistakes, Date.now(), battle.correctCount);
     setTally((t) => ({ ...t, xp: t.xp + outcome.xp }));
     if (outcome.evolvedTo) useSessionStore.getState().set({ pendingEvolution: outcome.evolvedTo });
     if (outcome.levelUp) useSessionStore.getState().set({ pendingLevelUp: outcome.levelUp });
@@ -346,7 +346,10 @@ function PracticeResult({
           <strong>+{total} ★</strong>
         </li>
       </ul>
-      <p className="result__note">펫 성장 점수 +{tally.xp}</p>
+      <p className="result__note">
+        펫 성장 점수 +{tally.xp}
+        {finish.affection > 0 && ` · 친밀도 +${finish.affection}`}
+      </p>
 
       <div className="result__actions">
         <button type="button" className="btn btn--ghost" onClick={onAgain}>

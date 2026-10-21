@@ -123,7 +123,15 @@ export const SLEEP_MINUTES = 30;
 export const CARE_XP_PER_ACTION = 1;
 export const CARE_XP_DAILY_CAP = 10;
 export const DAILY_VISIT_AFFECTION = 3;
-export const EXPLORATION_AFFECTION = 3;
+/** 탐험·셈 연습을 끝까지 마치면 오르는 친밀도 (v1.32: 3 → 5) */
+export const EXPLORATION_AFFECTION = 5;
+/** 그 판에서 맞힌 문제 하나마다 더 오르는 친밀도 (v1.32) */
+export const ANSWER_AFFECTION = 1;
+
+/** 탐험·셈 연습을 마쳤을 때 오르는 친밀도: 완료 5 + 맞힌 문제마다 1 */
+export function solveAffection(correct: number): number {
+  return EXPLORATION_AFFECTION + Math.max(0, correct) * ANSWER_AFFECTION;
+}
 export const WELCOME_BACK_HOURS = 24;
 
 /** 친밀도 Lv2~Lv10에 필요한 누적 친밀도 (설계서 6-4) */
