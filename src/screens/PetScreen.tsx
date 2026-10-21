@@ -564,7 +564,7 @@ export function PetScreen() {
             {bagItems(economy, catalog, DRAWER_CATEGORY[drawer]).length === 0 && (
               <div className="drawer__empty">
                 {drawer === 'decorate' ? '아직 모자가 없어요.' : '가방이 비었어요.'} 별 상점에서 살 수 있어요!
-                <button type="button" className="btn btn--primary" onClick={() => navigate('/shop')}>
+                <button type="button" className="btn btn--primary" onClick={() => navigate(`/shop?tab=${DRAWER_CATEGORY[drawer]}`)}>
                   별 상점 가기
                 </button>
               </div>

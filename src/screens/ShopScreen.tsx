@@ -1,6 +1,6 @@
 /** 별 상점 — 설계서 5-3, 9-2 */
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { hatArtOf } from '../art/HatSprite';
 import { PetSprite } from '../art/PetSprite';
 import { playSfx } from '../audio/sfx';
@@ -26,7 +26,10 @@ export function ShopScreen() {
   const economy = useGameStore((s) => s.economy);
   const pet = useGameStore((s) => s.pet);
   const { buyItem, giveItem, wearHat } = useGameStore.getState();
-  const [category, setCategory] = useState<ItemCategory>('food');
+  // 나의 펫 서랍의 '별 상점 가기'는 ?tab=hygiene 처럼 그 종류 탭으로 연다
+  const [params] = useSearchParams();
+  const tab = params.get('tab');
+  const [category, setCategory] = useState<ItemCategory>(() => (CATEGORIES.includes(tab as ItemCategory) ? (tab as ItemCategory) : 'food'));
   const [modal, setModal] = useState<Modal>(null);
 
   const items = shopItems(catalog, category);
