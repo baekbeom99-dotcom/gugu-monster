@@ -47,9 +47,246 @@
   background: linear-gradient(#8fd8ff, #d6f2ff);
   transition: background 1s;
 }
-.stairs--sunset .stairs__scene { background: linear-gradient(#ffb27a, #ffe1a8); }
-.stairs--night .stairs__scene { background: linear-gradient(#3b3f8f, #7b6fd1); }
-.stairs--space .stairs__scene { background: radial-gradient(circle at 30% 20%, #4b3f86, #15152e 70%); }
+/* 하늘 테마 (v1.33) — StairsSky.tsx. 10층마다 바뀌고 겹쳐서 흐리게 넘어간다 */
+.sky {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.sky-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.sky-layer--on {
+  opacity: 1;
+}
+.sky-layer--morning { background: linear-gradient(#8fd8ff, #d6f2ff); }
+.sky-layer--rainbow { background: linear-gradient(#6cc8ff, #c9f0ff 70%, #d8f7c6); }
+.sky-layer--balloon { background: linear-gradient(#a7e6ff, #ffe3f1); }
+.sky-layer--sunset { background: linear-gradient(#ff8f6b, #ffb27a 45%, #ffe1a8); }
+.sky-layer--dusk { background: linear-gradient(#5b4b9a, #b46fb0 60%, #ffab8a); }
+.sky-layer--night { background: linear-gradient(#141a4a, #2f3a86); }
+.sky-layer--aurora { background: linear-gradient(#071f2e, #0f3b4a 70%, #164d4f); }
+.sky-layer--space { background: radial-gradient(circle at 30% 20%, #4b3f86, #15152e 70%); }
+.sky-layer--galaxy { background: radial-gradient(ellipse at 70% 30%, #a33f9f 0%, transparent 45%), radial-gradient(ellipse at 20% 70%, #3a5bd9 0%, transparent 50%), #1a1238; }
+.sky-layer--candy { background: linear-gradient(#ffc6e3, #ffe9b8); }
+
+.sky-deco {
+  position: absolute;
+  display: block;
+  line-height: 1;
+  transform-origin: center;
+}
+
+/* 구름 */
+.sky-deco--cloud {
+  width: calc(64px * var(--s));
+  height: calc(20px * var(--s));
+  border-radius: 999px;
+  background: #fff;
+  animation: sky-drift 14s ease-in-out infinite alternate;
+}
+.sky-deco--cloud::before,
+.sky-deco--cloud::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: inherit;
+}
+.sky-deco--cloud::before {
+  width: 45%;
+  height: 160%;
+  left: 14%;
+  bottom: 30%;
+}
+.sky-deco--cloud::after {
+  width: 34%;
+  height: 120%;
+  left: 50%;
+  bottom: 30%;
+}
+.sky-deco--pink { background: #ffd0d8; }
+.sky-deco--dim { background: rgba(255, 255, 255, 0.35); }
+.sky-deco--cotton { background: #fff0f7; }
+
+/* 해 */
+.sky-deco--sun {
+  width: calc(46px * var(--s));
+  height: calc(46px * var(--s));
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: #ffd84d;
+  box-shadow: 0 0 0 calc(8px * var(--s)) rgba(255, 216, 77, 0.35);
+  animation: sky-pulse 3s ease-in-out infinite;
+}
+.sky-deco--low { background: #ff7a4d; box-shadow: 0 0 0 14px rgba(255, 122, 77, 0.3); }
+
+/* 달 (초승달) */
+.sky-deco--moon {
+  width: calc(40px * var(--s));
+  height: calc(40px * var(--s));
+  border-radius: 50%;
+  box-shadow: calc(10px * var(--s)) calc(-4px * var(--s)) 0 0 #fff2b3;
+  animation: sky-pulse 4s ease-in-out infinite;
+}
+
+/* 별 */
+.sky-deco--star {
+  width: calc(5px * var(--s));
+  height: calc(5px * var(--s));
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px #fff;
+  animation: sky-twinkle 2.4s ease-in-out infinite;
+}
+
+/* 별똥별 */
+.sky-deco--shoot {
+  width: 70px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #fff, transparent);
+  transform: rotate(-30deg);
+  opacity: 0;
+  animation: sky-shoot 5s ease-in infinite;
+}
+
+/* 무지개 */
+.sky-deco--rainbow {
+  width: 220px;
+  height: 110px;
+  background: radial-gradient(
+    circle at 50% 100%,
+    transparent 50%,
+    #8a5cf6 50% 56%,
+    #3b82f6 56% 62%,
+    #22c55e 62% 68%,
+    #facc15 68% 74%,
+    #fb923c 74% 80%,
+    #ef4444 80% 86%,
+    transparent 86%
+  );
+  opacity: 0.85;
+}
+
+/* 이모지 (새·사탕·로켓…) 둥실둥실 */
+.sky-deco--emoji {
+  font-size: calc(26px * var(--s));
+  animation: sky-bob 3.2s ease-in-out infinite;
+}
+/* 풍선은 천천히 위로 */
+.sky-deco--balloon {
+  font-size: calc(34px * var(--s));
+  animation: sky-rise 9s linear infinite;
+}
+
+/* 오로라 */
+.sky-deco--aurora {
+  width: 130%;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent, #3dffb0 25%, #39d0ff 55%, #b46cff 80%, transparent);
+  filter: blur(10px);
+  opacity: 0.6;
+  animation: sky-wave 6s ease-in-out infinite alternate;
+}
+.sky-deco--aurora2 {
+  height: 40px;
+  opacity: 0.45;
+  background: linear-gradient(90deg, transparent, #b46cff 20%, #3dffb0 60%, transparent);
+}
+
+/* 행성 */
+.sky-deco--planet {
+  width: calc(44px * var(--s));
+  height: calc(44px * var(--s));
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffd59e, #f08a4b);
+  animation: sky-bob 6s ease-in-out infinite;
+}
+.sky-deco--planet::after {
+  content: '';
+  position: absolute;
+  left: -30%;
+  top: 38%;
+  width: 160%;
+  height: 24%;
+  border: 3px solid #ffe8a8;
+  border-radius: 50%;
+  transform: rotate(-18deg);
+}
+.sky-deco--planet2 { background: radial-gradient(circle at 35% 30%, #9be7ff, #3a7bd5); }
+.sky-deco--planet2::after { display: none; }
+
+/* 은하수 띠 */
+.sky-deco--milky {
+  width: 150%;
+  height: 70px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28) 30%, rgba(255, 220, 255, 0.4) 50%, rgba(255, 255, 255, 0.28) 70%, transparent);
+  filter: blur(6px);
+  transform: rotate(-22deg);
+  transform-origin: left top;
+  top: 55% !important;
+}
+
+@keyframes sky-drift {
+  from { translate: -12px 0; }
+  to { translate: 16px 0; }
+}
+@keyframes sky-pulse {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.06; }
+}
+@keyframes sky-twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+@keyframes sky-bob {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -8px; }
+}
+@keyframes sky-rise {
+  0% { translate: 0 40px; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { translate: 6px -120px; opacity: 0; }
+}
+@keyframes sky-wave {
+  from { translate: -6% 0; scale: 1 0.8; }
+  to { translate: 4% 6px; scale: 1 1.2; }
+}
+@keyframes sky-shoot {
+  0%, 70% { opacity: 0; translate: 0 0; }
+  75% { opacity: 1; }
+  100% { opacity: 0; translate: -120px 70px; }
+}
+
+/* 새 하늘로 들어가면 이름이 잠깐 */
+.stairs__sky-name {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  z-index: 2;
+  translate: -50% 0;
+  padding: 3px 12px;
+  border: var(--border);
+  border-radius: 999px;
+  background: var(--paper);
+  font-family: var(--font-display);
+  font-size: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: sky-name 2.2s ease-out forwards;
+}
+@keyframes sky-name {
+  0% { opacity: 0; transform: translateY(-8px); }
+  15%, 75% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
 
 /* 세계 원점: 가로 가운데, 세로 아래쪽 68% — 지금 계단이 늘 그 자리에 오도록 움직인다 */
 .stairs__world {
@@ -252,6 +489,8 @@
 @media (prefers-reduced-motion: reduce) {
   .stairs__world, .stairs__pet { transition: none; }
   .stairs__pet--hop { animation: none; }
+  .sky-deco { animation: none !important; }
+  .sky-layer { transition: none; }
 }
 
 /* 12·13단 넣기 선택 (v1.27) */

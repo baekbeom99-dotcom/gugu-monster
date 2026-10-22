@@ -14,6 +14,8 @@ import {
   STAIRS_TIME_MS,
   stairsTimeFor,
   stairsAffection,
+  STAIRS_SKIES,
+  stairsSkyIndex,
   stairsPath,
   stairsStars,
 } from '../src/domain/stairs';
@@ -143,6 +145,14 @@ describe('기록과 별', () => {
     const merged = mergeSave(createInitialSave(NOW), { economy: { stars: 30 } });
     expect(merged.stairs).toEqual(emptyStairsRecord());
     expect(merged.economy.stars).toBe(30);
+  });
+});
+
+describe('하늘 테마', () => {
+  it('10층마다 바뀌고 100층이 넘으면 처음부터', () => {
+    expect(STAIRS_SKIES).toHaveLength(10);
+    expect([0, 9, 10, 25, 99, 100, 135].map(stairsSkyIndex)).toEqual([0, 0, 1, 2, 9, 0, 3]);
+    expect(STAIRS_SKIES[stairsSkyIndex(55)].id).toBe('night');
   });
 });
 

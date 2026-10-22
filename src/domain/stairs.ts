@@ -41,6 +41,27 @@ export function stairsStars(steps: number, challenges = 0): number {
 const RECENT_SIZE = 6;
 /** 기록에 자주 틀리는 문제가 없을 때 대신 쓸 '어려운 문제' 수 (큰 곱부터) */
 const FALLBACK_WRONG = 14;
+/** 하늘 테마: 10층마다 바뀌고, 100층을 넘으면 처음부터 다시 (v1.33) */
+export const STAIRS_SKIES = [
+  { id: 'morning', name: '맑은 아침', icon: '☀️' },
+  { id: 'rainbow', name: '무지개 언덕', icon: '🌈' },
+  { id: 'balloon', name: '풍선 하늘', icon: '🎈' },
+  { id: 'sunset', name: '노을', icon: '🌇' },
+  { id: 'dusk', name: '해질녘', icon: '🌙' },
+  { id: 'night', name: '별밤', icon: '✨' },
+  { id: 'aurora', name: '오로라', icon: '🌌' },
+  { id: 'space', name: '우주', icon: '🪐' },
+  { id: 'galaxy', name: '은하수', icon: '💫' },
+  { id: 'candy', name: '사탕 나라', icon: '🍭' },
+] as const;
+export type StairsSkyId = (typeof STAIRS_SKIES)[number]['id'];
+export const STAIRS_SKY_EVERY = 10;
+
+/** 지금 높이의 하늘 테마 번호 */
+export function stairsSkyIndex(steps: number): number {
+  return Math.floor(Math.max(0, steps) / STAIRS_SKY_EVERY) % STAIRS_SKIES.length;
+}
+
 /** 12·13단 층은 이 층마다 */
 export const CHALLENGE_FLOOR_EVERY = 10;
 /** 10의 배수 층을 지날 때마다 오르는 펫 친밀도 */

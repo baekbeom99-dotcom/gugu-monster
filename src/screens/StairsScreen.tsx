@@ -18,6 +18,9 @@ import {
   newStairsDeck,
   nextStairsFact,
   STAIRS_AFFECTION_PER_TEN,
+  STAIRS_SKIES,
+  STAIRS_SKY_EVERY,
+  stairsSkyIndex,
   STAIRS_CHALLENGE_AFFECTION,
   STAIRS_CHALLENGE_STARS,
   STAIRS_BONUS_EVERY,
@@ -33,6 +36,7 @@ import { findItem } from '../domain/shop';
 import { useGameStore } from '../store/useGameStore';
 import { useSessionStore } from '../store/useSessionStore';
 import './battle.css';
+import { StairsSky } from './StairsSky';
 import './stairs.css';
 
 const rng: Rng = Math.random;
@@ -63,14 +67,6 @@ interface Result {
 }
 
 const SLOT_LABEL: Record<StairsSlot, string | null> = { normal: null, wrong: '자주 틀린 문제', challenge: '황금 계단 12·13단' };
-
-/** 오른 높이에 따라 하늘이 바뀐다 */
-function skyOf(steps: number): string {
-  if (steps >= 60) return 'space';
-  if (steps >= 40) return 'night';
-  if (steps >= 20) return 'sunset';
-  return 'day';
-}
 
 export function StairsScreen() {
   const navigate = useNavigate();
@@ -215,9 +211,10 @@ export function StairsScreen() {
   const first = Math.max(0, steps - BELOW);
   const lastStep = Math.min(path.length - 1, steps + ABOVE);
   const timeRatio = left / limit;
+  const skyIndex = stairsSkyIndex(steps);
 
   return (
-    <div className={`stairs stairs--${skyOf(steps)}`}>
+    <div className={`stairs stairs--${STAIRS_SKIES[skyIndex].id}`}>
       <header className="stairs__top">
         <button type="button" className="icon-button" aria-label="무한의 계단 그만하기" onClick={() => navigate('/explore', { replace: true })}>
           ✕
@@ -235,6 +232,12 @@ export function StairsScreen() {
       </header>
 
       <section className="stairs__scene" aria-hidden>
+        <StairsSky steps={steps} />
+        {phase === 'play' && steps > 0 && steps % STAIRS_SKY_EVERY === 0 && (
+          <div key={`sky-${steps}`} className="stairs__sky-name">
+            {STAIRS_SKIES[skyIndex].icon} {STAIRS_SKIES[skyIndex].name}
+          </div>
+        )}
         <div className="stairs__world" style={{ transform: `translate(${-camX}px, ${camY}px)` }}>
           {Array.from({ length: lastStep - first + 1 }, (_, k) => {
             const i = first + k;
