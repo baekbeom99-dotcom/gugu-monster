@@ -173,6 +173,13 @@ button {
   flex-direction: column;
 }
 
+.topbar__home {
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: 15px;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
 .topbar {
   height: var(--top-h);
   padding: 0 16px;

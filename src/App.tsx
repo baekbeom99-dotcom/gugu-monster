@@ -5,6 +5,8 @@ import { TopBar } from './components/TopBar';
 import { BattleScreen } from './screens/BattleScreen';
 import { DevGallery } from './screens/DevGallery';
 import { DexScreen } from './screens/DexScreen';
+import { FieldEntry } from './screens/FieldEntry';
+import { TitleScreen } from './screens/TitleScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
 import { HatchScreen } from './screens/HatchScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
@@ -54,7 +56,6 @@ export function App() {
       <Routes>
         <Route element={<OnboardingGuard />}>
           <Route element={<TabLayout />}>
-            <Route path="/" element={<Navigate to="/pet" replace />} />
             <Route path="/pet" element={<PetScreen />} />
             <Route path="/explore" element={<ExploreScreen />} />
             <Route path="/shop" element={<ShopScreen />} />
@@ -65,6 +66,8 @@ export function App() {
         <Route element={<TabLayout />}>
           <Route path="/dex" element={<DexScreen />} />
         </Route>
+        <Route path="/" element={fullScreen(<TitleScreen />)} />
+        <Route path="/field" element={fullScreen(<FieldEntry />)} />
         <Route path="/welcome" element={fullScreen(<OnboardingScreen />)} />
         <Route path="/hatch" element={fullScreen(<HatchScreen />)} />
         {/* 전투는 탭 없이 화면 전체를 쓴다 */}
@@ -72,7 +75,7 @@ export function App() {
         <Route path="/practice" element={fullScreen(<PracticeScreen />)} />
         <Route path="/stairs" element={fullScreen(<StairsScreen />)} />
         {import.meta.env.DEV && <Route path="/dev/gallery" element={<DevGallery />} />}
-        <Route path="*" element={<Navigate to="/pet" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>
   );

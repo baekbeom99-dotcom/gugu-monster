@@ -1,10 +1,10 @@
 /** 설계서 6-6: 똥을 싸면 화난 표정·청소, 아프면 아픈 표정·주사. 치울 때까지 표정이 계속된다. */
-import { collectErrors } from './helpers';
+import { collectErrors, openQuiz } from './helpers';
 import { expect, test } from './fixtures';
 
 test('똥은 치우고, 아프면 주사를 맞힌다', async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto('/');
+  await openQuiz(page);
   await page.evaluate(() => {
     localStorage.clear();
     localStorage.setItem(
@@ -59,7 +59,7 @@ test('똥은 치우고, 아프면 주사를 맞힌다', async ({ page }) => {
 
 test('배부름 15 이하면 밥만 줄 수 있고, 똥 치우기는 된다 · 기분 30 이하면 화난 표정', async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto('/');
+  await openQuiz(page);
   await page.evaluate(() => {
     localStorage.clear();
     localStorage.setItem(
@@ -105,7 +105,7 @@ test('배부름 15 이하면 밥만 줄 수 있고, 똥 치우기는 된다 · �
 });
 
 test('별이 50개보다 적으면 똥을 치우거나 주사를 맞힐 수 없다', async ({ page }) => {
-  await page.goto('/');
+  await openQuiz(page);
   await page.evaluate(() => {
     localStorage.clear();
     localStorage.setItem(

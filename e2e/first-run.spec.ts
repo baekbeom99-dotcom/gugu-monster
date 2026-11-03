@@ -1,10 +1,10 @@
 /** 설계서 12-3: 첫 실행 → 알 선택 → 진단 탐험 → 부화 → 이름 → 돌봄 → 상점 구매·주기, 새로고침 후 유지 */
 import { expect, test } from './fixtures';
-import { collectErrors, playExploration } from './helpers';
+import { collectErrors, playExploration, openQuiz } from './helpers';
 
 test('처음 시작한 학생이 펫을 부화시키고 돌보고 상점에서 산다', async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto('/');
+  await openQuiz(page);
   await page.evaluate(() => localStorage.clear());
   await page.reload();
 

@@ -1,10 +1,10 @@
 /** 도감: 친밀도 Lv10이면 칭호를 받고 도감으로 → 새 알 → 탐험 → 부화 → 도감에서 예전 펫과 자리 바꾸기. 관리자 '새 펫 시작하기'. */
 import { expect, test } from './fixtures';
-import { collectErrors, enterPin, playExploration, seedHatchedPet } from './helpers';
+import { collectErrors, enterPin, playExploration, seedHatchedPet, openQuiz } from './helpers';
 
 test('Lv10이 된 펫이 칭호를 받고 도감에 들어가고, 새 알을 키우고, 다시 예전 펫과 함께한다', async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto('/');
+  await openQuiz(page);
   await page.evaluate(() => {
     localStorage.clear();
     const now = Date.now();
@@ -81,7 +81,7 @@ test('Lv10이 된 펫이 칭호를 받고 도감에 들어가고, 새 알을 키
 
 test('놀기: 산책과 장난감마다 다른 놀이 장면', async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto('/');
+  await openQuiz(page);
   await page.evaluate(() => {
     localStorage.clear();
     localStorage.setItem(

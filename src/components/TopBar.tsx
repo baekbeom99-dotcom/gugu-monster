@@ -1,7 +1,9 @@
+import { useNavigate } from 'react-router-dom';
 import { playSfx } from '../audio/sfx';
 import { useGameStore } from '../store/useGameStore';
 
 export function TopBar() {
+  const navigate = useNavigate();
   const stars = useGameStore((s) => s.economy.stars);
   const sound = useGameStore((s) => s.settings.sound);
   const updateSettings = useGameStore((s) => s.updateSettings);
@@ -14,6 +16,9 @@ export function TopBar() {
 
   return (
     <header className="topbar">
+      <button type="button" className="btn btn--ghost topbar__home" onClick={() => navigate('/')}>
+        처음 화면
+      </button>
       <div className="stars" aria-label={`보유 별 ${stars}개`}>
         <span aria-hidden>★</span>
         <strong>{stars}</strong>

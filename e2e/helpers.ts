@@ -65,9 +65,15 @@ export async function enterPin(page: Page, pin: string): Promise<void> {
   await page.waitForTimeout(400);
 }
 
+/** 타이틀에서 [퀴즈 모험]을 눌러 퀴즈 모험으로 들어간다 */
+export async function openQuiz(page: Page): Promise<void> {
+  await page.goto('/');
+  await page.getByRole('button', { name: '퀴즈 모험' }).click();
+}
+
 /** 펫이 이미 부화한 기기 (온보딩을 건너뛰고 싶은 테스트용). 나머지는 앱이 기본값으로 채운다. */
 export async function seedHatchedPet(page: Page): Promise<void> {
-  await page.goto('/');
+  await openQuiz(page);
   await page.evaluate(() => {
     localStorage.clear();
     localStorage.setItem(
@@ -83,6 +89,7 @@ export async function seedHatchedPet(page: Page): Promise<void> {
     );
   });
   await page.reload();
+  await openQuiz(page);
 }
 
 /** 펫 화면에 진화 축하 창이 뜨면 닫는다 (탐험으로 친밀도가 올라 진화할 수 있다) */
