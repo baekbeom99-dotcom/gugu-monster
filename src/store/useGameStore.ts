@@ -43,6 +43,7 @@ import {
   recordAnswer,
 } from '../domain/progress';
 import { applyItem, buy, type CatalogData, canWearHat, findItem, grantMasterHats, type ItemCategory, type ItemDef, type ItemId } from '../domain/shop';
+import type { FieldData, SpeciesId } from './fieldData';
 import { createInitialSave, mergeSave, migrateSave, SAVE_KEY, type SaveData, SCHEMA_VERSION, type Settings } from './saveData';
 
 export interface PetChange {
@@ -118,6 +119,10 @@ interface GameActions {
   setChallengeByAdmin: (unlocked: boolean) => void;
   /** 백업 불러오기: 저장 데이터 전체를 바꾼다 (관리자 PIN은 이 기기 것을 유지) */
   replaceSave: (save: unknown) => void;
+  /** 필드 모험: 마지막 자리 저장 */
+  setFieldPosition: (pos: FieldData['position']) => void;
+  /** 필드 모험: 처음 만난 구구몬 기록 (이미 있으면 그대로) */
+  markSeen: (id: SpeciesId) => void;
   /** 전체 초기화 */
   resetAll: () => void;
   /** 관리자: 지금 펫을 도감에 넣고 새 알을 고르게 한다 (학습 기록·별·가방은 그대로) */
@@ -255,6 +260,9 @@ export const useGameStore = create<GameStore>()(
         set({ stairs: r.record, economy: r.economy, pet: settled.pet, lastSeenAt: now });
         return { stars: r.stars, newBest: r.newBest, record: r.record, affection, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
       },
+      setFieldPosition: (pos) => set((s) => ({ field: { ...s.field, position: pos } })),
+      markSeen: (id) =>
+        set((s) => (s.field.seen.includes(id) ? {} : { field: { ...s.field, seen: [...s.field.seen, id] } })),
       setStairsChallenge: (include) => set((s) => ({ stairs: { ...s.stairs, includeChallenge: include } })),
       chooseEgg: (species) => set((s) => ({ pet: chooseEgg(s.pet, species) })),
       hatchPet: (name, now) =>
@@ -382,6 +390,7 @@ export const useGameStore = create<GameStore>()(
         practice: s.practice,
         catalogPriceScale: s.catalogPriceScale,
         stairs: s.stairs,
+        field: s.field,
       }),
       merge: (persisted, current) => ({ ...current, ...mergeSave(createInitialSave(current.createdAt), persisted) }),
     },

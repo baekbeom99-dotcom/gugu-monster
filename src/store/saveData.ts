@@ -5,6 +5,7 @@ import { type AdminData, initialAdmin } from '../domain/admin';
 import type { PracticeData } from '../domain/arithPractice';
 import type { DexEntry } from '../domain/dex';
 import { initialPet, normalizeSpecies, type PetData } from '../domain/pet';
+import { type FieldData, initialField, mergeField } from './fieldData';
 import { emptyStairsRecord, type StairsRecord } from '../domain/stairs';
 import type { CatalogData } from '../domain/shop';
 import { type EconomyData, initialEconomy, initialLearning, type LearningData, repairChallengeUnlock } from '../domain/progress';
@@ -23,7 +24,11 @@ export interface Settings {
   /** 0~1 */
   volume: number;
   inputMode: 'auto' | 'choice';
+  /** 필드 모험: 구구몬이 도망가는 빠르기 (0.8 빠름 · 1 보통 · 1.5 느림) */
+  fieldFleeScale: 0.8 | 1 | 1.5;
 }
+
+export const FIELD_FLEE_SCALES: readonly Settings['fieldFleeScale'][] = [0.8, 1, 1.5];
 
 export interface SaveData {
   schemaVersion: typeof SCHEMA_VERSION;
@@ -42,6 +47,8 @@ export interface SaveData {
   practice: PracticeData;
   /** 무한의 계단 기록 (최고 계단·판 수) */
   stairs: StairsRecord;
+  /** 필드 모험: 동료·구구몬 도감·마지막 자리 */
+  field: FieldData;
   /** 저장된 상점 가격에 적용된 배율 (없으면 1 = v1.19까지의 가격). 불러올 때 CATALOG_PRICE_SCALE로 맞춘다. */
   catalogPriceScale: number;
 }
@@ -51,7 +58,7 @@ export function createInitialSave(now: number): SaveData {
     schemaVersion: SCHEMA_VERSION,
     createdAt: now,
     lastSeenAt: now,
-    settings: { sound: true, volume: 0.7, inputMode: 'auto' },
+    settings: { sound: true, volume: 0.7, inputMode: 'auto', fieldFleeScale: 1 },
     learning: initialLearning(),
     economy: initialEconomy(),
     pet: initialPet(now),
@@ -60,6 +67,7 @@ export function createInitialSave(now: number): SaveData {
     dex: [],
     practice: {},
     stairs: emptyStairsRecord(),
+    field: initialField(),
     catalogPriceScale: CATALOG_PRICE_SCALE,
   };
 }
@@ -75,7 +83,13 @@ export function mergeSave(initial: SaveData, persisted: unknown): SaveData {
     ...initial,
     ...p,
     schemaVersion: SCHEMA_VERSION,
-    settings: { ...initial.settings, ...p.settings },
+    settings: {
+      ...initial.settings,
+      ...p.settings,
+      fieldFleeScale: FIELD_FLEE_SCALES.includes(p.settings?.fieldFleeScale as Settings['fieldFleeScale'])
+        ? (p.settings?.fieldFleeScale as Settings['fieldFleeScale'])
+        : initial.settings.fieldFleeScale,
+    },
     // 조건을 채웠는데 닫혀 있던 12·13단 도전 모드는 불러올 때 연다
     learning: repairChallengeUnlock({
       ...initial.learning,
@@ -95,6 +109,7 @@ export function mergeSave(initial: SaveData, persisted: unknown): SaveData {
       : initial.catalog,
     catalogPriceScale: CATALOG_PRICE_SCALE,
     stairs: { ...initial.stairs, ...p.stairs },
+    field: mergeField(initial.field, p.field),
     admin: { ...initial.admin, ...p.admin },
     practice: p.practice && typeof p.practice === 'object' ? { ...initial.practice, ...p.practice } : initial.practice,
     dex: Array.isArray(p.dex) ? p.dex.map((e) => ({ ...e, species: normalizeSpecies(e.species) ?? 'cat', pet: e.pet && { ...e.pet, species: normalizeSpecies(e.pet.species) } })) : initial.dex,
