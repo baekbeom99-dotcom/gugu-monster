@@ -1,7 +1,7 @@
 # 구구단 몬스터 탐험대 — 작업 안내
 
 어린이용 구구단 학습 PWA. 몬스터 탐험(문제 풀이)으로 별을 모아 다마고치 펫을 키운다.
-React 18 + TypeScript + Vite + Zustand, 해시 라우터, GitHub Pages 정적 배포. 서버 없음 — 모든 데이터는 브라우저 localStorage.
+React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/field`, `#/field/battle`, `#/field/starter`, `#/field/dex`), GitHub Pages 정적 배포. 서버 없음 — 모든 데이터는 브라우저 localStorage.
 
 - 라이브: https://baekbeom99-dotcom.github.io/gugu-monster/
 - 사용자는 한국어로 요청한다. 화면 글자·주석·커밋 메시지도 한국어(어린이가 읽기 쉬운 말).
@@ -15,7 +15,10 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터, GitHub Pages 정적 �
 | `src/store/useGameStore.ts` | 저장되는 게임 상태와 액션(Zustand persist) |
 | `src/store/saveData.ts` | `SaveData` 형식, `createInitialSave`, `mergeSave`(예전 저장 채우기), `SAVE_KEY` |
 | `src/store/useSessionStore.ts` | 저장 안 되는 화면 상태(진화·레벨업 알림 대기 등) |
-| `src/screens/` | 화면. Pet·Explore·Shop·Records·Dex(탭), Battle·Practice·Stairs(전체 화면), `admin/`(관리자, PIN) |
+| `src/domain/field/` | 필드 모험 순수 로직: `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남·캡슐·E2E 스위치), `creatures`, `fieldQuestions`, `growth`(경험치·레벨·진화) |
+| `src/field/` | 필드 모험 화면: `FieldScreen`·`maps/`·`fieldRenderer`(캔버스)·`TouchPad`·`WildBattleScreen`·`FieldDexScreen`·`StarterScreen`·`fx`(효과)·`GachaCapsule` |
+| `src/store/fieldData.ts` | 필드 모험 저장 데이터(`SaveData.field`) 형식·기본값·병합 |
+| `src/screens/` | 화면. `TitleScreen.tsx`(타이틀 `#/`). Pet·Explore·Shop·Records·Dex(탭), Battle·Practice·Stairs(전체 화면), `admin/`(관리자, PIN) |
 | `src/art/` | 펫·몬스터·모자 SVG 그림 |
 | `src/data/defaultCatalog.ts` | 상점 기본 아이템 |
 | `src/pwa/autoUpdate.ts` | 서비스 워커 등록, 새 버전 확인(탭 복귀·30분), 문제 푸는 화면이 아닐 때 자동 새로고침 |
@@ -25,7 +28,7 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터, GitHub Pages 정적 �
 ## 저장 데이터 — 바꿀 때 꼭
 
 - 키: `gugu-monster:save` (공유 코드 `gugu-monster/shop`, 백업 `gugu-monster/backup`). 로컬 데이터를 잃지 않는 것이 최우선.
-- `SaveData`에 필드를 추가하면 함께 고친다(네 곳): `createInitialSave` 기본값, `mergeSave`(예전 저장에 기본값 채우기), `useGameStore`의 `partialize` 목록, 그리고 `admin/DataSecurityPanels.tsx`의 `currentSave()`(백업).
+- `SaveData`에 필드를 추가하면 함께 고친다(네 곳, `field` 같은 중첩 데이터도 `mergeSave`에서 깊게 채우기): `createInitialSave` 기본값, `mergeSave`(예전 저장에 기본값 채우기), `useGameStore`의 `partialize` 목록, 그리고 `admin/DataSecurityPanels.tsx`의 `currentSave()`(백업).
 - 펫 친밀도·XP가 바뀌는 액션은 `settlePet(before, after, now)`로 진화·레벨업을 잡고, 화면이 결과의 `evolvedTo`·`levelUp`을 `useSessionStore`에 넘긴다.
 - 같은 github.io 아래에 다른 버전을 배포하면 localStorage가 공유되므로 키를 바꿔야 한다.
 
@@ -34,10 +37,11 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터, GitHub Pages 정적 �
 ```bash
 npx tsc --noEmit -p .        # 타입 검사
 npx vitest run               # 단위 테스트
-E2E_PORT=5181 npx playwright test   # E2E (5173이 다른 앱에 쓰이면 포트 지정)
+E2E_PORT=5181 npx playwright test   # E2E (다른 앱이 5181 등을 쓰면 5191 같은 빈 포트)
 npm run build                # 배포용 빌드 (tsc -b && vite build)
 ```
 
+- E2E 스위치(`window`에 설정): `__GUGU_E2E_CALM__`(똥·병 끔), `__GUGU_E2E_FIELD__`(필드 만남·캡슐 100%), `__GUGU_E2E_LEGEND__`(만남이 레전드).
 - E2E 하나가 가끔 시간 문제로 실패할 수 있다(`dex.spec` 놀이 장면). 따로 다시 돌려 확인. 파이프로 줄일 때는 `set -o pipefail`로 실패를 놓치지 않기.
 - Windows Git Bash에서 `BASE_PATH=/gugu-monster/`처럼 `/`로 시작하는 값은 경로로 바뀐다 → 로컬 빌드 확인 때 `MSYS_NO_PATHCONV=1`.
 
