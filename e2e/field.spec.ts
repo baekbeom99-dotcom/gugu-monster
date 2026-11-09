@@ -27,16 +27,36 @@ test('패드 오른쪽을 누르면 걷고, 떼면 멈춘다', async ({ page }) 
 test('눌린 채 pointercancel이 오면 걸음이 멈춘다', async ({ page }) => {
   await page.goto('/#/field');
   const pad = page.getByLabel('십자 패드');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
   const box = (await pad.boundingBox())!;
+  const before = await pos(page);
   await page.mouse.move(box.x + box.width * 0.1, box.y + box.height / 2);
   await page.mouse.down();
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(500);
+  expect((await pos(page)).x).toBeLessThan(before.x); // 취소 전에 실제로 걸었다
   await pad.dispatchEvent('pointercancel', { pointerId: 1, pointerType: 'mouse', isPrimary: true });
   await page.waitForTimeout(300);
   const stopped = await pos(page);
   await page.waitForTimeout(500);
   expect(await pos(page)).toEqual(stopped);
   await page.mouse.up();
+});
+
+test('패드 밖으로 끌고 가서 떼도 걸음이 멈춘다', async ({ page }) => {
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
+  const box = (await page.getByLabel('십자 패드').boundingBox())!;
+  const before = await pos(page);
+  await page.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(400);
+  expect((await pos(page)).x).toBeGreaterThan(before.x);
+  await page.mouse.move(box.x + box.width / 2, 60); // 패드 밖(화면 위쪽)으로
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  const stopped = await pos(page);
+  await page.waitForTimeout(500);
+  expect(await pos(page)).toEqual(stopped);
 });
 
 test('걸은 뒤 새로고침해도 같은 자리', async ({ page }) => {
