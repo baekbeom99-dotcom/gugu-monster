@@ -81,4 +81,30 @@ describe('wildBattle', () => {
     expect(fleeTimeMs(getFact('13x2'), 0, 'missingFirst', 1)).toBe(17000);
     expect(fleeTimeMs(getFact('3x4'), 3, 'product', 1.5)).toBe(10500);
   });
+  it('HP가 줄면 꽉 찬 시간(fullMs)이 0으로 돌아간다', () => {
+    const full = { ...createWild(), fullMs: 5000 };
+    const s = tick(resumeWild(answerWild(full, true, false)), 100, 7000);
+    expect(s.fullMs).toBe(0);
+    // 회복 중인 상태에서 직접: tick만으로도 0이 된다
+    expect(tick({ ...createWild(), hp: 60, fullMs: 5000 }, 100, 7000).fullMs).toBe(0);
+  });
+  it('회복은 100에서 멈춘다', () => {
+    let s = { ...createWild(), hp: 90 };
+    for (let i = 0; i < 40; i++) {
+      s = tick(s, 250, 100000);
+      expect(s.hp).toBeLessThanOrEqual(100);
+    }
+    expect(s.hp).toBe(100);
+  });
+  it('새 문제마다 도망 시간이 처음부터 시작된다', () => {
+    let s = ticks(createWild(), 24, 250, 7000);
+    expect(s.phase).toBe('question');
+    expect(s.fullMs).toBe(6000);
+    s = answerWild(s, false, false);
+    expect(s.phase).toBe('hint');
+    s = resumeWild(s);
+    expect(s.fullMs).toBe(0);
+    s = ticks(s, 24, 250, 7000);
+    expect(s.phase).toBe('question');
+  });
 });

@@ -73,7 +73,7 @@ export function answerWild(s: WildState, correct: boolean, fast: boolean): WildS
 
 export function resumeWild(s: WildState): WildState {
   if (s.phase !== 'anim' && s.phase !== 'hint') return s;
-  return { ...s, phase: 'question' };
+  return { ...s, phase: 'question', fullMs: 0 };
 }
 
 export function throwCapsule(s: WildState, rng: Rng): WildState {
