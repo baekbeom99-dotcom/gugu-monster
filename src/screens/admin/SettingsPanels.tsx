@@ -1,7 +1,15 @@
 /** 학습 설정·소리 설정 — 설계서 10-2 */
 import { playSfx } from '../../audio/sfx';
+import type { Settings } from '../../store/saveData';
 import { useGameStore } from '../../store/useGameStore';
 import { Toggle } from './fields';
+
+/** 필드 모험: 문제를 오래 두면 야생 구구몬이 도망가는 시간 배율 (클수록 넉넉) */
+export const FLEE_SPEED_CHOICES: readonly [Settings['fieldFleeScale'], string, string][] = [
+  [1.5, '느리게', '천천히 생각해도 돼요 (시간 1.5배)'],
+  [1, '보통', '처음 정해진 빠르기 (권장)'],
+  [0.8, '빠르게', '조금 서둘러야 해요 (시간 0.8배)'],
+];
 
 export function LearningPanel() {
   const settings = useGameStore((s) => s.settings);
@@ -27,6 +35,26 @@ export function LearningPanel() {
               aria-checked={settings.inputMode === value}
               className={`choice-row ${settings.inputMode === value ? 'choice-row--on' : ''}`}
               onClick={() => updateSettings({ inputMode: value })}
+            >
+              <strong>{title}</strong>
+              <span>{desc}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="admin-card">
+        <h2 className="admin-heading">구구몬 도망 빠르기</h2>
+        <span className="admin-help">필드 모험에서 문제를 오래 두면 야생 구구몬이 도망가요.</span>
+        <div className="choice-list" role="radiogroup" aria-label="구구몬 도망 빠르기">
+          {FLEE_SPEED_CHOICES.map(([value, title, desc]) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={settings.fieldFleeScale === value}
+              className={`choice-row ${settings.fieldFleeScale === value ? 'choice-row--on' : ''}`}
+              onClick={() => updateSettings({ fieldFleeScale: value })}
             >
               <strong>{title}</strong>
               <span>{desc}</span>

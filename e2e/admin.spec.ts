@@ -73,3 +73,24 @@ test('PIN을 5번 틀리면 잠긴다', async ({ page }) => {
   await expect(page.locator('.pinpad__error')).toContainText('초 뒤에 다시');
   await expect(page.locator('.pinpad__keys .key').first()).toBeDisabled();
 });
+
+test('관리자: 구구몬 도망 빠르기를 "느리게"로 바꾸면 새로고침해도 그대로', async ({ page }) => {
+  await seedHatchedPet(page);
+  await page.getByRole('link', { name: /관리/ }).click();
+  await enterPin(page, '1234');
+  await enterPin(page, '1234');
+  await page.getByRole('button', { name: '적어 두었어요' }).click();
+  await page.locator('.admin-menu__item', { hasText: '학습 설정' }).click();
+  const group = page.getByRole('radiogroup', { name: '구구몬 도망 빠르기' });
+  await expect(group.getByRole('radio', { name: /보통/ })).toHaveAttribute('aria-checked', 'true');
+  await group.getByRole('radio', { name: /느리게/ }).click();
+  await expect(group.getByRole('radio', { name: /느리게/ })).toHaveAttribute('aria-checked', 'true');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.settings.fieldFleeScale)).toBe(1.5);
+
+  await page.reload();
+  await enterPin(page, '1234');
+  await page.locator('.admin-menu__item', { hasText: '학습 설정' }).click();
+  await expect(
+    page.getByRole('radiogroup', { name: '구구몬 도망 빠르기' }).getByRole('radio', { name: /느리게/ }),
+  ).toHaveAttribute('aria-checked', 'true');
+});

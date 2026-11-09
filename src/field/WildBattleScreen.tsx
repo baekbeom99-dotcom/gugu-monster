@@ -7,7 +7,7 @@ import { HintPanel } from '../components/HintPanel';
 import { QuestionView } from '../components/QuestionView';
 import { STARTERS, speciesDef, type SpeciesId } from '../domain/field/creatures';
 import { displayName } from '../domain/field/growth';
-import { e2eFlags, type Encounter } from '../domain/field/encounter';
+import { e2eFlags, e2eQuestion, type Encounter } from '../domain/field/encounter';
 import { FIELD_CHOICES, planFieldQuestions, planLegendQuestions, restrictToFieldType } from '../domain/field/fieldQuestions';
 import {
   answerWild,
@@ -22,12 +22,13 @@ import {
 import { type FactId, getFact } from '../domain/facts';
 import { josa } from '../domain/korean';
 import { fastThresholdMs } from '../domain/mastery';
-import { generateQuestion } from '../domain/questionGen';
+import { generateQuestion, type QuestionType } from '../domain/questionGen';
 import type { Rng } from '../domain/random';
 import { insertRetry, type LearnerSnapshot, type PlannedItem } from '../domain/scheduler';
 import { useGameStore } from '../store/useGameStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { creatureSprite } from './creatureSprite';
+import { type FxName, playFx, preloadFx } from './fx';
 import { GachaCapsule } from './GachaCapsule';
 import { endWildBattle, useFieldSession } from './useFieldSession';
 import '../screens/battle.css';
@@ -69,6 +70,9 @@ function snapshot(): LearnerSnapshot {
 }
 
 function planFor(encounter: Encounter): PlannedItem[] {
+  const forced = e2eQuestion();
+  if (forced)
+    return Array.from({ length: 5 }, () => ({ factId: forced.factId as FactId, type: forced.type as QuestionType, isRetry: false, isConfidence: false }));
   const learner = snapshot();
   if (encounter.legend) return planLegendQuestions(learner, Date.now(), rng);
   return planFieldQuestions(learner, useGameStore.getState().field.position.map, Date.now(), rng);
@@ -146,6 +150,20 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     timers.current.push(window.setTimeout(fn, ms));
   }, []);
   useEffect(() => () => timers.current.forEach((t) => clearTimeout(t)), []);
+
+  // 효과(명중·잡기): 야생 구구몬 발치에서 틀어 준다. 보기만 하는 것이라 시간·결과와 상관없다
+  const stageRef = useRef<HTMLElement>(null);
+  const fxRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => preloadFx('hit', 'catch'), []);
+  const fxAtFoe = useCallback((name: FxName) => {
+    const stage = stageRef.current;
+    const canvas = fxRef.current;
+    const foe = stage?.querySelector('.wild__foe');
+    if (!stage || !canvas || !foe) return;
+    const s = stage.getBoundingClientRect();
+    const f = foe.getBoundingClientRect();
+    void playFx(canvas, name, { x: f.left - s.left + f.width / 2, y: f.top - s.top + f.height * 0.8 });
+  }, []);
 
   useEffect(() => {
     markSeen(encounter.species);
@@ -261,6 +279,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     if (correct) {
       correctRef.current += 1;
       setHitCount((n) => n + 1);
+      fxAtFoe('hit');
       setMessage(`${moves[moveIndex]}! ${fast ? '빠르다! 크게 ' : ''}명중!`);
     } else {
       setMessage(`${moves[moveIndex]}! …빗나갔다. 힌트를 보자!`);
@@ -293,6 +312,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     later(() => {
       setThrowing(false);
       setWild(after);
+      if (after.phase === 'caught') fxAtFoe('catch');
       setMessage(after.phase === 'caught' ? `${josa(wildDef.name, '을', '를')} 잡았다!` : '앗, 빠져나왔다!');
     }, CAPSULE_SHAKES * CAPSULE_SHAKE_MS);
   };
@@ -339,7 +359,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         </div>
       </header>
 
-      <section data-species={encounter.species} className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''} ${intro && wildDef.legend ? 'wild__stage--sparkle' : ''}`}>
+      <section ref={stageRef} data-species={encounter.species} className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''} ${intro && wildDef.legend ? 'wild__stage--sparkle' : ''}`}>
         {asking || inHint ? (
           <div className="wild__bubble" data-fact={item.factId}>
             <QuestionView display={question.display} />
@@ -367,6 +387,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
             </div>
           </>
         )}
+        <canvas ref={fxRef} className="wild__fx" aria-hidden />
       </section>
 
       <p className="wild__message" role="status" onClick={() => intro && setIntro(false)}>

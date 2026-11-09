@@ -174,3 +174,14 @@
 .field__growth-title { font-size: 24px; font-weight: 900; }
 .field__growth-body { font-size: 20px; font-weight: 800; }
 .field__growth-hint { font-size: 13px; opacity: 0.7; }
+
+/* 전투로 넘어가는 별 조리개 (pixelfx 전환 효과, 320×180 그림을 화면에 꽉 채움) */
+.field__iris {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+  pointer-events: none;
+}

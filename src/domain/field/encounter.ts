@@ -36,6 +36,12 @@ export function e2eFlags(): { field: boolean; legend: boolean } {
   return { field: !!g.__GUGU_E2E_FIELD__, legend: !!g.__GUGU_E2E_LEGEND__ };
 }
 
+/** E2E 스위치: 전투 문제를 이 사실·모양으로 고정한다 (375px 배치 확인용). 평소에는 null */
+export function e2eQuestion(): { factId: string; type: string } | null {
+  const g = globalThis as { __GUGU_E2E_QUESTION__?: { factId: string; type: string } };
+  return g.__GUGU_E2E_QUESTION__ ?? null;
+}
+
 /**
  * rng를 부르는 차례: 만남 → (해금 때만) 레전드 → 종 → 단 → 레벨. 안전 걸음에는 부르지 않는다.
  * force.encounter면 만남 판정은 rng를 쓰지 않고 통과, force.legend면 (해금 때만) 레전드 판정을 건너뛰고 레전드.

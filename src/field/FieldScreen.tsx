@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { companionStart, DIR_DELTA, type Dir, type FieldMap, type StepResult, safeStartPosition, tryStep } from '../domain/field/movement';
-import { speciesDef } from '../domain/field/creatures';
 import { displayName } from '../domain/field/growth';
 import { useSessionStore } from '../store/useSessionStore';
 import { companionImage } from './companionImage';
+import { STAGE_SCALE } from './creatureSprite';
+import { playFx, preloadFx, prefersReducedMotion } from './fx';
 import type { FieldId } from '../domain/field/fields';
 import { e2eFlags, stepIntoGrass } from '../domain/field/encounter';
 import { useGameStore } from '../store/useGameStore';
 import { TouchPad } from './TouchPad';
-import { drawField, viewScale } from './fieldRenderer';
+import { type Companion, drawField, viewScale } from './fieldRenderer';
 import { FieldLoading } from './FieldLoading';
 import { OFFLINE_MESSAGE, getLoadedField, loadField, travelTo } from './loadField';
 import { STEP_MS, TILE_PX, TURN_TAP_MS } from './padDirection';
@@ -138,6 +139,13 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   const [menuOpen, setMenuOpen] = useState(false);
   const [signText, setSignText] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
+  /** 전투로 넘어가는 별 조리개 (동작 줄이기면 예전처럼 번쩍임만) */
+  const [iris, setIris] = useState(false);
+  const irisRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => preloadFx('enter'), []);
+  useEffect(() => {
+    if (iris && irisRef.current) void playFx(irisRef.current, 'enter');
+  }, [iris]);
 
   const onStepRef = useRef(onStep);
   onStepRef.current = onStep;
@@ -175,6 +183,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
 
   const notice0 = useSessionStore((s) => s.pendingFieldNotices[0] ?? null);
   st.current.noticeOpen = notice0 !== null;
+  const noticeStage = useGameStore((s) => (notice0 ? s.field.species[notice0.species]?.stage ?? 1 : 1));
   const dismissNotice = useCallback(() => {
     const ss = useSessionStore.getState();
     ss.set({ pendingFieldNotices: ss.pendingFieldNotices.slice(1) });
@@ -226,7 +235,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     session.set({ stepsSinceBattle: r.stepsSinceBattle, encounter: r.encounter });
     if (!r.encounter) return;
     st.current.frozen = true;
-    setFlash(true);
+    if (prefersReducedMotion()) setFlash(true);
+    else setIris(true);
     flashTimer.current = window.setTimeout(() => navigate('/field/battle'), ENCOUNTER_FLASH_MS);
   }, [navigate, map.id]);
   const flashTimer = useRef(0);
@@ -334,15 +344,16 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         hx = s.move.fx + (s.move.tx - s.move.fx) * t;
         hy = s.move.fy + (s.move.ty - s.move.fy) * t;
       }
-      let comp: { x: number; y: number; img: HTMLImageElement | null } | undefined;
-      const compId = useGameStore.getState().field.companion;
+      let comp: Companion | undefined;
+      const { companion: compId, species } = useGameStore.getState().field;
       if (compId) {
         const t = s.move ? Math.min(1, (now - s.move.start) / STEP_MS) : 0;
         const fromX = s.move ? s.cx + (s.move.fx - s.cx) * t : s.cx;
         const fromY = s.move ? s.cy + (s.move.fy - s.cy) * t : s.cy;
-        comp = { x: fromX, y: fromY, img: companionImage(compId) };
+        comp = { x: fromX, y: fromY, img: companionImage(compId), scale: STAGE_SCALE[species[compId]?.stage ?? 1] };
       }
-      drawField(ctx, map, view, hx, hy, s.facing, comp);
+      const stepT = s.move ? Math.min(1, (now - s.move.start) / STEP_MS) : null;
+      drawField(ctx, map, view, hx, hy, s.facing, comp, { now, step: stepT });
       canvas.dataset.pos = `${s.x},${s.y}`;
       if (compId) canvas.dataset.companionPos = `${s.cx},${s.cy}`;
     };
@@ -404,12 +415,13 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
           </div>
         )}
         {flash && <div className="field__flash" aria-hidden />}
+        {iris && <canvas ref={irisRef} className="field__iris" aria-hidden />}
         {notice0 && (
           <button type="button" className="field__growth" role="dialog" aria-label="성장 알림" onClick={dismissNotice}>
             <span className="field__growth-title">{notice0.kind === 'levelUp' ? '레벨이 올랐어!' : '진화했어!'}</span>
             <span className="field__growth-body">
               {notice0.kind === 'levelUp'
-                ? `${speciesDef(notice0.species).name} Lv${notice0.level}`
+                ? `${displayName(notice0.species, noticeStage)} Lv${notice0.level}`
                 : displayName(notice0.species, notice0.stage)}
             </span>
             <span className="field__growth-hint">탭하면 닫혀요</span>

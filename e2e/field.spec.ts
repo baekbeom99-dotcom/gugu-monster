@@ -431,3 +431,45 @@ test('전투를 마치면 필드에서 "레벨이 올랐어!" 알림이 뜨고, 
   await page.getByRole('button', { name: '구구몬 도감' }).click();
   await expect(page.getByLabel('새싹몬 잡음')).toContainText('Lv6');
 });
+
+// ── 꾸미기 (375px 화면 배치) ──
+
+/** 가장 긴 문제("13 × ? = 130"·"? × 13 = 130")를 강제로 띄운다 */
+async function battleWithQuestion(page: Page, factId: string, type: string) {
+  await page.addInitScript(
+    ([f, t]) => {
+      (window as unknown as { __GUGU_E2E_QUESTION__: unknown }).__GUGU_E2E_QUESTION__ = { factId: f, type: t };
+    },
+    [factId, type] as const,
+  );
+  await standBesideGrassWith(page, true);
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await expect(page.locator('.wild__bubble')).toHaveAttribute('data-fact', factId);
+}
+
+/** 두 상자가 겹치는지 */
+function overlaps(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+}
+
+for (const [type, text] of [
+  ['missingSecond', '13×?=130'],
+  ['missingFirst', '?×10=130'], // 단(13)은 늘 앞자리라 "? × 13"은 나오지 않는다. 글자 수가 같은 가장 긴 꼴
+] as const) {
+  test(`가장 긴 문제 "${text}"도 375px에서 말풍선이 야생 구구몬과 겹치지 않고 한 줄에 들어간다`, async ({ page }) => {
+    await battleWithQuestion(page, '13x10', type);
+    const q = page.locator('.wild__bubble .question');
+    await expect(q).toHaveText(text.replace(/\s/g, ''), { useInnerText: false });
+    const bubble = (await page.locator('.wild__bubble').boundingBox())!;
+    const foeSvg = (await page.locator('.wild__foe svg').boundingBox())!;
+    const viewport = page.viewportSize()!;
+    expect(overlaps({ ...bubble, width: bubble.width + 12 }, foeSvg)).toBe(false); // 꼬리(12px)까지
+    expect(bubble.x).toBeGreaterThanOrEqual(0);
+    expect(bubble.x + bubble.width).toBeLessThanOrEqual(viewport.width);
+    // 넘치지 않는다 (글자가 말풍선 밖으로 나가거나 줄이 바뀌지 않음)
+    const fits = await q.evaluate((el) => el.scrollWidth <= el.clientWidth + 1 && el.getBoundingClientRect().height < 60);
+    expect(fits).toBe(true);
+    await page.screenshot({ path: test.info().outputPath('battle-longest.png') });
+  });
+}

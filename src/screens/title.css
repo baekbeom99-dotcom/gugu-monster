@@ -1,15 +1,165 @@
 .title {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 40px;
-  padding: 24px 24px calc(24px + env(safe-area-inset-bottom));
+  padding: 24px 24px calc(150px + env(safe-area-inset-bottom));
   text-align: center;
+  overflow: hidden;
+  background: linear-gradient(#9fdcff, #dff4ff 55%);
+}
+
+.title__name,
+.title__buttons {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── 뒤 그림: 해, 구름, 언덕, 흙길, 주인공과 구구몬 ── */
+.title__scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.title__sun {
+  position: absolute;
+  top: 7%;
+  right: 9%;
+  width: 56px;
+  height: 56px;
+  border: 4px solid var(--ink);
+  border-radius: 50%;
+  background: #ffd23a;
+  box-shadow: 0 0 0 10px rgba(255, 210, 58, 0.35);
+}
+
+.title__cloud {
+  position: absolute;
+  width: 90px;
+  height: 30px;
+  border: 4px solid var(--ink);
+  border-radius: 20px;
+  background: #fff;
+}
+
+.title__cloud::before {
+  content: '';
+  position: absolute;
+  left: 18px;
+  bottom: 14px;
+  width: 40px;
+  height: 32px;
+  border: 4px solid var(--ink);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  background: #fff;
+}
+
+.title__cloud--a {
+  top: 12%;
+  left: 8%;
+}
+
+.title__cloud--b {
+  top: 4%;
+  left: 48%;
+  transform: scale(0.7);
+}
+
+.title__hill {
+  position: absolute;
+  border: 4px solid var(--ink);
+  border-radius: 50% 50% 0 0;
+}
+
+.title__hill--back {
+  left: -20%;
+  right: 30%;
+  bottom: 0;
+  height: 32%;
+  background: #8fd06a;
+}
+
+.title__hill--front {
+  left: 25%;
+  right: -25%;
+  bottom: 0;
+  height: 26%;
+  background: #a5e07f;
+}
+
+/* 앞쪽 들판과 흙길 */
+.title__scene::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 17%;
+  border-top: 4px solid var(--ink);
+  background:
+    radial-gradient(circle at 20% 40%, #8fd06a 0 3px, transparent 4px) 0 0 / 28px 22px,
+    #a5e07f;
+}
+
+.title__path {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: 0;
+  width: 120px;
+  height: 17%;
+  transform: translateX(-50%);
+  clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%);
+  background: #e9c99a;
+}
+
+.title__cast {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+}
+
+.title__hero {
+  margin-bottom: 6px;
+  image-rendering: pixelated;
+}
+
+.title__mon--a {
+  animation: title-hop 1.6s steps(2) infinite;
+}
+
+.title__mon--b {
+  animation: title-hop 1.6s steps(2) 0.8s infinite;
+}
+
+@keyframes title-hop {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title__mon--a,
+  .title__mon--b {
+    animation: none;
+  }
 }
 
 .title__name {
   margin: 0;
+  text-shadow:
+    3px 3px 0 #fff,
+    -2px -2px 0 #fff;
   font-family: var(--font-display);
   font-size: 34px;
   line-height: 1.25;

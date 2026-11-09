@@ -1,5 +1,6 @@
 import type { FieldId } from '../domain/field/fields';
 import { type Dir, type FieldMap, type Pos, parseMap } from '../domain/field/movement';
+import { registerTileSet } from './fieldRenderer';
 
 /** 불러오기 화면을 적어도 이만큼은 보여준다 (ms) */
 export const MIN_LOADING_MS = 600;
@@ -8,20 +9,23 @@ export const OFFLINE_MESSAGE = '인터넷에 연결되면 갈 수 있어요';
 export type FieldLoaders = Record<FieldId, () => Promise<FieldMap>>;
 export type SavedPosition = { map: FieldId; x: number; y: number; facing: Dir };
 
-/** 필드마다 따로 불러온다 (Vite가 지도 파일마다 묶음을 따로 만든다) */
+/** 필드마다 따로 불러온다 (Vite가 지도 파일마다 묶음을 따로 만든다). 타일 그림도 같은 묶음에 있다 */
 export const DEFAULT_LOADERS: FieldLoaders = {
   meadow: () =>
-    import('./maps/meadow').then((m) =>
-      parseMap('meadow', m.MEADOW_ROWS, { exits: { '<': 'waterside', '>': 'desert' }, signTexts: m.MEADOW_SIGNS }),
-    ),
+    import('./maps/meadow').then((m) => {
+      registerTileSet('meadow', m.MEADOW_TILES);
+      return parseMap('meadow', m.MEADOW_ROWS, { exits: { '<': 'waterside', '>': 'desert' }, signTexts: m.MEADOW_SIGNS });
+    }),
   waterside: () =>
-    import('./maps/waterside').then((m) =>
-      parseMap('waterside', m.WATERSIDE_ROWS, { exits: { '>': 'meadow' }, signTexts: m.WATERSIDE_SIGNS }),
-    ),
+    import('./maps/waterside').then((m) => {
+      registerTileSet('waterside', m.WATERSIDE_TILES);
+      return parseMap('waterside', m.WATERSIDE_ROWS, { exits: { '>': 'meadow' }, signTexts: m.WATERSIDE_SIGNS });
+    }),
   desert: () =>
-    import('./maps/desert').then((m) =>
-      parseMap('desert', m.DESERT_ROWS, { exits: { '<': 'meadow' }, signTexts: m.DESERT_SIGNS }),
-    ),
+    import('./maps/desert').then((m) => {
+      registerTileSet('desert', m.DESERT_TILES);
+      return parseMap('desert', m.DESERT_ROWS, { exits: { '<': 'meadow' }, signTexts: m.DESERT_SIGNS });
+    }),
 };
 
 const cache = new Map<FieldId, FieldMap>();

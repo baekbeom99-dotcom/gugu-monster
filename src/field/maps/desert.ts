@@ -23,3 +23,5 @@ export const DESERT_ROWS: string[] = [
 ];
 
 export const DESERT_SIGNS: string[] = ['햇볕이 쨍쨍! 모래 위를 천천히 걸어요', '← 초원으로 가는 길'];
+
+export { DESERT_TILES } from './desertTiles';
