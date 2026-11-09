@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SPECIES, speciesDef, type SpeciesId } from '../domain/field/creatures';
 import { FIELDS } from '../domain/field/fields';
+import { displayName } from '../domain/field/growth';
 import { useGameStore } from '../store/useGameStore';
 import { creatureSprite, speciesColor } from './creatureSprite';
 import './fieldDex.css';
@@ -52,7 +53,7 @@ export function FieldDexScreen() {
                   >
                     {field.companion === id && <span className="fdex__tag">함께 다니는 중</span>}
                     {creatureSprite(id, { view: 'front', stage: entry.stage, color: speciesColor(id), size: 64 })}
-                    <span className="fdex__name">{def.name}</span>
+                    <span className="fdex__name">{displayName(id, entry.stage)}</span>
                     <span className="fdex__meta">
                       Lv{entry.level} · {entry.caught}번 잡음
                     </span>
@@ -86,7 +87,7 @@ export function FieldDexScreen() {
 
       {picked && field.species[picked] && (
         <div className="fdex__sheet" role="dialog" aria-label={`${speciesDef(picked).name} 정보`}>
-          <div className="fdex__sheet-name">{speciesDef(picked).name}</div>
+          <div className="fdex__sheet-name">{displayName(picked, field.species[picked]!.stage)}</div>
           {field.companion === picked ? (
             <p className="fdex__sheet-note">지금 함께 다니고 있어요!</p>
           ) : (

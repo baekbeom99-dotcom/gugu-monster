@@ -44,6 +44,8 @@ import {
   recordAnswer,
 } from '../domain/progress';
 import { applyItem, buy, type CatalogData, canWearHat, findItem, grantMasterHats, type ItemCategory, type ItemDef, type ItemId } from '../domain/shop';
+import { speciesDef } from '../domain/field/creatures';
+import { addExp, CORRECT_EXP, DUPLICATE_EXP, PARTICIPATION_EXP } from '../domain/field/growth';
 import type { FieldData, FieldNotice, SpeciesId } from './fieldData';
 import { createInitialSave, mergeSave, migrateSave, SAVE_KEY, type SaveData, SCHEMA_VERSION, type Settings } from './saveData';
 
@@ -318,6 +320,20 @@ export const useGameStore = create<GameStore>()(
         } else if (r.caught && known) {
           species = { ...species, [r.species]: { ...known, caught: known.caught + 1 } };
         }
+        // 경험치: 이미 있는 종을 또 잡으면 +40, 동행은 전투 참여 +10 (+맞힌 문제마다 +2). 같은 종이면 한 번에 합친다
+        const gains: [SpeciesId, number][] = [];
+        if (r.caught && known) gains.push([r.species, DUPLICATE_EXP]);
+        const companion = s.field.companion;
+        if (companion && species[companion]) gains.push([companion, PARTICIPATION_EXP + Math.max(0, r.correct) * CORRECT_EXP]);
+        const total = new Map<SpeciesId, number>();
+        for (const [id, exp] of gains) total.set(id, (total.get(id) ?? 0) + exp);
+        const notices: FieldNotice[] = [];
+        for (const [id, exp] of total) {
+          const grown = addExp(species[id]!, exp, speciesDef(id).legend);
+          species = { ...species, [id]: grown.entry };
+          if (grown.levelsGained > 0) notices.push({ kind: 'levelUp', species: id, level: grown.entry.level });
+          if (grown.evolvedTo) notices.push({ kind: 'evolve', species: id, stage: grown.evolvedTo });
+        }
         const stats = {
           battles: s.field.stats.battles + 1,
           catches: s.field.stats.catches + (r.caught ? 1 : 0),
@@ -328,7 +344,7 @@ export const useGameStore = create<GameStore>()(
         const affection = s.pet.stage !== 'egg' && s.pet.species ? Math.max(0, r.correct) * ANSWER_AFFECTION : 0;
         const settled = settlePet(s.pet, affection > 0 ? addAffection(s.pet, affection) : s.pet, r.now);
         set({ field: { ...s.field, species, stats, seen }, pet: settled.pet, lastSeenAt: r.now });
-        return { newSpecies, affection, notices: [], evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
+        return { newSpecies, affection, notices, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
       },
       setStairsChallenge: (include) => set((s) => ({ stairs: { ...s.stairs, includeChallenge: include } })),
       chooseEgg: (species) => set((s) => ({ pet: chooseEgg(s.pet, species) })),

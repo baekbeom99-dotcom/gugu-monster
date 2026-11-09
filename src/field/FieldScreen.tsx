@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { DIR_DELTA, type Dir, type FieldMap, type StepResult, safeStartPosition, tryStep } from '../domain/field/movement';
+import { companionStart, DIR_DELTA, type Dir, type FieldMap, type StepResult, safeStartPosition, tryStep } from '../domain/field/movement';
+import { speciesDef } from '../domain/field/creatures';
+import { displayName } from '../domain/field/growth';
+import { useSessionStore } from '../store/useSessionStore';
+import { companionImage } from './companionImage';
 import type { FieldId } from '../domain/field/fields';
 import { e2eFlags, stepIntoGrass } from '../domain/field/encounter';
 import { useGameStore } from '../store/useGameStore';
@@ -154,14 +158,29 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     signOpen: false,
     /** 만남이 정해지면 더 걷지 않는다 */
     frozen: false,
+    /** 동행이 서 있는 칸 (걸음이 끝날 때마다 주인공이 방금 떠난 칸으로) */
+    cx: 0,
+    cy: 0,
+    /** 알림 창이 떠 있으면 걷지 않는다 */
+    noticeOpen: false,
   });
   const init = useRef(false);
   if (!init.current) {
     init.current = true;
     enterField();
     const p = safeStartPosition(map, useGameStore.getState().field.position);
-    Object.assign(st.current, { x: p.x, y: p.y, facing: p.facing });
+    const c = companionStart(map, p, p.facing);
+    Object.assign(st.current, { x: p.x, y: p.y, facing: p.facing, cx: c.x, cy: c.y });
   }
+
+  const notice0 = useSessionStore((s) => s.pendingFieldNotices[0] ?? null);
+  st.current.noticeOpen = notice0 !== null;
+  const dismissNotice = useCallback(() => {
+    const ss = useSessionStore.getState();
+    ss.set({ pendingFieldNotices: ss.pendingFieldNotices.slice(1) });
+  }, []);
+  const dismissRef = useRef(dismissNotice);
+  dismissRef.current = dismissNotice;
 
   const save = useCallback(() => {
     const s = st.current;
@@ -171,6 +190,10 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   const press = useCallback(
     (kind: 'A' | 'B') => {
       const s = st.current;
+      if (s.noticeOpen) {
+        dismissRef.current();
+        return;
+      }
       if (s.signOpen) {
         s.signOpen = false;
         setSignText(null);
@@ -269,6 +292,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
 
     const finishMove = () => {
       const m = s.move!;
+      s.cx = m.fx;
+      s.cy = m.fy;
       s.x = m.tx;
       s.y = m.ty;
       s.move = null;
@@ -290,7 +315,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       if (paused) return;
       if (s.move && now - s.move.start >= STEP_MS) finishMove();
       if (!s.move) {
-        const h = s.signOpen || s.frozen ? null : held();
+        const h = s.signOpen || s.frozen || s.noticeOpen ? null : held();
         if (h !== s.lastHeld) {
           s.lastHeld = h;
           s.heldSince = now;
@@ -309,8 +334,17 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         hx = s.move.fx + (s.move.tx - s.move.fx) * t;
         hy = s.move.fy + (s.move.ty - s.move.fy) * t;
       }
-      drawField(ctx, map, view, hx, hy, s.facing);
+      let comp: { x: number; y: number; img: HTMLImageElement | null } | undefined;
+      const compId = useGameStore.getState().field.companion;
+      if (compId) {
+        const t = s.move ? Math.min(1, (now - s.move.start) / STEP_MS) : 0;
+        const fromX = s.move ? s.cx + (s.move.fx - s.cx) * t : s.cx;
+        const fromY = s.move ? s.cy + (s.move.fy - s.cy) * t : s.cy;
+        comp = { x: fromX, y: fromY, img: companionImage(compId) };
+      }
+      drawField(ctx, map, view, hx, hy, s.facing, comp);
       canvas.dataset.pos = `${s.x},${s.y}`;
+      if (compId) canvas.dataset.companionPos = `${s.cx},${s.cy}`;
     };
     raf = requestAnimationFrame(frame);
 
@@ -370,6 +404,17 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
           </div>
         )}
         {flash && <div className="field__flash" aria-hidden />}
+        {notice0 && (
+          <button type="button" className="field__growth" role="dialog" aria-label="성장 알림" onClick={dismissNotice}>
+            <span className="field__growth-title">{notice0.kind === 'levelUp' ? '레벨이 올랐어!' : '진화했어!'}</span>
+            <span className="field__growth-body">
+              {notice0.kind === 'levelUp'
+                ? `${speciesDef(notice0.species).name} Lv${notice0.level}`
+                : displayName(notice0.species, notice0.stage)}
+            </span>
+            <span className="field__growth-hint">탭하면 닫혀요</span>
+          </button>
+        )}
         {signText && (
           <div className="field__text" role="dialog" aria-label="표지판">
             {signText}

@@ -6,6 +6,7 @@ import type { MonsterMood } from '../art/MonsterSprite';
 import { HintPanel } from '../components/HintPanel';
 import { QuestionView } from '../components/QuestionView';
 import { STARTERS, speciesDef, type SpeciesId } from '../domain/field/creatures';
+import { displayName } from '../domain/field/growth';
 import { e2eFlags, type Encounter } from '../domain/field/encounter';
 import { FIELD_CHOICES, planFieldQuestions, planLegendQuestions, restrictToFieldType } from '../domain/field/fieldQuestions';
 import {
@@ -208,6 +209,10 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       newSpecies = r.newSpecies;
       if (r.evolvedTo) useSessionStore.getState().set({ pendingEvolution: r.evolvedTo });
       if (r.levelUp) useSessionStore.getState().set({ pendingLevelUp: r.levelUp });
+      if (r.notices.length) {
+        const ss = useSessionStore.getState();
+        ss.set({ pendingFieldNotices: [...ss.pendingFieldNotices, ...r.notices] });
+      }
     }
     setMessage(
       ending === 'fled'
@@ -356,6 +361,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
             )}
             <div key={`a${hitCount}`} className={`wild__ally ${wild.phase === 'anim' ? 'wild__ally--attack' : ''}`}>
               {creatureSprite(companion, { view: 'back', stage: companionStage, color: COMPANION_COLOR, size: 150 })}
+              <small className="wild__ally-name" style={{ display: 'block', textAlign: 'center', fontWeight: 800 }}>
+                {displayName(companion, companionStage)}
+              </small>
             </div>
           </>
         )}

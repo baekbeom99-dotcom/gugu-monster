@@ -86,3 +86,55 @@ describe('필드 스토어 액션', () => {
     expect(useGameStore.getState().field).toEqual(before);
   });
 });
+
+describe('필드 경험치·알림', () => {
+  beforeEach(() => {
+    useGameStore.getState().resetAll();
+  });
+
+  it('동행이 정답 4로 끝내면 참여 10 + 4×2 = 18 경험치', () => {
+    useGameStore.getState().chooseStarter('jelly', NOW);
+    useGameStore.getState().finishWildBattle(batch({ species: 'horn', caught: false, fled: true, correct: 4 }));
+    expect(useGameStore.getState().field.species.jelly!.exp).toBe(18);
+  });
+
+  it('도망쳐도 동행은 참여 경험치를 받는다', () => {
+    useGameStore.getState().chooseStarter('jelly', NOW);
+    useGameStore.getState().finishWildBattle(batch({ caught: false, fled: true, correct: 0 }));
+    expect(useGameStore.getState().field.species.jelly!.exp).toBe(10);
+  });
+
+  it('이미 있는 종을 또 잡으면 그 종에 +40 (새로 잡을 때는 없음)', () => {
+    useGameStore.getState().chooseStarter('cloud', NOW);
+    useGameStore.getState().finishWildBattle(batch());
+    expect(useGameStore.getState().field.species.horn!.exp).toBe(0);
+    useGameStore.getState().finishWildBattle(batch({ correct: 0 }));
+    expect(useGameStore.getState().field.species.horn!.exp).toBe(40);
+  });
+
+  it('동행과 같은 종을 또 잡으면 중복 + 참여 경험치가 같은 칸에 들어간다', () => {
+    useGameStore.getState().chooseStarter('jelly', NOW);
+    useGameStore.getState().finishWildBattle(batch({ species: 'jelly', correct: 4 }));
+    const e = useGameStore.getState().field.species.jelly!;
+    expect(e.exp).toBe(40 + 18);
+    expect(e.caught).toBe(2);
+  });
+
+  it('레벨이 오르면 levelUp(최종 레벨), 진화하면 evolve 알림이 한 번씩', () => {
+    useGameStore.getState().chooseStarter('jelly', NOW);
+    useGameStore.setState((s) => ({
+      field: { ...s.field, species: { ...s.field.species, jelly: { level: 7, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW } } },
+    }));
+    const r = useGameStore.getState().finishWildBattle(batch({ species: 'jelly', correct: 5 })); // 60 < 90
+    expect(r.notices).toEqual([]);
+    useGameStore.setState((s) => ({
+      field: { ...s.field, species: { ...s.field.species, jelly: { level: 7, exp: 85, stage: 1, caught: 1, firstCaughtAt: NOW } } },
+    }));
+    const r2 = useGameStore.getState().finishWildBattle(batch({ species: 'jelly', correct: 5 }));
+    expect(r2.notices).toEqual([
+      { kind: 'levelUp', species: 'jelly', level: 8 },
+      { kind: 'evolve', species: 'jelly', stage: 2 },
+    ]);
+    expect(useGameStore.getState().field.species.jelly).toMatchObject({ level: 8, stage: 2 });
+  });
+});

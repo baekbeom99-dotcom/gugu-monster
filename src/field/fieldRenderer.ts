@@ -36,6 +36,7 @@ export function drawField(
   hx: number,
   hy: number,
   facing: Dir,
+  companion?: { x: number; y: number; img: HTMLImageElement | null },
 ) {
   const { tile, w, h } = view;
   ctx.imageSmoothingEnabled = false;
@@ -51,6 +52,20 @@ export function drawField(
     for (let x = x0; x <= x1; x++) {
       ctx.fillStyle = TILE_COLOR[map.tiles[y][x]];
       ctx.fillRect(x * tile - cx, y * tile - cy, tile, tile);
+    }
+  }
+  // 동행: 주인공 뒤 칸 (구운 그림, 아직 못 읽었으면 색 동그라미)
+  if (companion) {
+    const cxp = Math.round(companion.x * tile) - cx;
+    const cyp = Math.round(companion.y * tile) - cy;
+    const img = companion.img;
+    if (img && img.complete && img.naturalWidth > 0) {
+      ctx.drawImage(img, cxp, cyp, tile, tile);
+    } else {
+      ctx.fillStyle = '#42a5f5';
+      ctx.beginPath();
+      ctx.arc(cxp + tile / 2, cyp + tile / 2, tile * 0.38, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
   // 주인공: 빨간 칸 + 바라보는 쪽 하얀 점

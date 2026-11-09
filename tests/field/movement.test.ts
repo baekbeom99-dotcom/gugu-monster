@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FIELDS, fieldDans } from '../../src/domain/field/fields';
-import { parseMap, tryStep } from '../../src/domain/field/movement';
+import { companionStart, parseMap, tryStep } from '../../src/domain/field/movement';
 
 const map = parseMap('meadow', ['#####', '<.,.>', '#.S.#', '#@..#', '#####'], {
   exits: { '<': 'waterside', '>': 'desert' },
@@ -51,5 +51,17 @@ describe('fieldDans', () => {
   it('필드별 몬스터', () => {
     expect(FIELDS.meadow.species).toEqual(['cloud', 'mushroom', 'fluff']);
     expect(FIELDS.desert.species).toEqual(['pebble', 'ghost']);
+  });
+});
+
+describe('companionStart', () => {
+  it('바라보는 방향의 반대쪽 칸이 걸을 수 있으면 거기', () => {
+    expect(companionStart(map, { x: 2, y: 3 }, 'right')).toEqual({ x: 1, y: 3 });
+    expect(companionStart(map, { x: 3, y: 3 }, 'down')).toEqual({ x: 3, y: 2 });
+  });
+  it('뒤가 막힘·표지판이거나 지도 밖이면 주인공 칸', () => {
+    expect(companionStart(map, { x: 1, y: 3 }, 'right')).toEqual({ x: 1, y: 3 });
+    expect(companionStart(map, { x: 2, y: 3 }, 'up')).toEqual({ x: 2, y: 3 });
+    expect(companionStart(map, { x: 2, y: 3 }, 'down')).toEqual({ x: 2, y: 3 });
   });
 });

@@ -122,3 +122,13 @@ export function safeStartPosition(
   const start = map.entrances.start ?? { x: 1, y: 1 };
   return { ...start, facing: 'down' };
 }
+
+/** 동행이 처음 서는 칸: 주인공이 바라보는 쪽의 반대 칸이 길·풀숲이면 거기, 아니면 주인공 칸 */
+export function companionStart(map: FieldMap, hero: Pos, facing: Dir): Pos {
+  const d = DIR_DELTA[facing];
+  const x = hero.x - d.x;
+  const y = hero.y - d.y;
+  if (x < 0 || y < 0 || x >= map.width || y >= map.height) return { x: hero.x, y: hero.y };
+  const tile = map.tiles[y][x];
+  return tile === 'path' || tile === 'grass' ? { x, y } : { x: hero.x, y: hero.y };
+}

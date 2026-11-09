@@ -380,3 +380,54 @@ test('13단이 잠긴 저장본에서는 레전드 스위치가 있어도 보통
   await expect(page.locator('.wild__stage')).not.toHaveAttribute('data-species', /^legend-/);
   await expect(page.getByText(/전설의/)).toHaveCount(0);
 });
+
+// ── 성장과 동행 ──
+
+async function companionPos(page: Page) {
+  return page.getByTestId('field-canvas').getAttribute('data-companion-pos');
+}
+
+test('동행이 주인공이 방금 떠난 칸을 따라온다', async ({ page }) => {
+  await standAt(page, 'meadow', 5, 8, 'right');
+  await expect.poll(() => companionPos(page)).toBe('4,8'); // 처음에는 바로 뒤 칸
+  await tap(page, 'ArrowRight');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '6,8');
+  await expect.poll(() => companionPos(page)).toBe('5,8');
+  await tap(page, 'ArrowUp', 200);
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '6,7');
+  await expect.poll(() => companionPos(page)).toBe('6,8');
+});
+
+test('전투를 마치면 필드에서 "레벨이 올랐어!" 알림이 뜨고, 도감에 새 레벨이 남는다', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { __GUGU_E2E_FIELD__: boolean }).__GUGU_E2E_FIELD__ = true;
+  });
+  await seedStarter(page);
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
+  await page.evaluate((starter) => {
+    localStorage.clear();
+    // 구름몬 Lv5, 다음 레벨까지 5 모자란 상태 (전투 참여 +10이면 Lv6)
+    const field = {
+      ...starter,
+      species: { cloud: { level: 5, exp: 65, stage: 1, caught: 1, firstCaughtAt: 1 } },
+      position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
+    };
+    localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
+  }, STARTER_FIELD);
+  await page.reload();
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,8');
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '도망치기' }).click();
+  await page.getByRole('dialog', { name: '도망치기' }).getByRole('button', { name: '도망갈래' }).click();
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
+  const notice = page.getByRole('dialog', { name: '성장 알림' });
+  await expect(notice).toContainText('레벨이 올랐어!');
+  await expect(notice).toContainText('Lv6');
+  await notice.click();
+  await expect(notice).toHaveCount(0);
+
+  await page.getByRole('button', { name: '메뉴' }).click();
+  await page.getByRole('button', { name: '구구몬 도감' }).click();
+  await expect(page.getByLabel('새싹몬 잡음')).toContainText('Lv6');
+});
