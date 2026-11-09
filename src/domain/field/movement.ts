@@ -100,3 +100,25 @@ export function tryStep(map: FieldMap, pos: Pos, dir: Dir): StepResult {
   }
   return { pos: next, moved: true, enteredGrass: tile === 'grass', exitTo: null };
 }
+
+const WALKABLE: Tile[] = ['path', 'grass', 'exit'];
+
+/** 저장된 자리가 이 지도에서 설 수 있는 곳이면 그대로, 아니면 시작 칸 */
+export function safeStartPosition(
+  map: FieldMap,
+  saved: { map: FieldId; x: number; y: number; facing: Dir },
+): Pos & { facing: Dir } {
+  const { x, y } = saved;
+  const ok =
+    saved.map === map.id &&
+    Number.isInteger(x) &&
+    Number.isInteger(y) &&
+    x >= 0 &&
+    y >= 0 &&
+    x < map.width &&
+    y < map.height &&
+    WALKABLE.includes(map.tiles[y][x]);
+  if (ok) return { x, y, facing: saved.facing };
+  const start = map.entrances.start ?? { x: 1, y: 1 };
+  return { ...start, facing: 'down' };
+}

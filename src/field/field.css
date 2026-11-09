@@ -1,0 +1,97 @@
+.field {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #1b1b1b;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.field__view {
+  position: relative;
+  flex: 0 0 60%;
+  min-height: 0;
+  border-bottom: 4px solid #000;
+}
+.field__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+.field__menu-btn {
+  position: absolute;
+  top: calc(8px + env(safe-area-inset-top));
+  right: 8px;
+}
+.field__menu {
+  position: absolute;
+  top: calc(56px + env(safe-area-inset-top));
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: #fff;
+  border: 3px solid #000;
+  border-radius: 12px;
+  box-shadow: 4px 4px 0 #000;
+}
+.field__text {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 3px solid #000;
+  border-radius: 12px;
+  box-shadow: 4px 4px 0 #000;
+  font-size: 18px;
+  font-weight: 800;
+}
+.fpad {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px calc(12px + env(safe-area-inset-bottom));
+}
+.fpad__cross {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: #fff;
+  border: 4px solid #000;
+  box-shadow: 4px 4px 0 #000;
+  touch-action: none;
+}
+.fpad__arrow {
+  position: absolute;
+  font-size: 26px;
+  line-height: 1;
+  pointer-events: none;
+}
+.fpad__arrow--up { top: 10px; left: 50%; transform: translateX(-50%); }
+.fpad__arrow--down { bottom: 10px; left: 50%; transform: translateX(-50%); }
+.fpad__arrow--left { left: 10px; top: 50%; transform: translateY(-50%); }
+.fpad__arrow--right { right: 10px; top: 50%; transform: translateY(-50%); }
+.fpad__ab {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+}
+.fpad__btn {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 4px solid #000;
+  box-shadow: 4px 4px 0 #000;
+  font-size: 26px;
+  font-weight: 900;
+  touch-action: none;
+}
+.fpad__btn--a { background: #ff6b6b; margin-bottom: 36px; }
+.fpad__btn--b { background: #ffd93d; }
+.fpad__btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
