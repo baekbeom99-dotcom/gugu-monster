@@ -129,7 +129,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const [intro, setIntro] = useState(true);
   const [confirmQuit, setConfirmQuit] = useState(false);
   const [quit, setQuit] = useState(false);
-  const [message, setMessage] = useState(`야생 ${josa(wildDef.name, '이', '가')} 나타났다!`);
+  const [message, setMessage] = useState(
+    `${wildDef.legend ? '전설의' : '야생'} ${josa(wildDef.name, '이', '가')} 나타났다!`,
+  );
   const [hitCount, setHitCount] = useState(0);
   /** 캡슐이 흔들리는 중: 결과가 나올 때까지 아무것도 흐르지 않는다 */
   const [throwing, setThrowing] = useState(false);
@@ -299,7 +301,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     wild.phase === 'anim' ? 'hit' : dizzy ? 'sleep' : wild.phase === 'caught' ? 'happy' : 'idle';
 
   return (
-    <div className="wild">
+    <div className={`wild ${wildDef.legend ? 'wild--legend' : ''}`}>
       <header className="wild__top">
         <button
           type="button"
@@ -332,9 +334,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         </div>
       </header>
 
-      <section data-species={encounter.species} className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''}`}>
+      <section data-species={encounter.species} className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''} ${intro && wildDef.legend ? 'wild__stage--sparkle' : ''}`}>
         {asking || inHint ? (
-          <div className="wild__bubble">
+          <div className="wild__bubble" data-fact={item.factId}>
             <QuestionView display={question.display} />
           </div>
         ) : null}

@@ -328,3 +328,55 @@ test('물가 풀숲에서 만난 구구몬은 젤리몬·안테나몬·뿔뿔몬
   const species = await page.locator('.wild__stage').getAttribute('data-species');
   expect(['jelly', 'antenna', 'horn']).toContain(species);
 });
+
+// ── 레전드 전투 ──
+
+/** 12·13단이 열린 저장본으로 풀숲 바로 옆에 서서(만남 100%, 레전드 강제) 한 걸음 */
+async function standBesideGrassWith(page: Page, unlocked: boolean) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __GUGU_E2E_FIELD__: boolean; __GUGU_E2E_LEGEND__: boolean };
+    w.__GUGU_E2E_FIELD__ = true;
+    w.__GUGU_E2E_LEGEND__ = true;
+  });
+  await seedStarter(page);
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
+  await page.evaluate(
+    ([starter, open]) => {
+      localStorage.clear();
+      const learning = open ? { challengeUnlocked: true, challengeUnlockedBy: 'admin' } : {};
+      localStorage.setItem(
+        'gugu-monster:save',
+        JSON.stringify({
+          version: 1,
+          state: { field: { ...(starter as object), position: { map: 'meadow', x: 5, y: 8, facing: 'right' } }, learning },
+        }),
+      );
+    },
+    [STARTER_FIELD, unlocked] as const,
+  );
+  await page.reload();
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,8');
+}
+
+test('12·13단이 열렸으면 레전드가 나타나 13단 문제를 낸다', async ({ page }) => {
+  await standBesideGrassWith(page, true);
+  await stepIntoGrass(page);
+  await expect(page.getByRole('status').filter({ hasText: /^전설의 .*나타났다!$/ })).toBeVisible();
+  await expect(page.locator('.wild__stage')).toHaveAttribute('data-species', /^legend-/);
+  await expect(page.locator('.wild__stage')).toHaveClass(/wild__stage--legend/);
+  await expect(page.locator('.wild__bubble')).toBeVisible();
+  for (let i = 0; i < 3; i++) {
+    await expect(page.locator('.wild__bubble')).toHaveAttribute('data-fact', /^13x\d+$/);
+    const answer = await solveWild(page);
+    await moveButton(page, answer).click();
+    await page.waitForTimeout(800);
+  }
+});
+
+test('13단이 잠긴 저장본에서는 레전드 스위치가 있어도 보통 만남', async ({ page }) => {
+  await standBesideGrassWith(page, false);
+  await stepIntoGrass(page);
+  await expect(page.locator('.wild__stage')).not.toHaveAttribute('data-species', /^legend-/);
+  await expect(page.getByText(/전설의/)).toHaveCount(0);
+});
