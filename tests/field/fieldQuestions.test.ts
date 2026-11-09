@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIELD_CHOICES, FIELD_MAX_BOX, FIELD_TYPES, planFieldQuestions, planLegendQuestions } from '../../src/domain/field/fieldQuestions';
+import { FIELD_CHOICES, FIELD_MAX_BOX, FIELD_TYPES, planFieldQuestions, planLegendQuestions, restrictToFieldType } from '../../src/domain/field/fieldQuestions';
 import { fieldDans } from '../../src/domain/field/fields';
 import { type Dan, FACTS, factsOfDan, getFact } from '../../src/domain/facts';
 import { applyAnswer, type Box, initialFactStats, type FactStat } from '../../src/domain/mastery';
@@ -156,5 +156,29 @@ describe('필드 정답은 상자 3까지', () => {
       firstAttemptInBattle: true, battleStartedAt: NOW, now: NOW, source: 'field', speedBonus: true,
     });
     expect(out.baseStars).toBe(1);
+  });
+});
+
+describe('restrictToFieldType (다시 내는 문제도 필드 모양만)', () => {
+  it('필드 모양은 그대로', () => {
+    const rng = seededRng(3);
+    for (const t of FIELD_TYPES) expect(restrictToFieldType(rng, getFact('7x8'), 3, t)).toBe(t);
+  });
+
+  it('뛰어 세기·바꿔 곱하기는 출제 조건을 지키며 필드 모양으로', () => {
+    const rng = seededRng(5);
+    for (let i = 0; i < 500; i++) {
+      const f = FACTS[Math.floor(rng() * FACTS.length)];
+      const box = (i % 6) as Box;
+      for (const t of ['sequence', 'commutative'] as const) {
+        const out = restrictToFieldType(rng, f, box, t);
+        expect(FIELD_TYPES).toContain(out);
+        expect(isTypeEligible(out, f, box)).toBe(true);
+      }
+    }
+  });
+
+  it('상자 0이면 product', () => {
+    expect(restrictToFieldType(seededRng(1), getFact('6x7'), 0, 'sequence')).toBe('product');
   });
 });

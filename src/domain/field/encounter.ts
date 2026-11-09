@@ -57,3 +57,13 @@ export function rollEncounter(rng: Rng, ctx: EncounterContext): Encounter | null
   const level = randomInt(rng, WILD_LEVEL_MIN, WILD_LEVEL_MAX);
   return { species, dan, level, legend: false };
 }
+
+/**
+ * 풀숲에 들어선 한 걸음: 지금 걸음 수로 먼저 주사위를 굴리고, 못 만났으면 걸음 수를 1 늘린다.
+ * 그래서 전투 뒤(0)에는 풀숲 ENCOUNTER_GRACE_STEPS 걸음이 안전하고,
+ * 필드에 막 들어왔을 때(ENCOUNTER_GRACE_STEPS에서 시작)는 첫 풀숲 걸음부터 만날 수 있다.
+ */
+export function stepIntoGrass(rng: Rng, ctx: EncounterContext): { encounter: Encounter | null; stepsSinceBattle: number } {
+  const encounter = rollEncounter(rng, ctx);
+  return { encounter, stepsSinceBattle: encounter ? ctx.stepsSinceBattle : ctx.stepsSinceBattle + 1 };
+}

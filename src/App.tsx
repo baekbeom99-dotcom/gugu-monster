@@ -6,6 +6,7 @@ import { BattleScreen } from './screens/BattleScreen';
 import { DevGallery } from './screens/DevGallery';
 import { DexScreen } from './screens/DexScreen';
 import { FieldScreen } from './field/FieldScreen';
+import { WildBattleScreen } from './field/WildBattleScreen';
 import { TitleScreen } from './screens/TitleScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
 import { HatchScreen } from './screens/HatchScreen';
@@ -68,6 +69,7 @@ export function App() {
         </Route>
         <Route path="/" element={fullScreen(<TitleScreen />)} />
         <Route path="/field" element={fullScreen(<FieldScreen />)} />
+        <Route path="/field/battle" element={fullScreen(<WildBattleScreen />)} />
         <Route path="/welcome" element={fullScreen(<OnboardingScreen />)} />
         <Route path="/hatch" element={fullScreen(<HatchScreen />)} />
         {/* 전투는 탭 없이 화면 전체를 쓴다 */}

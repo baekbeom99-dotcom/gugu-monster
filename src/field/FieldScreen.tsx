@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DIR_DELTA, type Dir, type StepResult, parseMap, safeStartPosition, tryStep } from '../domain/field/movement';
+import { e2eFlags, stepIntoGrass } from '../domain/field/encounter';
 import { useGameStore } from '../store/useGameStore';
 import { TouchPad } from './TouchPad';
 import { drawField, viewScale } from './fieldRenderer';
 import { MEADOW_ROWS, MEADOW_SIGNS } from './maps/meadow';
 import { STEP_MS, TILE_PX, TURN_TAP_MS } from './padDirection';
+import { enterField, leaveBattleReturn, useFieldSession } from './useFieldSession';
 import './field.css';
 
 const MEADOW = parseMap('meadow', MEADOW_ROWS, { exits: { '<': 'waterside', '>': 'desert' }, signTexts: MEADOW_SIGNS });
+
+/** 만남 → 전투 화면으로 넘어가기 전 번쩍이는 시간 */
+export const ENCOUNTER_FLASH_MS = 800;
 
 const KEY_DIR: Record<string, Dir> = {
   ArrowUp: 'up',
@@ -46,6 +51,7 @@ export function FieldScreen({ onStep }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [signText, setSignText] = useState<string | null>(null);
+  const [flash, setFlash] = useState(false);
 
   const onStepRef = useRef(onStep);
   onStepRef.current = onStep;
@@ -62,10 +68,13 @@ export function FieldScreen({ onStep }: Props) {
     heldSince: 0,
     needTurn: false,
     signOpen: false,
+    /** 만남이 정해지면 더 걷지 않는다 */
+    frozen: false,
   });
   const init = useRef(false);
   if (!init.current) {
     init.current = true;
+    enterField();
     const p = safeStartPosition(map, useGameStore.getState().field.position);
     Object.assign(st.current, { x: p.x, y: p.y, facing: p.facing });
   }
@@ -83,7 +92,7 @@ export function FieldScreen({ onStep }: Props) {
         setSignText(null);
         return;
       }
-      if (kind === 'B' || s.move) return;
+      if (kind === 'B' || s.move || s.frozen) return;
       const d = DIR_DELTA[s.facing];
       const sign = map.signs.find((g) => g.pos.x === s.x + d.x && g.pos.y === s.y + d.y);
       if (sign) {
@@ -93,6 +102,31 @@ export function FieldScreen({ onStep }: Props) {
     },
     [map],
   );
+  /** 풀숲 걸음마다 만남 주사위 → 만나면 멈추고 번쩍인 뒤 전투 화면으로 */
+  const checkEncounter = useCallback((result: StepResult) => {
+    leaveBattleReturn();
+    if (!result.enteredGrass) return;
+    const session = useFieldSession.getState();
+    const { field, learning } = useGameStore.getState();
+    const flags = e2eFlags();
+    const r = stepIntoGrass(Math.random, {
+      field: field.position.map,
+      stepsSinceBattle: session.stepsSinceBattle,
+      challengeUnlocked: learning.challengeUnlocked,
+      seen: field.seen,
+      force: { encounter: flags.field, legend: flags.legend },
+    });
+    session.set({ stepsSinceBattle: r.stepsSinceBattle, encounter: r.encounter });
+    if (!r.encounter) return;
+    st.current.frozen = true;
+    setFlash(true);
+    flashTimer.current = window.setTimeout(() => navigate('/field/battle'), ENCOUNTER_FLASH_MS);
+  }, [navigate]);
+  const flashTimer = useRef(0);
+  useEffect(() => () => clearTimeout(flashTimer.current), []);
+  const checkRef = useRef(checkEncounter);
+  checkRef.current = checkEncounter;
+
   const pressRef = useRef(press);
   pressRef.current = press;
 
@@ -155,6 +189,7 @@ export function FieldScreen({ onStep }: Props) {
       s.y = m.ty;
       s.move = null;
       save();
+      checkRef.current(m.result);
       onStepRef.current?.(m.result);
     };
 
@@ -163,7 +198,7 @@ export function FieldScreen({ onStep }: Props) {
       if (paused) return;
       if (s.move && now - s.move.start >= STEP_MS) finishMove();
       if (!s.move) {
-        const h = s.signOpen ? null : held();
+        const h = s.signOpen || s.frozen ? null : held();
         if (h !== s.lastHeld) {
           s.lastHeld = h;
           s.heldSince = now;
@@ -212,7 +247,14 @@ export function FieldScreen({ onStep }: Props) {
         </button>
         {menuOpen && (
           <div className="field__menu" role="menu">
-            <button type="button" className="btn btn--ghost" onClick={() => navigate('/')}>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => {
+                leaveBattleReturn();
+                navigate('/');
+              }}
+            >
               처음 화면
             </button>
             <button type="button" className="btn btn--ghost" onClick={() => setMenuOpen(false)}>
@@ -220,6 +262,7 @@ export function FieldScreen({ onStep }: Props) {
             </button>
           </div>
         )}
+        {flash && <div className="field__flash" aria-hidden />}
         {signText && (
           <div className="field__text" role="dialog" aria-label="표지판">
             {signText}

@@ -95,3 +95,26 @@
 .fpad__btn--a { background: #ff6b6b; margin-bottom: 36px; }
 .fpad__btn--b { background: #ffd93d; }
 .fpad__btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
+
+/* 풀숲에서 만났을 때 번쩍번쩍 */
+.field__flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  pointer-events: none;
+  animation: field-flash 0.8s steps(4) forwards;
+}
+
+@keyframes field-flash {
+  0%,
+  50% {
+    opacity: 0.9;
+  }
+  25%,
+  75% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}

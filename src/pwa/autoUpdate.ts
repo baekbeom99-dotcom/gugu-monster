@@ -2,7 +2,7 @@
  * 새 버전 자동 적용 (v1.31).
  * - 탭으로 돌아올 때, 그리고 켜 둔 동안 30분마다 새 버전이 있는지 확인한다.
  * - 새 서비스 워커가 화면을 넘겨받으면(새 버전 준비 끝), 문제를 풀고 있지 않을 때 조용히 새로고침한다.
- *   전투·셈 연습·무한의 계단·부화·처음 시작·관리자 화면이나 글자를 입력하는 중이면, 그 화면을 벗어날 때까지 기다린다.
+ *   전투·야생 전투·셈 연습·무한의 계단·부화·처음 시작·관리자 화면이나 글자를 입력하는 중이면, 그 화면을 벗어날 때까지 기다린다.
  * 서비스 워커는 skipWaiting + clientsClaim(registerType 'autoUpdate')이라 받자마자 넘겨받는다.
  */
 
@@ -10,7 +10,7 @@
 export const UPDATE_CHECK_MS = 30 * 60 * 1000;
 
 /** 이 화면에 있는 동안은 새로고침하지 않는다 (푸는 흐름·입력이 끊기지 않게) */
-const BUSY_ROUTES = ['/battle', '/practice', '/stairs', '/hatch', '/welcome', '/admin'];
+const BUSY_ROUTES = ['/battle', '/field/battle', '/practice', '/stairs', '/hatch', '/welcome', '/admin'];
 
 /** 해시 주소(#/stairs?x=1 등)가 문제를 푸는 중인 화면인지 */
 export function isBusyRoute(hash: string): boolean {

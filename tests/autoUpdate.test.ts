@@ -11,6 +11,11 @@ describe('자동 새로고침', () => {
     for (const h of ['', '#/', '#/pet', '#/explore', '#/shop?tab=toy', '#/records', '#/dex']) expect(isBusyRoute(h)).toBe(false);
   });
 
+  it('야생 전투 중에는 기다리고, 필드를 걸을 때는 새로고침한다', () => {
+    expect(isBusyRoute('#/field/battle')).toBe(true);
+    expect(isBusyRoute('#/field')).toBe(false);
+  });
+
   it('30분마다 확인한다', () => {
     expect(UPDATE_CHECK_MS).toBe(30 * 60 * 1000);
   });

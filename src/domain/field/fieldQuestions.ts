@@ -1,6 +1,6 @@
 /** 필드 모험 출제 — 기존 추천 탐험 엔진에 단 목록·유형 제한을 걸어 쓴다. */
-import { getFact } from '../facts';
-import { FIELD_MAX_BOX } from '../mastery';
+import { type Fact, getFact } from '../facts';
+import { type Box, FIELD_MAX_BOX } from '../mastery';
 import { isTypeEligible, type QuestionType } from '../questionGen';
 import { pickOne, type Rng } from '../random';
 import { type LearnerSnapshot, planExploration, type PlannedItem } from '../scheduler';
@@ -13,15 +13,22 @@ export const FIELD_TYPES: readonly QuestionType[] = ['product', 'missingFirst', 
 export const FIELD_CHOICES = 3;
 export { LEGEND_DAN };
 
-/** FIELD_TYPES 밖 유형은 출제 조건(isTypeEligible)을 지키며 FIELD_TYPES 중에서 다시 고른다. 상자 0은 product. */
+/**
+ * FIELD_TYPES 밖 유형이면 출제 조건(isTypeEligible)을 지키며 FIELD_TYPES 중에서 다시 고른다. 상자 0은 product.
+ * 다시 내는 문제(insertRetry)에도 쓴다.
+ */
+export function restrictToFieldType(rng: Rng, fact: Fact, box: Box, type: QuestionType): QuestionType {
+  if (FIELD_TYPES.includes(type)) return type;
+  const options = FIELD_TYPES.filter((t) => isTypeEligible(t, fact, box));
+  return options.length > 0 ? pickOne(rng, options) : 'product';
+}
+
 function restrictTypes(learner: LearnerSnapshot, plan: PlannedItem[], rng: Rng): PlannedItem[] {
-  return plan.map((item) => {
-    if (FIELD_TYPES.includes(item.type)) return item;
-    const fact = getFact(item.factId);
-    const box = learner.facts[item.factId].box;
-    const options = FIELD_TYPES.filter((t) => isTypeEligible(t, fact, box));
-    return { ...item, type: options.length > 0 ? pickOne(rng, options) : 'product' };
-  });
+  return plan.map((item) =>
+    FIELD_TYPES.includes(item.type)
+      ? item
+      : { ...item, type: restrictToFieldType(rng, getFact(item.factId), learner.facts[item.factId].box, item.type) },
+  );
 }
 
 /**

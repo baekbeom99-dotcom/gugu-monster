@@ -11,7 +11,7 @@ import {
   SPECIES,
   speciesDef,
 } from '../../src/domain/field/creatures';
-import { e2eFlags, rollEncounter } from '../../src/domain/field/encounter';
+import { e2eFlags, rollEncounter, stepIntoGrass } from '../../src/domain/field/encounter';
 import { LEGEND_DAN } from '../../src/domain/field/fields';
 import { seededRng, type Rng } from '../../src/domain/random';
 
@@ -150,5 +150,29 @@ describe('e2eFlags', () => {
     g.__GUGU_E2E_FIELD__ = true;
     g.__GUGU_E2E_LEGEND__ = true;
     expect(e2eFlags()).toEqual({ field: true, legend: true });
+  });
+});
+
+describe('stepIntoGrass (풀숲 한 걸음: 먼저 주사위, 못 만나면 걸음 수 +1)', () => {
+  const ctx = { field: 'meadow' as const, challengeUnlocked: false, seen: [] };
+  it('필드에 들어온 직후(안전 걸음 다 채움) 첫 풀숲 걸음부터 만날 수 있다', () => {
+    const r = stepIntoGrass(() => 0, { ...ctx, stepsSinceBattle: ENCOUNTER_GRACE_STEPS });
+    expect(r.encounter).not.toBeNull();
+  });
+  it('전투 뒤(0)에는 안전 걸음 ENCOUNTER_GRACE_STEPS번 동안 만나지 않고 한 걸음씩 센다', () => {
+    let steps = 0;
+    for (let i = 0; i < ENCOUNTER_GRACE_STEPS; i++) {
+      const r = stepIntoGrass(() => 0, { ...ctx, stepsSinceBattle: steps });
+      expect(r.encounter).toBeNull();
+      steps = r.stepsSinceBattle;
+    }
+    expect(steps).toBe(ENCOUNTER_GRACE_STEPS);
+    expect(stepIntoGrass(() => 0, { ...ctx, stepsSinceBattle: steps }).encounter).not.toBeNull();
+  });
+  it('못 만나도 걸음 수는 늘고, 만나면 그대로', () => {
+    const miss = stepIntoGrass(() => 0.99, { ...ctx, stepsSinceBattle: 5 });
+    expect(miss).toEqual({ encounter: null, stepsSinceBattle: 6 });
+    const hit = stepIntoGrass(() => 0, { ...ctx, stepsSinceBattle: 5, force: { encounter: true } });
+    expect(hit.stepsSinceBattle).toBe(5);
   });
 });

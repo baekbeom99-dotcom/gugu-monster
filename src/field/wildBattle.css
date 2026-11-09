@@ -1,0 +1,265 @@
+/* 야생 전투 화면 (휴대폰 375px 세로 기준) */
+.wild {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(#bfe9ff 0 45%, #9fdc7a 45% 100%);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.wild__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.wild__run {
+  flex: none;
+  padding: 8px 12px;
+}
+
+.wild__card {
+  flex: 1;
+  padding: 8px 10px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+.wild__name {
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+
+.wild__name small {
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.wild__hp {
+  position: relative;
+  height: 16px;
+  margin-top: 6px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: var(--grey);
+  overflow: hidden;
+}
+
+.wild__hp-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--lime);
+}
+
+/* 꽉 차면 테두리가 깜빡인다: 곧 도망가요 */
+.wild__hp--full {
+  animation: wild-blink 0.6s steps(2) infinite;
+}
+
+@keyframes wild-blink {
+  50% {
+    border-color: var(--red);
+  }
+}
+
+.wild__hourglass {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.wild__hourglass-bar {
+  flex: 1;
+  height: 8px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.wild__hourglass-bar span {
+  display: block;
+  height: 100%;
+  background: var(--orange);
+}
+
+.wild__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.wild__stage--legend {
+  background: radial-gradient(circle at 70% 35%, rgba(255, 207, 58, 0.55), transparent 60%);
+}
+
+/* 필드에서 넘어올 때 번쩍 */
+.wild__stage--intro::after {
+  content: '';
+  position: absolute;
+  inset: -200px -12px 0;
+  background: #fff;
+  pointer-events: none;
+  animation: wild-flash 0.8s steps(4) forwards;
+}
+
+@keyframes wild-flash {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  25%,
+  75% {
+    opacity: 0.2;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.wild__bubble {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  right: 120px;
+  padding: 6px 10px;
+  border: var(--border);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+.wild__bubble::after {
+  content: '';
+  position: absolute;
+  right: -14px;
+  top: 18px;
+  border: 8px solid transparent;
+  border-left: 10px solid var(--ink);
+}
+
+.wild__bubble .question {
+  font-size: 30px;
+  justify-content: center;
+}
+
+.wild__foe {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.wild__foe--hit {
+  animation: wild-shake 0.3s steps(3) 2;
+}
+
+.wild__foe--gone {
+  transition: opacity 0.6s, transform 0.6s;
+  opacity: 0;
+  transform: translateX(60px);
+}
+
+@keyframes wild-shake {
+  33% {
+    transform: translateX(-8px);
+  }
+  66% {
+    transform: translateX(8px);
+  }
+}
+
+.wild__ally {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+}
+
+.wild__ally--attack {
+  animation: wild-lunge 0.6s steps(4);
+}
+
+@keyframes wild-lunge {
+  50% {
+    transform: translate(40px, -24px);
+  }
+}
+
+.wild__hint {
+  position: absolute;
+  inset: 70px 0 0;
+  overflow: auto;
+  padding: 8px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+.wild__message {
+  margin: 0;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  font-size: 18px;
+}
+
+.wild__actions {
+  display: grid;
+  gap: 8px;
+}
+
+.wild-move {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 6px 16px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  font: inherit;
+  font-size: 18px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.wild-move:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.wild-move:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.wild-move__num {
+  font-family: var(--font-display);
+  font-size: 28px;
+}
+
+.wild-move--glow,
+.wild-move--glow:disabled {
+  opacity: 1;
+  background: var(--yellow);
+  outline: 4px dashed var(--ink);
+  outline-offset: 3px;
+  animation: glow 0.8s steps(2) infinite;
+}
+
+.wild__capsule,
+.wild__next {
+  min-height: 64px;
+  font-size: 22px;
+}
