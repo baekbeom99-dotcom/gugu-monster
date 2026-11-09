@@ -4,6 +4,8 @@ import type { Dan } from '../facts';
 export type FieldId = 'meadow' | 'waterside' | 'desert';
 
 export const CHALLENGE_DAN: Dan = 12;
+/** 레전드 단 */
+export const LEGEND_DAN: Dan = 13;
 
 export const FIELDS: Record<FieldId, { name: string; dans: Dan[]; species: MonsterKind[] }> = {
   meadow: { name: '초원', dans: [2, 4, 8], species: ['cloud', 'mushroom', 'fluff'] },

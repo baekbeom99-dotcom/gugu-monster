@@ -1,11 +1,12 @@
 /** 필드 모험 저장 데이터 — 구구몬 도감·동료·마지막 자리 */
-import { MONSTER_KINDS, type MonsterKind } from '../domain/battle';
+import { MONSTER_KINDS } from '../domain/battle';
 import type { FieldId } from '../domain/field/fields';
 import { type Dir, parseMap } from '../domain/field/movement';
 import { MEADOW_ROWS, MEADOW_SIGNS } from '../field/maps/meadow';
+import { LEGEND_SPECIES, type SpeciesId } from '../domain/field/creatures';
 
-export const LEGEND_SPECIES = ['legend-fluff', 'legend-horn', 'legend-ghost'] as const;
-export type SpeciesId = MonsterKind | (typeof LEGEND_SPECIES)[number];
+export { LEGEND_SPECIES };
+export type { SpeciesId };
 export const SPECIES_IDS: readonly SpeciesId[] = [...MONSTER_KINDS, ...LEGEND_SPECIES];
 
 export interface SpeciesEntry {

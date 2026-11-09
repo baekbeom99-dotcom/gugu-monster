@@ -5,20 +5,12 @@
  */
 import { type ReactNode, useId } from 'react';
 import type { MonsterKind } from '../domain/battle';
+import { MONSTER_NAMES } from '../domain/monsterNames';
 import { GOLD, INK, shade } from './colors';
 
 export type MonsterMood = 'idle' | 'hit' | 'happy' | 'sleep';
 
-export const MONSTER_NAMES: Record<MonsterKind, string> = {
-  horn: '뿔뿔몬',
-  jelly: '젤리몬',
-  antenna: '안테나몬',
-  mushroom: '방울무몬',
-  cloud: '새싹몬',
-  fluff: '왕관몬',
-  pebble: '삼눈블록몬',
-  ghost: '외뿔공룡몬',
-};
+export { MONSTER_NAMES };
 
 interface Props {
   kind: MonsterKind;

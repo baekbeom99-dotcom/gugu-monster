@@ -1,19 +1,17 @@
 /** 필드 모험 출제 — 기존 추천 탐험 엔진에 단 목록·유형 제한을 걸어 쓴다. */
-import type { Dan } from '../facts';
 import { getFact } from '../facts';
 import { FIELD_MAX_BOX } from '../mastery';
 import { isTypeEligible, type QuestionType } from '../questionGen';
 import { pickOne, type Rng } from '../random';
 import { type LearnerSnapshot, planExploration, type PlannedItem } from '../scheduler';
-import { type FieldId, fieldDans } from './fields';
+import { type FieldId, LEGEND_DAN, fieldDans } from './fields';
 
 export { FIELD_MAX_BOX };
 /** 필드 문제 모양: 답 구하기, 앞 수 찾기, 뒤 수 찾기 (뛰어 세기·바꿔 곱하기 없음) */
 export const FIELD_TYPES: readonly QuestionType[] = ['product', 'missingFirst', 'missingSecond'];
 /** 필드 보기 개수 */
 export const FIELD_CHOICES = 3;
-/** 레전드 단 */
-export const LEGEND_DAN: Dan = 13;
+export { LEGEND_DAN };
 
 /** FIELD_TYPES 밖 유형은 출제 조건(isTypeEligible)을 지키며 FIELD_TYPES 중에서 다시 고른다. 상자 0은 product. */
 function restrictTypes(learner: LearnerSnapshot, plan: PlannedItem[], rng: Rng): PlannedItem[] {
