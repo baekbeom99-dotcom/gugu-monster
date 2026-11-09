@@ -68,7 +68,11 @@ export function pickQuestionType(rng: Rng, fact: Fact, box: Box, exclude?: Quest
   return weightedPick(rng, pool, (t) => table[t] ?? 0) ?? 'product';
 }
 
-export function generateQuestion(rng: Rng, fact: Fact, type: QuestionType): Question {
+/** 보기 개수를 줄여(필드 모험은 3개) 낼 수 있다. 오답 후보는 늘 3개를 만들고 앞에서 자른다(난수 소비 동일). */
+export function generateQuestion(rng: Rng, fact: Fact, type: QuestionType, choiceCount: number = CHOICE_COUNT): Question {
+  if (!Number.isInteger(choiceCount) || choiceCount < 2 || choiceCount > CHOICE_COUNT) {
+    throw new Error(`보기 개수는 2~${CHOICE_COUNT}개만 가능 (${choiceCount})`);
+  }
   const { a, b, product } = fact;
   let display: QuestionDisplay;
   let answer: number;
@@ -111,7 +115,7 @@ export function generateQuestion(rng: Rng, fact: Fact, type: QuestionType): Ques
     }
   }
 
-  const choices = shuffle(rng, [answer, ...distractors.slice(0, CHOICE_COUNT - 1)]);
+  const choices = shuffle(rng, [answer, ...distractors.slice(0, choiceCount - 1)]);
   return { factId: fact.id, type, display, answer, choices };
 }
 

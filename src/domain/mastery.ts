@@ -4,6 +4,8 @@ import { BASE_DANS, type Dan, type Fact, type FactId, FACTS, factsOfDan } from '
 export type Box = 0 | 1 | 2 | 3 | 4 | 5;
 export const MAX_BOX: Box = 5;
 export const MASTERY_BOX: Box = 4;
+/** 필드 모험의 정답이 올릴 수 있는 가장 높은 상자 (마스터 상자 4 아래) */
+export const FIELD_MAX_BOX: Box = 3;
 export type InputMode = 'choice' | 'keypad';
 
 export interface FactStat {
@@ -65,6 +67,8 @@ export interface AnswerEvent {
   now: number;
   /** 기기 현지 날짜 'YYYY-MM-DD' */
   today: string;
+  /** 승급 상한 (없으면 MAX_BOX). 이미 더 높은 상자는 내리지 않는다. */
+  maxBox?: Box;
 }
 
 const AVG_ALPHA = 0.3;
@@ -92,7 +96,7 @@ export function applyAnswer(stat: FactStat, fact: Fact, ev: AnswerEvent): FactSt
   const wantsPromotion = stat.box <= 1 || fast;
   const alreadyPromotedToday = stat.lastPromotedDate === ev.today;
 
-  if (wantsPromotion && !alreadyPromotedToday && stat.box < MAX_BOX) {
+  if (wantsPromotion && !alreadyPromotedToday && stat.box < (ev.maxBox ?? MAX_BOX)) {
     next.box = (stat.box + 1) as Box;
     next.lastPromotedDate = ev.today;
   }

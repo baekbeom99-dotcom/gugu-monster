@@ -86,12 +86,21 @@ export function availableDans(challengeUnlocked: boolean): Dan[] {
   return challengeUnlocked ? [...BASE_DANS, ...CHALLENGE_DANS] : [...BASE_DANS];
 }
 
+/** 추천 탐험의 출제 범위 옵션 (필드 모험용). 없으면 퀴즈 모험 그대로. */
+export interface PlanOptions {
+  /** 있으면 본 출제 풀은 이 단들(해금된 단만) */
+  dans?: Dan[];
+  /** true면 오답 복습 슬롯은 해금된 모든 단에서 고른다 */
+  reviewFromAllDans?: boolean;
+}
+
 /** 탐험 한 번의 문제 목록을 만든다. */
 export function planExploration(
   learner: LearnerSnapshot,
   mode: ExploreMode,
   now: number,
   rng: Rng,
+  opts?: PlanOptions,
 ): PlannedItem[] {
   if (mode.kind === 'diagnostic') return planDiagnostic(rng);
 
@@ -101,7 +110,9 @@ export function planExploration(
     return planDanTrial(mode.dan, rng);
   }
 
-  const pool = FACTS.filter((f) => dans.includes(f.a));
+  const wanted = opts?.dans;
+  const pool = FACTS.filter((f) => dans.includes(f.a) && (!wanted || wanted.includes(f.a)));
+  const reviewPool = wanted && opts?.reviewFromAllDans ? FACTS.filter((f) => dans.includes(f.a)) : pool;
   const statOf = (f: Fact) => learner.facts[f.id];
   const weightOf = (f: Fact) => factWeight(f, statOf(f), learner.danRecent[f.a] ?? [], now, (learner.boosted?.[f.id] ?? 0) > 0);
 
@@ -125,7 +136,7 @@ export function planExploration(
   //    다음 탐험에 반드시 다시 낸다 (부스트는 추천 탐험에서 3번 맞힐 때까지).
   const boostedNow = (f: Fact) => (learner.boosted?.[f.id] ?? 0) > 0;
   for (let i = 0; i < MAX_REVIEW_SLOTS; i++) {
-    const candidates = pool.filter((f) => (isWrongReviewDue(statOf(f), now) || boostedNow(f)) && canAdd(f, 0));
+    const candidates = reviewPool.filter((f) => (isWrongReviewDue(statOf(f), now) || boostedNow(f)) && canAdd(f, 0));
     const pick = weightedPick(rng, candidates, weightOf);
     if (!pick) break;
     chosen.push(pick);

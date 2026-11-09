@@ -4,6 +4,7 @@ import { BASE_DANS, type Dan, type FactId, getFact, isChallengeDan } from './fac
 import { GROWTH_XP, STAR_REWARDS, isOvercome, type RewardLine, speedStars } from './economy';
 import {
   applyAnswer,
+  FIELD_MAX_BOX,
   type FactStat,
   initialFactStats,
   type InputMode,
@@ -99,8 +100,8 @@ export interface AnswerInput {
   firstAttemptInBattle: boolean;
   battleStartedAt: number;
   now: number;
-  /** trial: 단 도전(단 골라 탐험), normal: 추천·진단 탐험 */
-  source?: 'trial' | 'normal';
+  /** trial: 단 도전(단 골라 탐험), normal: 추천·진단 탐험, field: 필드 모험(상자 3까지, 빠르기 별 없음) */
+  source?: 'trial' | 'normal' | 'field';
   /** 추천 탐험: 정답 별을 푼 시간에 반비례해서 준다 */
   speedBonus?: boolean;
 }
@@ -145,6 +146,7 @@ export function recordAnswer(learning: LearningData, economy: EconomyData, input
         isRetry: input.isRetry,
         now: input.now,
         today,
+        maxBox: input.source === 'field' ? FIELD_MAX_BOX : undefined,
       }),
     },
     danRecent: { ...learning.danRecent, [fact.a]: pushDanRecent(learning.danRecent[fact.a] ?? [], input.correct) },
@@ -162,7 +164,7 @@ export function recordAnswer(learning: LearningData, economy: EconomyData, input
     boosted: updateBoost(learning.boosted ?? {}, fact.id, input),
   };
 
-  const baseStars = input.correct ? (input.speedBonus ? speedStars(input.ms) : STAR_REWARDS.correct) : 0;
+  const baseStars = input.correct ? (input.speedBonus && input.source !== 'field' ? speedStars(input.ms) : STAR_REWARDS.correct) : 0;
   const stars = baseStars + (overcome ? STAR_REWARDS.overcome : 0);
   const xp = GROWTH_XP.attempt + (input.correct ? GROWTH_XP.correctBonus : 0) + (overcome ? GROWTH_XP.overcome : 0);
   return { learning: nextLearning, economy: addStars(economy, stars), overcome, stars, baseStars, xp };
