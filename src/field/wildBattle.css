@@ -263,3 +263,32 @@
   min-height: 64px;
   font-size: 22px;
 }
+
+/* 캡슐이 흔들린다 (3번) */
+.wild__capsule-ball {
+  position: absolute;
+  top: 40px;
+  right: 56px;
+  z-index: 2;
+  font-size: 64px;
+  line-height: 1;
+  animation-name: wild-capsule-shake;
+  animation-timing-function: ease-in-out;
+}
+
+@keyframes wild-capsule-shake {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-24deg);
+  }
+  75% {
+    transform: rotate(24deg);
+  }
+}
+
+.wild__foe--capsule {
+  visibility: hidden;
+}

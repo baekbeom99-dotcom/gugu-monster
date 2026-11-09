@@ -3,12 +3,30 @@ import { expect, test } from './fixtures';
 
 test.use({ viewport: { width: 375, height: 812 } });
 
+/** 첫 구구몬(구름몬)을 이미 고른 저장본 */
+const STARTER_FIELD = {
+  starterChosen: true,
+  companion: 'cloud',
+  species: { cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1 } },
+  seen: ['cloud'],
+};
+
+/** 페이지가 열리기 전에 첫 구구몬을 고른 저장본을 넣는다 (이미 저장이 있으면 그대로) */
+async function seedStarter(page: Page) {
+  await page.addInitScript((field) => {
+    if (!localStorage.getItem('gugu-monster:save')) {
+      localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
+    }
+  }, STARTER_FIELD);
+}
+
 async function pos(page: Page) {
   const [x, y] = ((await page.getByTestId('field-canvas').getAttribute('data-pos')) ?? '0,0').split(',').map(Number);
   return { x, y };
 }
 
 test('패드 오른쪽을 누르면 걷고, 떼면 멈춘다', async ({ page }) => {
+  await seedStarter(page);
   await page.goto('/#/field');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
   const box = (await page.getByLabel('십자 패드').boundingBox())!;
@@ -25,6 +43,7 @@ test('패드 오른쪽을 누르면 걷고, 떼면 멈춘다', async ({ page }) 
 });
 
 test('눌린 채 pointercancel이 오면 걸음이 멈춘다', async ({ page }) => {
+  await seedStarter(page);
   await page.goto('/#/field');
   const pad = page.getByLabel('십자 패드');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
@@ -43,6 +62,7 @@ test('눌린 채 pointercancel이 오면 걸음이 멈춘다', async ({ page }) 
 });
 
 test('패드 밖으로 끌고 가서 떼도 걸음이 멈춘다', async ({ page }) => {
+  await seedStarter(page);
   await page.goto('/#/field');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
   const box = (await page.getByLabel('십자 패드').boundingBox())!;
@@ -60,6 +80,7 @@ test('패드 밖으로 끌고 가서 떼도 걸음이 멈춘다', async ({ page 
 });
 
 test('걸은 뒤 새로고침해도 같은 자리', async ({ page }) => {
+  await seedStarter(page);
   await page.goto('/#/field');
   const box = (await page.getByLabel('십자 패드').boundingBox())!;
   const before = await pos(page);
@@ -75,15 +96,16 @@ test('걸은 뒤 새로고침해도 같은 자리', async ({ page }) => {
 });
 
 test('표지판 앞에서 A를 누르면 글이 보이고, B로 닫는다', async ({ page }) => {
+  await seedStarter(page);
   await page.goto('/#/field');
   // 표지판(9,5) 바로 아래 (9,6)에 위쪽을 보고 서 있는 저장본을 만든다
-  await page.evaluate(() => {
+  await page.evaluate((starter) => {
     localStorage.clear();
     localStorage.setItem(
       'gugu-monster:save',
-      JSON.stringify({ version: 1, state: { field: { position: { map: 'meadow', x: 9, y: 6, facing: 'up' } } } }),
+      JSON.stringify({ version: 1, state: { field: { ...starter, position: { map: 'meadow', x: 9, y: 6, facing: 'up' } } } }),
     );
-  });
+  }, STARTER_FIELD);
   await page.reload();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '9,6');
   await page.getByLabel('A 버튼').click();
@@ -93,6 +115,7 @@ test('표지판 앞에서 A를 누르면 글이 보이고, B로 닫는다', asyn
 });
 
 test('메뉴의 처음 화면으로 돌아간다', async ({ page }) => {
+  await seedStarter(page);
   await page.goto('/#/field');
   await page.getByRole('button', { name: '메뉴' }).click();
   await page.getByRole('button', { name: '처음 화면' }).click();
@@ -106,14 +129,15 @@ async function standBesideGrass(page: Page) {
   await page.addInitScript(() => {
     (window as unknown as { __GUGU_E2E_FIELD__: boolean }).__GUGU_E2E_FIELD__ = true;
   });
+  await seedStarter(page);
   await page.goto('/#/field');
-  await page.evaluate(() => {
+  await page.evaluate((starter) => {
     localStorage.clear();
     localStorage.setItem(
       'gugu-monster:save',
-      JSON.stringify({ version: 1, state: { field: { position: { map: 'meadow', x: 5, y: 8, facing: 'right' } } } }),
+      JSON.stringify({ version: 1, state: { field: { ...starter, position: { map: 'meadow', x: 5, y: 8, facing: 'right' } } } }),
     );
-  });
+  }, STARTER_FIELD);
   await page.reload();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,8');
 }
@@ -197,4 +221,49 @@ test('도망치기로 끝내고 돌아오면 바로 다음 풀숲 걸음에는 �
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '7,8');
   await page.waitForTimeout(1200);
   await expect(page).toHaveURL(/#\/field$/);
+});
+
+test('처음 필드는 첫 구구몬 고르기로 가고, 젤리몬을 골라 풀숲에서 잡으면 도감에 색으로 남는다', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { __GUGU_E2E_FIELD__: boolean }).__GUGU_E2E_FIELD__ = true;
+  });
+  await page.goto('/#/field');
+  await expect(page).toHaveURL(/#\/field\/starter$/);
+  await page.getByRole('button', { name: '젤리몬 고르기' }).click();
+  await expect(page).toHaveURL(/#\/field$/);
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
+
+  // 풀숲 바로 옆으로 자리를 옮긴다
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('gugu-monster:save')!);
+    raw.state.field.position = { map: 'meadow', x: 5, y: 8, facing: 'right' };
+    localStorage.setItem('gugu-monster:save', JSON.stringify(raw));
+  });
+  await page.reload();
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,8');
+  await stepIntoGrass(page);
+  const wildName = ((await page.locator('.wild__name').textContent()) ?? '').replace(/\s*Lv\d+\s*$/, '').trim();
+
+  for (let i = 0; i < 3; i++) {
+    if (await page.getByRole('button', { name: '캡슐 던지기' }).isVisible()) break;
+    const answer = await solveWild(page);
+    await moveButton(page, answer).click();
+    await page.waitForTimeout(800);
+  }
+  await page.getByRole('button', { name: '캡슐 던지기' }).click();
+  await expect(page.getByText(/잡았다!/)).toBeVisible({ timeout: 5000 });
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
+
+  await page.getByRole('button', { name: '메뉴' }).click();
+  await page.getByRole('button', { name: '구구몬 도감' }).click();
+  await expect(page).toHaveURL(/#\/field\/dex$/);
+  await expect(page.getByLabel(`${wildName} 잡음`)).toBeVisible();
+  await expect(page.getByLabel('젤리몬 잡음')).toBeVisible();
+  await expect(page.locator('.fdex__cell--caught')).toHaveCount(2);
+  await expect(page.locator('.fdex__cell--unknown')).toHaveCount(9);
+
+  // 잡은 구구몬을 동행으로
+  await page.getByLabel(`${wildName} 잡음`).click();
+  await page.getByRole('button', { name: '함께 다니기' }).click();
+  await expect(page.getByLabel(`${wildName} 잡음`).getByText('함께 다니는 중')).toBeVisible();
 });

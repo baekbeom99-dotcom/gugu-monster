@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { DIR_DELTA, type Dir, type StepResult, parseMap, safeStartPosition, tryStep } from '../domain/field/movement';
 import { e2eFlags, stepIntoGrass } from '../domain/field/encounter';
 import { useGameStore } from '../store/useGameStore';
@@ -44,7 +44,14 @@ interface Move {
   result: StepResult;
 }
 
-export function FieldScreen({ onStep }: Props) {
+/** 첫 구구몬을 아직 안 골랐으면 고르러 간다 */
+export function FieldScreen(props: Props) {
+  const starterChosen = useGameStore((s) => s.field.starterChosen);
+  if (!starterChosen) return <Navigate to="/field/starter" replace />;
+  return <FieldView {...props} />;
+}
+
+function FieldView({ onStep }: Props) {
   const navigate = useNavigate();
   const map = MEADOW;
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -256,6 +263,16 @@ export function FieldScreen({ onStep }: Props) {
               }}
             >
               처음 화면
+            </button>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => {
+                leaveBattleReturn();
+                navigate('/field/dex');
+              }}
+            >
+              구구몬 도감
             </button>
             <button type="button" className="btn btn--ghost" onClick={() => setMenuOpen(false)}>
               닫기

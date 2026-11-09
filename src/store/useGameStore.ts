@@ -11,6 +11,7 @@ import { STAR_REWARDS, TROUBLE_PRICE } from '../domain/economy';
 import { finishStairs, type StairsRecord, stairsAffection } from '../domain/stairs';
 import {
   addAffection,
+  ANSWER_AFFECTION,
   addGrowthXp,
   affectionLevel,
   type CareAction,
@@ -43,7 +44,7 @@ import {
   recordAnswer,
 } from '../domain/progress';
 import { applyItem, buy, type CatalogData, canWearHat, findItem, grantMasterHats, type ItemCategory, type ItemDef, type ItemId } from '../domain/shop';
-import type { FieldData, SpeciesId } from './fieldData';
+import type { FieldData, FieldNotice, SpeciesId } from './fieldData';
 import { createInitialSave, mergeSave, migrateSave, SAVE_KEY, type SaveData, SCHEMA_VERSION, type Settings } from './saveData';
 
 export interface PetChange {
@@ -56,6 +57,23 @@ export interface PetChange {
 export type ExplorationOutcome = FinishOutcome & PetChange & { grantedHats: ItemId[]; troubles: TroubleEvent[]; affection: number };
 
 /** 밥·먹이를 먹고 5% 확률로 식중독에 걸렸는가 */
+/** 야생 전투가 끝난 뒤 생긴 일 */
+export interface WildResult extends PetChange {
+  newSpecies: boolean;
+  /** 오른 펫 친밀도 */
+  affection: number;
+  notices: FieldNotice[];
+}
+
+export interface WildBattleEnd {
+  species: SpeciesId;
+  level: number;
+  caught: boolean;
+  fled: boolean;
+  correct: number;
+  now: number;
+}
+
 export type FeedChange = PetChange & { poisoned: boolean };
 
 export type PracticeOutcome = PetChange & {
@@ -123,6 +141,12 @@ interface GameActions {
   setFieldPosition: (pos: FieldData['position']) => void;
   /** 필드 모험: 처음 만난 구구몬 기록 (이미 있으면 그대로) */
   markSeen: (id: SpeciesId) => void;
+  /** 필드 모험: 첫 구구몬 고르기 */
+  chooseStarter: (id: SpeciesId, now: number) => void;
+  /** 필드 모험: 함께 다닐 구구몬 (잡은 종만) */
+  setCompanion: (id: SpeciesId) => boolean;
+  /** 필드 모험: 야생 전투 끝 — 잡기·기록·펫 친밀도 */
+  finishWildBattle: (r: WildBattleEnd) => WildResult;
   /** 전체 초기화 */
   resetAll: () => void;
   /** 관리자: 지금 펫을 도감에 넣고 새 알을 고르게 한다 (학습 기록·별·가방은 그대로) */
@@ -263,6 +287,43 @@ export const useGameStore = create<GameStore>()(
       setFieldPosition: (pos) => set((s) => ({ field: { ...s.field, position: pos } })),
       markSeen: (id) =>
         set((s) => (s.field.seen.includes(id) ? {} : { field: { ...s.field, seen: [...s.field.seen, id] } })),
+      chooseStarter: (id, now) =>
+        set((s) => ({
+          field: {
+            ...s.field,
+            starterChosen: true,
+            companion: id,
+            species: { ...s.field.species, [id]: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: now } },
+            seen: s.field.seen.includes(id) ? s.field.seen : [...s.field.seen, id],
+          },
+        })),
+      setCompanion: (id) => {
+        if (!get().field.species[id]) return false;
+        set((s) => ({ field: { ...s.field, companion: id } }));
+        return true;
+      },
+      finishWildBattle: (r) => {
+        const s = get();
+        const known = s.field.species[r.species];
+        const newSpecies = r.caught && !known;
+        let species = s.field.species;
+        if (newSpecies) {
+          species = { ...species, [r.species]: { level: r.level, exp: 0, stage: 1, caught: 1, firstCaughtAt: r.now } };
+        } else if (r.caught && known) {
+          species = { ...species, [r.species]: { ...known, caught: known.caught + 1 } };
+        }
+        const stats = {
+          battles: s.field.stats.battles + 1,
+          catches: s.field.stats.catches + (r.caught ? 1 : 0),
+          fled: s.field.stats.fled + (r.fled ? 1 : 0),
+        };
+        const seen = s.field.seen.includes(r.species) ? s.field.seen : [...s.field.seen, r.species];
+        // 펫 친밀도: 맞힌 문제마다 (알이면 없음)
+        const affection = s.pet.stage !== 'egg' && s.pet.species ? Math.max(0, r.correct) * ANSWER_AFFECTION : 0;
+        const settled = settlePet(s.pet, affection > 0 ? addAffection(s.pet, affection) : s.pet, r.now);
+        set({ field: { ...s.field, species, stats, seen }, pet: settled.pet, lastSeenAt: r.now });
+        return { newSpecies, affection, notices: [], evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
+      },
       setStairsChallenge: (include) => set((s) => ({ stairs: { ...s.stairs, includeChallenge: include } })),
       chooseEgg: (species) => set((s) => ({ pet: chooseEgg(s.pet, species) })),
       hatchPet: (name, now) =>

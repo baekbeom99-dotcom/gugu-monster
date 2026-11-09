@@ -25,6 +25,7 @@ import { generateQuestion } from '../domain/questionGen';
 import type { Rng } from '../domain/random';
 import { insertRetry, type LearnerSnapshot, type PlannedItem } from '../domain/scheduler';
 import { useGameStore } from '../store/useGameStore';
+import { useSessionStore } from '../store/useSessionStore';
 import { creatureSprite } from './creatureSprite';
 import { endWildBattle, useFieldSession } from './useFieldSession';
 import '../screens/battle.css';
@@ -37,8 +38,15 @@ export const WILD_INTRO_MS = 1200;
 export const WILD_HIT_ANIM_MS = 600;
 /** 도망갔다·잡았다 글을 보여 주고 필드로 돌아가기까지 */
 export const WILD_END_MS = 1500;
-/** 아직 동행을 고르지 않았을 때 대신 싸워 주는 구구몬 */
-const FALLBACK_COMPANION: SpeciesId = STARTERS[0];
+/** 캡슐이 흔들리는 횟수와 한 번의 시간 */
+export const CAPSULE_SHAKES = 3;
+export const CAPSULE_SHAKE_MS = 400;
+/** 동행이 없거나 잡지 않은 종일 때(옛 저장 등): 처음 잡은 종, 그것도 없으면 첫 후보 */
+function pickCompanion(s: { field: { companion: SpeciesId | null; species: Record<string, unknown> } }): SpeciesId {
+  const c = s.field.companion;
+  if (c && s.field.species[c]) return c;
+  return (Object.keys(s.field.species)[0] as SpeciesId | undefined) ?? STARTERS[0];
+}
 const COMPANION_COLOR = DAN_COLORS[5];
 
 export function WildBattleScreen() {
@@ -101,7 +109,7 @@ type Ending = 'fled' | 'caught' | 'quit';
 function WildBattle({ encounter }: { encounter: Encounter }) {
   const { recordAnswer, markSeen } = useGameStore.getState();
   const fleeScale = useGameStore((s) => s.settings.fieldFleeScale);
-  const companion = useGameStore((s) => s.field.companion) ?? FALLBACK_COMPANION;
+  const companion = useGameStore(pickCompanion);
   const companionStage = useGameStore((s) => s.field.species[companion]?.stage ?? 1);
   const wildDef = speciesDef(encounter.species);
   const moves = speciesDef(companion).moves;
@@ -122,6 +130,10 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const [quit, setQuit] = useState(false);
   const [message, setMessage] = useState(`야생 ${josa(wildDef.name, '이', '가')} 나타났다!`);
   const [hitCount, setHitCount] = useState(0);
+  /** 캡슐이 흔들리는 중: 결과가 나올 때까지 아무것도 흐르지 않는다 */
+  const [throwing, setThrowing] = useState(false);
+  const correctRef = useRef(0);
+  const settledRef = useRef(false);
   const [battleStartedAt] = useState(() => Date.now());
   const answeredFacts = useRef(new Set<FactId>());
   const shownAt = useRef(performance.now());
@@ -176,32 +188,47 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     if (asking) shownAt.current = performance.now();
   }, [key, asking]);
 
-  // 끝: 글을 잠깐 보여 주고 필드로 (만남이 지워지면 화면이 알아서 돌아간다)
+  // 끝: 결과를 저장하고(전투당 한 번), 글을 잠깐 보여 준 뒤 필드로 (만남이 지워지면 화면이 알아서 돌아간다)
   useEffect(() => {
     if (!ending) return;
+    let newSpecies = false;
+    if (!settledRef.current) {
+      settledRef.current = true;
+      const r = useGameStore.getState().finishWildBattle({
+        species: encounter.species,
+        level: encounter.level,
+        caught: ending === 'caught',
+        fled: ending !== 'caught',
+        correct: correctRef.current,
+        now: Date.now(),
+      });
+      newSpecies = r.newSpecies;
+      if (r.evolvedTo) useSessionStore.getState().set({ pendingEvolution: r.evolvedTo });
+      if (r.levelUp) useSessionStore.getState().set({ pendingLevelUp: r.levelUp });
+    }
     setMessage(
       ending === 'fled'
         ? `${josa(wildDef.name, '이', '가')} 도망갔다…`
         : ending === 'quit'
           ? '무사히 도망쳤다!'
-          : `${josa(wildDef.name, '을', '를')} 잡았다!`,
+          : `${josa(wildDef.name, '을', '를')} 잡았다!${newSpecies ? ' 새로 만났어!' : ''}`,
     );
     const t = window.setTimeout(endWildBattle, WILD_END_MS);
     return () => clearTimeout(t);
-  }, [ending, wildDef.name]);
+  }, [ending, wildDef.name, encounter.species, encounter.level]);
 
   // B 버튼(키보드 X·Esc) → 도망칠지 묻기
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'x' || e.key === 'X' || e.key === 'Escape') setConfirmQuit((v) => v || !ending);
+      if (e.key === 'x' || e.key === 'X' || e.key === 'Escape') setConfirmQuit((v) => v || !(ending || throwing));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [ending]);
+  }, [ending, throwing]);
 
   const pick = (moveIndex: number) => {
     const w = wildRef.current;
-    if (intro || confirmQuit || w.phase !== 'question') return;
+    if (intro || confirmQuit || throwing || w.phase !== 'question') return;
     const value = question.choices[moveIndex];
     const correct = value === question.answer;
     const ms = Math.round(performance.now() - shownAt.current);
@@ -224,6 +251,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     answeredFacts.current.add(item.factId);
 
     if (correct) {
+      correctRef.current += 1;
       setHitCount((n) => n + 1);
       setMessage(`${moves[moveIndex]}! ${fast ? '빠르다! 크게 ' : ''}명중!`);
     } else {
@@ -249,11 +277,16 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
 
   const onCapsule = () => {
     const w = wildRef.current;
-    if (w.phase !== 'dizzy') return;
-    // E2E에서는 언제나 잡힌다 (규칙은 wildBattle.ts에 그대로)
+    if (w.phase !== 'dizzy' || throwing) return;
+    // 결과는 던지는 순간 정해 두고, 흔들림이 끝난 뒤에 보여 준다 (E2E에서는 언제나 잡힌다)
     const after = throwCapsule(w, e2eFlags().field ? () => 0 : rng);
-    setWild(after);
-    if (after.phase === 'question') setMessage(`앗! ${josa(wildDef.name, '이', '가')} 캡슐에서 튀어나왔다!`);
+    setThrowing(true);
+    setMessage('캡슐을 던졌다!');
+    later(() => {
+      setThrowing(false);
+      setWild(after);
+      setMessage(after.phase === 'caught' ? `${josa(wildDef.name, '을', '를')} 잡았다!` : '앗, 빠져나왔다!');
+    }, CAPSULE_SHAKES * CAPSULE_SHAKE_MS);
   };
 
   const hpShown = Math.round(wild.hp);
@@ -271,7 +304,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           type="button"
           className="btn btn--ghost wild__run"
           aria-label="도망치기"
-          disabled={!!ending}
+          disabled={!!ending || throwing}
           onClick={() => setConfirmQuit(true)}
         >
           🏃 도망
@@ -310,9 +343,14 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           </div>
         ) : (
           <>
-            <div key={`w${hitCount}`} className={`wild__foe ${wild.phase === 'anim' ? 'wild__foe--hit' : ''} ${ending === 'fled' || ending === 'quit' ? 'wild__foe--gone' : ''}`}>
+            <div key={`w${hitCount}`} className={`wild__foe ${wild.phase === 'anim' ? 'wild__foe--hit' : ''} ${ending === 'fled' || ending === 'quit' ? 'wild__foe--gone' : ''} ${throwing ? 'wild__foe--capsule' : ''}`}>
               {creatureSprite(encounter.species, { view: 'front', mood: wildMood, color: DAN_COLORS[encounter.dan], size: 150 })}
             </div>
+            {throwing && (
+              <div className="wild__capsule-ball" aria-hidden style={{ animationDuration: `${CAPSULE_SHAKE_MS}ms`, animationIterationCount: CAPSULE_SHAKES }}>
+                ◓
+              </div>
+            )}
             <div key={`a${hitCount}`} className={`wild__ally ${wild.phase === 'anim' ? 'wild__ally--attack' : ''}`}>
               {creatureSprite(companion, { view: 'back', stage: companionStage, color: COMPANION_COLOR, size: 150 })}
             </div>
@@ -330,7 +368,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
             싸우자!
           </button>
         ) : dizzy ? (
-          <button type="button" className="btn btn--primary wild__capsule" aria-label="캡슐 던지기" onClick={onCapsule}>
+          <button type="button" className="btn btn--primary wild__capsule" aria-label="캡슐 던지기" disabled={throwing} onClick={onCapsule}>
             ◓ 캡슐 던지기
           </button>
         ) : ending ? null : (

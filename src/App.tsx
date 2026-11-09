@@ -6,6 +6,8 @@ import { BattleScreen } from './screens/BattleScreen';
 import { DevGallery } from './screens/DevGallery';
 import { DexScreen } from './screens/DexScreen';
 import { FieldScreen } from './field/FieldScreen';
+import { FieldDexScreen } from './field/FieldDexScreen';
+import { StarterScreen } from './field/StarterScreen';
 import { WildBattleScreen } from './field/WildBattleScreen';
 import { TitleScreen } from './screens/TitleScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
@@ -69,6 +71,8 @@ export function App() {
         </Route>
         <Route path="/" element={fullScreen(<TitleScreen />)} />
         <Route path="/field" element={fullScreen(<FieldScreen />)} />
+        <Route path="/field/starter" element={fullScreen(<StarterScreen />)} />
+        <Route path="/field/dex" element={fullScreen(<FieldDexScreen />)} />
         <Route path="/field/battle" element={fullScreen(<WildBattleScreen />)} />
         <Route path="/welcome" element={fullScreen(<OnboardingScreen />)} />
         <Route path="/hatch" element={fullScreen(<HatchScreen />)} />
