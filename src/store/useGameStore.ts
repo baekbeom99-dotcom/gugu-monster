@@ -288,15 +288,21 @@ export const useGameStore = create<GameStore>()(
       markSeen: (id) =>
         set((s) => (s.field.seen.includes(id) ? {} : { field: { ...s.field, seen: [...s.field.seen, id] } })),
       chooseStarter: (id, now) =>
-        set((s) => ({
-          field: {
-            ...s.field,
-            starterChosen: true,
-            companion: id,
-            species: { ...s.field.species, [id]: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: now } },
-            seen: s.field.seen.includes(id) ? s.field.seen : [...s.field.seen, id],
-          },
-        })),
+        set((s) => {
+          // 이미 골랐으면 아무것도 바꾸지 않는다 (잡은 기록을 덮어쓰지 않게)
+          if (s.field.starterChosen) return {};
+          return {
+            field: {
+              ...s.field,
+              starterChosen: true,
+              companion: id,
+              species: s.field.species[id]
+                ? s.field.species
+                : { ...s.field.species, [id]: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: now } },
+              seen: s.field.seen.includes(id) ? s.field.seen : [...s.field.seen, id],
+            },
+          };
+        }),
       setCompanion: (id) => {
         if (!get().field.species[id]) return false;
         set((s) => ({ field: { ...s.field, companion: id } }));

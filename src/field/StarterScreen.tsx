@@ -1,5 +1,5 @@
 /** 첫 구구몬 고르기 — 필드 모험을 처음 열 때 한 번 */
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { STARTERS, speciesDef } from '../domain/field/creatures';
 import { useGameStore } from '../store/useGameStore';
 import { creatureSprite, speciesColor } from './creatureSprite';
@@ -7,6 +7,8 @@ import './fieldDex.css';
 
 export function StarterScreen() {
   const navigate = useNavigate();
+  const chosen = useGameStore((s) => s.field.starterChosen);
+  if (chosen) return <Navigate to="/field" replace />;
   return (
     <section className="starter">
       <h1 className="starter__title">첫 친구를 골라요!</h1>

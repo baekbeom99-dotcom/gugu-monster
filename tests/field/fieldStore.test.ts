@@ -72,4 +72,17 @@ describe('필드 스토어 액션', () => {
     expect(useGameStore.getState().setCompanion('horn')).toBe(true);
     expect(useGameStore.getState().field.companion).toBe('horn');
   });
+
+  it('이미 고른 뒤 chooseStarter를 또 불러도 기록과 동행이 그대로', () => {
+    const g = useGameStore.getState();
+    g.chooseStarter('jelly', NOW);
+    g.finishWildBattle(batch({ species: 'jelly', level: 6 }));
+    g.finishWildBattle(batch({ species: 'jelly', level: 6 }));
+    g.setCompanion('jelly');
+    const before = JSON.parse(JSON.stringify(useGameStore.getState().field));
+    expect(before.species.jelly.caught).toBe(3);
+    useGameStore.getState().chooseStarter('jelly', NOW + 1000);
+    useGameStore.getState().chooseStarter('cloud', NOW + 2000);
+    expect(useGameStore.getState().field).toEqual(before);
+  });
 });

@@ -27,6 +27,7 @@ import { insertRetry, type LearnerSnapshot, type PlannedItem } from '../domain/s
 import { useGameStore } from '../store/useGameStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { creatureSprite } from './creatureSprite';
+import { StarCapsule } from './StarCapsule';
 import { endWildBattle, useFieldSession } from './useFieldSession';
 import '../screens/battle.css';
 import './wildBattle.css';
@@ -348,7 +349,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
             </div>
             {throwing && (
               <div className="wild__capsule-ball" aria-hidden style={{ animationDuration: `${CAPSULE_SHAKE_MS}ms`, animationIterationCount: CAPSULE_SHAKES }}>
-                ◓
+                <StarCapsule size={64} />
               </div>
             )}
             <div key={`a${hitCount}`} className={`wild__ally ${wild.phase === 'anim' ? 'wild__ally--attack' : ''}`}>
@@ -369,7 +370,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           </button>
         ) : dizzy ? (
           <button type="button" className="btn btn--primary wild__capsule" aria-label="캡슐 던지기" disabled={throwing} onClick={onCapsule}>
-            ◓ 캡슐 던지기
+            <StarCapsule size={28} /> 캡슐 던지기
           </button>
         ) : ending ? null : (
           <>

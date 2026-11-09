@@ -270,8 +270,7 @@
   top: 40px;
   right: 56px;
   z-index: 2;
-  font-size: 64px;
-  line-height: 1;
+  line-height: 0;
   animation-name: wild-capsule-shake;
   animation-timing-function: ease-in-out;
 }
