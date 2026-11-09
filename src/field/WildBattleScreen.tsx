@@ -332,7 +332,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         </div>
       </header>
 
-      <section className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''}`}>
+      <section data-species={encounter.species} className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''}`}>
         {asking || inHint ? (
           <div className="wild__bubble">
             <QuestionView display={question.display} />

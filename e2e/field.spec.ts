@@ -98,6 +98,7 @@ test('걸은 뒤 새로고침해도 같은 자리', async ({ page }) => {
 test('표지판 앞에서 A를 누르면 글이 보이고, B로 닫는다', async ({ page }) => {
   await seedStarter(page);
   await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/); // 지도가 뜬 뒤에 저장본을 바꾼다
   // 표지판(9,5) 바로 아래 (9,6)에 위쪽을 보고 서 있는 저장본을 만든다
   await page.evaluate((starter) => {
     localStorage.clear();
@@ -131,6 +132,7 @@ async function standBesideGrass(page: Page) {
   });
   await seedStarter(page);
   await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
   await page.evaluate((starter) => {
     localStorage.clear();
     localStorage.setItem(
@@ -266,4 +268,63 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 젤리몬을 골라 �
   await page.getByLabel(`${wildName} 잡음`).click();
   await page.getByRole('button', { name: '함께 다니기' }).click();
   await expect(page.getByLabel(`${wildName} 잡음`).getByText('함께 다니는 중')).toBeVisible();
+});
+
+// ── 필드 사이 이동 ──
+
+/** 이미 첫 구구몬을 고른 저장본에서 원하는 필드·자리로 옮겨 서게 한다 */
+async function standAt(page: Page, map: string, x: number, y: number, facing: string) {
+  await seedStarter(page);
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
+  await page.evaluate(
+    ([starter, position]) => {
+      localStorage.clear();
+      localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field: { ...(starter as object), position } } }));
+    },
+    [STARTER_FIELD, { map, x, y, facing }] as const,
+  );
+  await page.reload();
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', `${x},${y}`);
+}
+
+async function tap(page: Page, key: string, ms = 120) {
+  await page.keyboard.down(key);
+  await page.waitForTimeout(ms);
+  await page.keyboard.up(key);
+}
+
+test('초원 왼쪽 출구로 나가면 불러오기 화면 뒤 물가 입구에 서고, 새로고침해도 물가', async ({ page }) => {
+  await standAt(page, 'meadow', 1, 10, 'left');
+  await tap(page, 'ArrowLeft');
+  await expect(page.getByRole('status', { name: '불러오는 중' })).toContainText('물가 · 3·6·9단');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '18,10');
+  await page.reload();
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '18,10');
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position.map);
+  expect(saved).toBe('waterside');
+});
+
+test('물가 오른쪽 출구로 나가면 초원 왼쪽 입구로 돌아온다', async ({ page }) => {
+  await standAt(page, 'waterside', 18, 10, 'right');
+  await tap(page, 'ArrowRight');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '1,10');
+});
+
+test('초원 오른쪽 출구로 나가면 사막 (5·7단)', async ({ page }) => {
+  await standAt(page, 'meadow', 18, 10, 'right');
+  await tap(page, 'ArrowRight');
+  await expect(page.getByRole('status', { name: '불러오는 중' })).toContainText('사막 · 5·7단');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '1,10');
+});
+
+test('물가 풀숲에서 만난 구구몬은 젤리몬·안테나몬·뿔뿔몬 중 하나', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { __GUGU_E2E_FIELD__: boolean }).__GUGU_E2E_FIELD__ = true;
+  });
+  await standAt(page, 'waterside', 4, 9, 'right');
+  await tap(page, 'ArrowRight');
+  await expect(page).toHaveURL(/#\/field\/battle$/);
+  const species = await page.locator('.wild__stage').getAttribute('data-species');
+  expect(['jelly', 'antenna', 'horn']).toContain(species);
 });

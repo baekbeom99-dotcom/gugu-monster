@@ -118,3 +118,37 @@
     opacity: 1;
   }
 }
+
+.floading {
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #fff;
+  text-align: center;
+}
+.floading__name {
+  font-size: 28px;
+  font-weight: 900;
+}
+.floading__fact {
+  font-size: 24px;
+  font-weight: 800;
+  color: #ffd84a;
+}
+.floading__hint {
+  font-size: 16px;
+  opacity: 0.8;
+}
+.field__notice {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 8px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 3px solid #000;
+  border-radius: 12px;
+  box-shadow: 4px 4px 0 #000;
+  font-size: 16px;
+  font-weight: 800;
+}
