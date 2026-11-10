@@ -39,13 +39,13 @@ export function recolor(art: PixelArt, over: Record<string, string>): PixelArt {
 
 const baked = new WeakMap<PixelArt, HTMLCanvasElement>();
 
-/** 그림을 16×16 오프스크린 캔버스에 처음 한 번만 굽는다 (그 뒤로는 drawImage로 키워 그림) */
+/** 그림을 제 크기(타일 16×16, 주인공 32×32) 오프스크린 캔버스에 처음 한 번만 굽는다 (그 뒤로는 drawImage로 키워 그림) */
 export function bakeTiles(art: PixelArt): HTMLCanvasElement {
   const hit = baked.get(art);
   if (hit) return hit;
   const c = document.createElement('canvas');
-  c.width = ART_SIZE;
-  c.height = ART_SIZE;
+  c.width = art.rows[0]?.length || ART_SIZE;
+  c.height = art.rows.length || ART_SIZE;
   const ctx = c.getContext('2d');
   if (ctx) {
     art.rows.forEach((row, y) => {
@@ -62,17 +62,26 @@ export function bakeTiles(art: PixelArt): HTMLCanvasElement {
 }
 
 // ── 주인공: 모자와 가방을 멘 어린이 탐험가 (4방향 × 걸음 2장) ──
+// 타일(16×16)보다 두 배 촘촘한 32×32로 그려서 얼굴·옷 무늬가 또렷하다. 화면에는 타일 한 칸 크기로 그린다.
+
+/** 주인공 그림 한 장의 칸 수 (가로·세로) */
+export const HERO_SIZE = 32;
 
 const HERO_PAL: Record<string, string> = {
   k: '#2b2233', // 테두리
   c: '#ff8a3d', // 모자
+  o: '#ffb877', // 모자 빛
   C: '#d9662a', // 모자 챙
   w: '#ffffff',
   h: '#6b3e26', // 머리카락
+  H: '#8f5a3a', // 머리 빛
   s: '#ffd2a8', // 얼굴·손
+  S: '#f0ad84', // 얼굴 그늘
+  r: '#ff9d8f', // 볼
   e: '#2b2233', // 눈
   m: '#d0645a', // 입
   b: '#2bb5a0', // 옷
+  g: '#7fe3cf', // 옷 단추
   B: '#1f8f7e',
   p: '#ffcf3a', // 가방
   P: '#d9a521',
@@ -83,60 +92,125 @@ const HERO_PAL: Record<string, string> = {
 const hero = (rows: string[]): PixelArt => ({ palette: HERO_PAL, rows });
 
 const DOWN_TOP = [
-  '................',
-  '.....kkkkkk.....',
-  '....kccccwck....',
-  '...kcccccccck...',
-  '...kCCCCCCCCk...',
-  '...khhhhhhhhk...',
-  '...khsssssshk...',
-  '...ksessssesk...',
-  '...ksssmmsssk...',
-  '....kssssssk....',
-  '...kpbbbbbbpk...',
-  '..ksbpbbbbpbsk..',
-  '..ksBBBBBBBBsk..',
-  '...kkllllllkk...',
+  '................................',
+  '...........kkkkkkkkkk...........',
+  '..........kkccccccwwkk..........',
+  '.........kcooccccccwwck.........',
+  '........kcoocccccccccck.........',
+  '.......kcocccccccccccccck.......',
+  '......kCCCCCCCCCCCCCCCCCCk......',
+  '.....kkCCCCCCCCCCCCCCCCCCkk.....',
+  '.......khhHhhhhhhhhhhHhhk.......',
+  '.......khhHssssssssssHhhk.......',
+  '.......khsssssssssssssshk.......',
+  '.......khsseesssssseesshk.......',
+  '.......khssewssssssewsshk.......',
+  '........kSsrrssmmssrrsSk........',
+  '.........kSssssssssssSk.........',
+  '..........kkSSSSSSSSkk..........',
+  '.........kpbbbbbbbbbbpk.........',
+  '........kppbbbgbbgbbbppk........',
+  '.......kspPbbbbbbbbbbPpsk.......',
+  '.......ksspbbbbbbbbbbpssk.......',
+  '.......kSskBBBBBBBBBBksSk.......',
+  '........kkkBBBBBBBBBBkkk........',
+  '..........kllllllllllk..........',
+  '..........kllllkkllllk..........',
 ];
 const UP_TOP = [
-  '................',
-  '.....kkkkkk.....',
-  '....kcccccck....',
-  '...kcccccccck...',
-  '...kccCCCCcck...',
-  '...khhhhhhhhk...',
-  '...khhhhhhhhk...',
-  '...khhhhhhhhk...',
-  '...kshhhhhhsk...',
-  '....kkhhhhkk....',
-  '...kbppppppbk...',
-  '..ksbpPPPPpbsk..',
-  '..ksbppppppbsk..',
-  '...kkllllllkk...',
+  '................................',
+  '...........kkkkkkkkkk...........',
+  '..........kkcccccccckk..........',
+  '.........kcoocccccccccc.........',
+  '........kcocccccccccccck........',
+  '.......kcccccccccccccccck.......',
+  '......kccCCCCCCCCCCCCCCcck......',
+  '.......khhhhhhhhhhhhhhhhk.......',
+  '.......khhHhhhhhhhhhhHhhk.......',
+  '.......khhhhhhhhhhhhhhhhk.......',
+  '.......khhhhHhhhhhhHhhhhk.......',
+  '.......khhhhhhhhhhhhhhhhk.......',
+  '.......kshhhhhhhhhhhhhhsk.......',
+  '........kshhhhhhhhhhhhsk........',
+  '.........kkhhhhhhhhhhkk.........',
+  '..........kkSSSSSSSSkk..........',
+  '.........kbppppppppppbk.........',
+  '........kbbpPPPPPPPPpbbk........',
+  '.......ksbbpPppppppPpbbsk.......',
+  '.......kssbpPPPPPPPPpbssk.......',
+  '.......kSskBppppppppBksSk.......',
+  '........kkkBBBBBBBBBBkkk........',
+  '..........kllllllllllk..........',
+  '..........kllllkkllllk..........',
 ];
 /** 앞·뒤 걸음: 한 발씩 */
-const STEP_A = ['...kllk..kllk...', '...kffk...kk....'];
-const STEP_B = ['...kllk..kllk...', '....kk...kffk...'];
-
+const STEP_A = [
+  '...........kllk..kllk...........',
+  '...........kllk..kllk...........',
+  '...........kllk..kllk...........',
+  '...........kffk..kffk...........',
+  '...........kfffk.kkk............',
+  '............kkk.................',
+  '................................',
+  '................................',
+];
+const STEP_B = [
+  '...........kllk..kllk...........',
+  '...........kllk..kllk...........',
+  '...........kllk..kllk...........',
+  '...........kffk..kffk...........',
+  '............kkk.kfffk...........',
+  '.................kkk............',
+  '................................',
+  '................................',
+];
 const LEFT_TOP = [
-  '................',
-  '......kkkkkk....',
-  '.....kccccwck...',
-  '....kcccccccck..',
-  '..kkCCCCCCCCk...',
-  '....kssshhhhk...',
-  '...ksesshhhhk...',
-  '...kssssshhhk...',
-  '....kssssskppk..',
-  '.....kkkkkkpPk..',
-  '....kbbbbbkpPk..',
-  '....kbsbbbkpPk..',
-  '....kBBBBBkkk...',
-  '.....kllllk.....',
+  '................................',
+  '............kkkkkkkk............',
+  '..........kkccccccwwkk..........',
+  '.........kcooccccccwwck.........',
+  '........kcooccccccccccck........',
+  '........kcccccccccccccck........',
+  '.....kkkCCCCCCCCCCCCCCk.........',
+  '...kkCCCCCCCCCCCCCCCCkk.........',
+  '........ksssshhhhhhhhhk.........',
+  '.......kssssshhhhHhhhhk.........',
+  '.......ksewssshhhhhhhk..........',
+  '.......kseessssshhhhhk..........',
+  '......kSsssrrsssshhhhk..........',
+  '.......kssmmssssshhhk...........',
+  '........kSsssssssshhk...........',
+  '.........kkSSSSSkkk.............',
+  '.........kbbbbbbkppppk..........',
+  '........kbbbgbbbkpPPPpk.........',
+  '........kbsbbbbbkpPppPk.........',
+  '........kbsbbbbbkpPPPPk.........',
+  '........kBssBBBBkpppppk.........',
+  '.........kBBBBBBkkkkkk..........',
+  '.........kllllllk...............',
+  '.........kllllllk...............',
 ];
 /** 옆 걸음: 벌린 발 / 모은 발 */
-const SIDE_A = ['....kllkkllk....', '...kffk..kffk...'];
-const SIDE_B = ['.....kllllk.....', '.....kffffk.....'];
+const SIDE_A = [
+  '........kllk..kllk..............',
+  '.......kllk....kllk.............',
+  '......kllk......kllk............',
+  '......kffk......kffk............',
+  '.....kfffk.....kfffk............',
+  '......kkk.......kkk.............',
+  '................................',
+  '................................',
+];
+const SIDE_B = [
+  '..........kllllk................',
+  '..........kllllk................',
+  '..........kllllk................',
+  '..........kffffk................',
+  '.........kfffffk................',
+  '..........kkkkk.................',
+  '................................',
+  '................................',
+];
 
 const LEFT = [hero([...LEFT_TOP, ...SIDE_A]), hero([...LEFT_TOP, ...SIDE_B])];
 

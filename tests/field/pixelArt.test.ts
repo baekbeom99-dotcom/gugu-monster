@@ -4,6 +4,7 @@ import {
   COMPANION_FILL,
   HERO_DIRS,
   HERO_FRAMES,
+  HERO_SIZE,
   HERO_SPRITES,
   SHARED_ARTS,
   TRANSPARENT,
@@ -19,19 +20,36 @@ import { FX_NAMES } from '../../src/field/fx';
 
 const TILE_SETS = { meadow: MEADOW_TILES, waterside: WATERSIDE_TILES, desert: DESERT_TILES };
 
-function allArts(): [string, PixelArt][] {
+function tileArts(): [string, PixelArt][] {
   const out: [string, PixelArt][] = Object.entries(SHARED_ARTS).map(([k, a]) => [`공용/${k}`, a]);
-  for (const d of HERO_DIRS) HERO_SPRITES[d].forEach((a, i) => out.push([`주인공/${d}${i}`, a]));
   for (const [id, set] of Object.entries(TILE_SETS)) for (const [k, a] of Object.entries(set.arts)) out.push([`${id}/${k}`, a]);
   return out;
 }
 
+function heroArts(): [string, PixelArt][] {
+  const out: [string, PixelArt][] = [];
+  for (const d of HERO_DIRS) HERO_SPRITES[d].forEach((a, i) => out.push([`주인공/${d}${i}`, a]));
+  return out;
+}
+
+function allArts(): [string, PixelArt][] {
+  return [...tileArts(), ...heroArts()];
+}
+
 describe('픽셀 그림', () => {
-  it('그림 한 장은 16줄 × 16칸', () => {
+  it('타일 그림 한 장은 16줄 × 16칸', () => {
     expect(ART_SIZE).toBe(16);
-    for (const [name, art] of allArts()) {
+    for (const [name, art] of tileArts()) {
       expect(art.rows.length, name).toBe(16);
       art.rows.forEach((r, y) => expect(r.length, `${name} ${y}줄`).toBe(16));
+    }
+  });
+
+  it('주인공은 더 고운 32줄 × 32칸 (한 칸 크기에 두 배 촘촘하게)', () => {
+    expect(HERO_SIZE).toBe(32);
+    for (const [name, art] of heroArts()) {
+      expect(art.rows.length, name).toBe(32);
+      art.rows.forEach((r, y) => expect(r.length, `${name} ${y}줄`).toBe(32));
     }
   });
 

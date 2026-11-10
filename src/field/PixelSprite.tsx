@@ -1,7 +1,9 @@
-/** 픽셀 그림(16×16 글자 배열)을 또렷한 SVG로 그린다 (타이틀 같은 화면용) */
+/** 픽셀 그림(글자 배열, 16×16 또는 32×32)을 또렷한 SVG로 그린다 (타이틀 같은 화면용) */
 import { ART_SIZE, type PixelArt, TRANSPARENT } from './pixelArt';
 
 export function PixelSprite({ art, size, className }: { art: PixelArt; size: number; className?: string }) {
+  const cols = art.rows[0]?.length || ART_SIZE;
+  const rowsN = art.rows.length || ART_SIZE;
   const rects: JSX.Element[] = [];
   art.rows.forEach((row, y) => {
     for (let x = 0; x < row.length; x++) {
@@ -11,7 +13,7 @@ export function PixelSprite({ art, size, className }: { art: PixelArt; size: num
   });
   return (
     <svg
-      viewBox={`0 0 ${ART_SIZE} ${ART_SIZE}`}
+      viewBox={`0 0 ${cols} ${rowsN}`}
       width={size}
       height={size}
       shapeRendering="crispEdges"
