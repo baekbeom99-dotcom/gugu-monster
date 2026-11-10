@@ -25,15 +25,15 @@ const KEY_DIR: Record<string, Dir> = {
   ArrowDown: 'down',
   ArrowLeft: 'left',
   ArrowRight: 'right',
-  w: 'up',
-  s: 'down',
-  a: 'left',
-  d: 'right',
-  W: 'up',
-  S: 'down',
-  A: 'left',
-  D: 'right',
 };
+/** 글쇠 위치(code)로 읽는다 — 한글 자판에서도 WASD가 그대로 움직인다 */
+const CODE_DIR: Record<string, Dir> = {
+  KeyW: 'up',
+  KeyS: 'down',
+  KeyA: 'left',
+  KeyD: 'right',
+};
+const keyDir = (e: KeyboardEvent): Dir | undefined => KEY_DIR[e.key] ?? CODE_DIR[e.code];
 
 interface Props {
   /** 걸음이 끝날 때마다 불린다 (나중에 만남 연결에 쓴다) */
@@ -118,7 +118,7 @@ function FieldRoot(props: Props) {
 
   if (failed)
     return (
-      <section className="field floading">
+      <section className="fieldmode floading">
         <div className="floading__name">{OFFLINE_MESSAGE}</div>
         <button type="button" className="btn" onClick={() => { setFailed(false); setAttempt((n) => n + 1); }}>
           다시 해보기
@@ -278,15 +278,15 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
-      const d = KEY_DIR[e.key];
+      const d = keyDir(e);
       if (d) {
         e.preventDefault();
         s.keys = [...s.keys.filter((k) => k !== d), d];
-      } else if (e.key === 'z' || e.key === 'Z') pressRef.current('A');
-      else if (e.key === 'x' || e.key === 'X') pressRef.current('B');
+      } else if (e.code === 'KeyZ') pressRef.current('A');
+      else if (e.code === 'KeyX') pressRef.current('B');
     };
     const onKeyUp = (e: KeyboardEvent) => {
-      const d = KEY_DIR[e.key];
+      const d = keyDir(e);
       if (d) s.keys = s.keys.filter((k) => k !== d);
     };
     window.addEventListener('keydown', onKeyDown);
@@ -376,14 +376,14 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   }, [map, save]);
 
   return (
-    <section className="field">
-      <div className="field__view" ref={wrapRef}>
-        <canvas ref={canvasRef} className="field__canvas" data-testid="field-canvas" />
-        <button type="button" className="btn btn--ghost field__menu-btn" onClick={() => setMenuOpen((v) => !v)}>
+    <section className="fieldmode">
+      <div className="fieldmode__view" ref={wrapRef}>
+        <canvas ref={canvasRef} className="fieldmode__canvas" data-testid="field-canvas" />
+        <button type="button" className="btn btn--ghost fieldmode__menu-btn" onClick={() => setMenuOpen((v) => !v)}>
           메뉴
         </button>
         {menuOpen && (
-          <div className="field__menu" role="menu">
+          <div className="fieldmode__menu" role="menu">
             <button
               type="button"
               className="btn btn--ghost"
@@ -410,25 +410,25 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
           </div>
         )}
         {notice && (
-          <div className="field__notice" role="alert">
+          <div className="fieldmode__notice" role="alert">
             {notice}
           </div>
         )}
-        {flash && <div className="field__flash" aria-hidden />}
-        {iris && <canvas ref={irisRef} className="field__iris" aria-hidden />}
+        {flash && <div className="fieldmode__flash" aria-hidden />}
+        {iris && <canvas ref={irisRef} className="fieldmode__iris" aria-hidden />}
         {notice0 && (
-          <button type="button" className="field__growth" role="dialog" aria-label="성장 알림" onClick={dismissNotice}>
-            <span className="field__growth-title">{notice0.kind === 'levelUp' ? '레벨이 올랐어!' : '진화했어!'}</span>
-            <span className="field__growth-body">
+          <button type="button" className="fieldmode__growth" role="dialog" aria-label="성장 알림" onClick={dismissNotice}>
+            <span className="fieldmode__growth-title">{notice0.kind === 'levelUp' ? '레벨이 올랐어!' : '진화했어!'}</span>
+            <span className="fieldmode__growth-body">
               {notice0.kind === 'levelUp'
                 ? `${displayName(notice0.species, noticeStage)} Lv${notice0.level}`
                 : displayName(notice0.species, notice0.stage)}
             </span>
-            <span className="field__growth-hint">탭하면 닫혀요</span>
+            <span className="fieldmode__growth-hint">탭하면 닫혀요</span>
           </button>
         )}
         {signText && (
-          <div className="field__text" role="dialog" aria-label="표지판">
+          <div className="fieldmode__text" role="dialog" aria-label="표지판">
             {signText}
           </div>
         )}

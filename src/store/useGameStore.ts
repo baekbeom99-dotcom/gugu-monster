@@ -58,7 +58,6 @@ export interface PetChange {
 /** 탐험을 마친 뒤 펫에게 생긴 일 (25% 똥, 10% 병) */
 export type ExplorationOutcome = FinishOutcome & PetChange & { grantedHats: ItemId[]; troubles: TroubleEvent[]; affection: number };
 
-/** 밥·먹이를 먹고 5% 확률로 식중독에 걸렸는가 */
 /** 야생 전투가 끝난 뒤 생긴 일 */
 export interface WildResult extends PetChange {
   newSpecies: boolean;
@@ -76,6 +75,7 @@ export interface WildBattleEnd {
   now: number;
 }
 
+/** 밥·먹이를 먹고 5% 확률로 식중독에 걸렸는가 */
 export type FeedChange = PetChange & { poisoned: boolean };
 
 export type PracticeOutcome = PetChange & {

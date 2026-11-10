@@ -27,6 +27,15 @@ describe('wildBattle', () => {
     expect(s.phase).toBe('question');
     expect(s.fullMs).toBe(250);
   });
+  it('dt가 NaN·Infinity여도 상태가 망가지지 않는다 (0으로 본다)', () => {
+    const s = { ...createWild(), hp: 60, fullMs: 100 };
+    for (const bad of [NaN, Infinity, -Infinity]) {
+      const t = tick(s, bad, 7000);
+      expect(Number.isFinite(t.hp)).toBe(true);
+      expect(Number.isFinite(t.fullMs)).toBe(true);
+    }
+    expect(tick(createWild(), NaN, 7000).fullMs).toBe(0);
+  });
   it('정답 뒤 resume하고 5초 지나면 HP 75', () => {
     let s = answerWild(createWild(), true, false);
     expect(s.hp).toBe(60);

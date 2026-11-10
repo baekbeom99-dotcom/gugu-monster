@@ -453,11 +453,17 @@ function overlaps(a: { x: number; y: number; width: number; height: number }, b:
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
+for (const vp of [
+  { width: 375, height: 812 },
+  { width: 360, height: 800 },
+  { width: 320, height: 640 },
+]) {
 for (const [type, text] of [
   ['missingSecond', '13×?=130'],
   ['missingFirst', '?×10=130'], // 단(13)은 늘 앞자리라 "? × 13"은 나오지 않는다. 글자 수가 같은 가장 긴 꼴
 ] as const) {
-  test(`가장 긴 문제 "${text}"도 375px에서 말풍선이 야생 구구몬과 겹치지 않고 한 줄에 들어간다`, async ({ page }) => {
+  test(`가장 긴 문제 "${text}"도 ${vp.width}px에서 말풍선이 야생 구구몬과 겹치지 않고 한 줄에 들어간다`, async ({ page }) => {
+    await page.setViewportSize(vp);
     await battleWithQuestion(page, '13x10', type);
     const q = page.locator('.wild__bubble .question');
     await expect(q).toHaveText(text.replace(/\s/g, ''), { useInnerText: false });
@@ -470,6 +476,22 @@ for (const [type, text] of [
     // 넘치지 않는다 (글자가 말풍선 밖으로 나가거나 줄이 바뀌지 않음)
     const fits = await q.evaluate((el) => el.scrollWidth <= el.clientWidth + 1 && el.getBoundingClientRect().height < 60);
     expect(fits).toBe(true);
-    await page.screenshot({ path: test.info().outputPath('battle-longest.png') });
+    await page.screenshot({ path: test.info().outputPath(`battle-longest-${vp.width}.png`) });
   });
 }
+}
+
+test('도망 확인창을 열어 둔 시간은 답하는 데 걸린 시간에 들어가지 않는다', async ({ page }) => {
+  await battleWithQuestion(page, '13x10', 'missingSecond');
+  const answer = await solveWild(page);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.waitForTimeout(2500);
+  await page.getByRole('button', { name: '계속 싸우기' }).click();
+  await moveButton(page, answer).click();
+  await expect
+    .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.learning.facts['13x10']?.avgMs ?? -1))
+    .toBeGreaterThanOrEqual(0);
+  const ms = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.learning.facts['13x10'].avgMs);
+  expect(ms).toBeLessThan(1500);
+});

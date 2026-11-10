@@ -6,6 +6,7 @@ import type { MonsterMood } from '../art/MonsterSprite';
 import { HintPanel } from '../components/HintPanel';
 import { QuestionView } from '../components/QuestionView';
 import { STARTERS, speciesDef, type SpeciesId } from '../domain/field/creatures';
+import { createAnswerTimer, elapsedMs, pauseTimer, resumeTimer, startTimer } from '../domain/field/answerTimer';
 import { displayName } from '../domain/field/growth';
 import { e2eFlags, e2eQuestion, type Encounter } from '../domain/field/encounter';
 import { FIELD_CHOICES, planFieldQuestions, planLegendQuestions, restrictToFieldType } from '../domain/field/fieldQuestions';
@@ -144,7 +145,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const settledRef = useRef(false);
   const [battleStartedAt] = useState(() => Date.now());
   const answeredFacts = useRef(new Set<FactId>());
-  const shownAt = useRef(performance.now());
+  /** 답하는 데 걸린 시간: 도망 확인창·가려진 화면 동안은 멈춘다 */
+  const timerRef = useRef(createAnswerTimer());
   const timers = useRef<number[]>([]);
   const later = useCallback((fn: () => void, ms: number) => {
     timers.current.push(window.setTimeout(fn, ms));
@@ -207,8 +209,17 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
 
   const asking = !intro && wild.phase === 'question';
   useEffect(() => {
-    if (asking) shownAt.current = performance.now();
+    if (asking) timerRef.current = startTimer(timerRef.current, performance.now());
   }, [key, asking]);
+  useEffect(() => {
+    const sync = () => {
+      const now = performance.now();
+      timerRef.current = document.hidden || confirmQuit ? pauseTimer(timerRef.current, now) : resumeTimer(timerRef.current, now);
+    };
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    return () => document.removeEventListener('visibilitychange', sync);
+  }, [confirmQuit, key, asking]);
 
   // 끝: 결과를 저장하고(전투당 한 번), 글을 잠깐 보여 준 뒤 필드로 (만남이 지워지면 화면이 알아서 돌아간다)
   useEffect(() => {
@@ -246,7 +257,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   // B 버튼(키보드 X·Esc) → 도망칠지 묻기
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'x' || e.key === 'X' || e.key === 'Escape') setConfirmQuit((v) => v || !(ending || throwing));
+      if (e.code === 'KeyX' || e.key === 'Escape') setConfirmQuit((v) => v || !(ending || throwing));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -257,7 +268,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     if (intro || confirmQuit || throwing || w.phase !== 'question') return;
     const value = question.choices[moveIndex];
     const correct = value === question.answer;
-    const ms = Math.round(performance.now() - shownAt.current);
+    const ms = Math.round(elapsedMs(timerRef.current, performance.now()));
     const fast = ms <= fastThresholdMs(fact, 'choice');
     const after = answerWild(w, correct, fast);
     setWild(after);

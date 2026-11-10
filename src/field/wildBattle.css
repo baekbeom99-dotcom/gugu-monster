@@ -166,6 +166,30 @@
   border-width: 3px;
 }
 
+/* 좁은 화면(360px·320px)에서도 가장 긴 문제가 한 줄에 들어가게 글자와 틈을 줄인다 */
+@media (max-width: 374px) {
+  .wild__bubble {
+    padding: 6px 6px;
+  }
+  .wild__bubble .question {
+    font-size: 20px;
+    gap: 3px;
+  }
+}
+
+@media (max-width: 340px) {
+  .wild__bubble {
+    padding: 5px 4px;
+  }
+  .wild__bubble .question {
+    font-size: 17px;
+    gap: 2px;
+  }
+  .wild__bubble .blank {
+    border-width: 2px;
+  }
+}
+
 /* 넓은 화면에서는 글자를 조금 더 크게 */
 @media (min-width: 420px) {
   .wild__bubble .question {

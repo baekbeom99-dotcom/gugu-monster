@@ -13,7 +13,7 @@ export function FieldLoading({ field }: { field: FieldId }) {
     return `${dan} × ${n} = ${dan * n}`;
   });
   return (
-    <section className="field floading" role="status" aria-label="불러오는 중">
+    <section className="fieldmode floading" role="status" aria-label="불러오는 중">
       <div className="floading__name">
         {FIELDS[field].name} · {dans.join('·')}단
       </div>

@@ -42,7 +42,7 @@ export function createWild(): WildState {
 /** 문제가 떠 있는 동안에만 시간이 흐른다. */
 export function tick(s: WildState, dtMs: number, fleeMs: number): WildState {
   if (s.phase !== 'question') return s;
-  const dt = Math.min(Math.max(dtMs, 0), MAX_TICK_MS);
+  const dt = Number.isFinite(dtMs) ? Math.min(Math.max(dtMs, 0), MAX_TICK_MS) : 0;
   if (s.hp < WILD_MAX_HP) {
     const hp = Math.min(WILD_MAX_HP, s.hp + (REGEN_PER_SEC * dt) / 1000);
     return { ...s, hp, fullMs: 0 };
