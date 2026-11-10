@@ -1,17 +1,16 @@
 .fieldmode {
+  position: relative;
   height: 100%;
-  display: flex;
-  flex-direction: column;
+  overflow: hidden;
   background: #1b1b1b;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
 }
+/* 지도는 화면 전체, 터치패드는 그 위에 겹쳐 놓는다 */
 .fieldmode__view {
-  position: relative;
-  flex: 0 0 60%;
-  min-height: 0;
-  border-bottom: 4px solid #000;
+  position: absolute;
+  inset: 0;
 }
 .fieldmode__canvas {
   display: block;
@@ -41,7 +40,8 @@
   position: absolute;
   left: 8px;
   right: 8px;
-  bottom: 8px;
+  /* 터치패드 위로 띄운다 (패드 150px + 아래 여백) */
+  bottom: calc(184px + env(safe-area-inset-bottom));
   padding: 12px 14px;
   background: #fff;
   border: 3px solid #000;
@@ -51,18 +51,28 @@
   font-weight: 800;
 }
 .fpad {
-  flex: 1;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  padding: 0 20px calc(12px + env(safe-area-inset-bottom));
+  padding: 0 20px calc(20px + env(safe-area-inset-bottom));
+  /* 버튼 사이 빈 곳은 지도가 그대로 보이고 눌러도 아무 일 없다 */
+  pointer-events: none;
+}
+.fpad__cross,
+.fpad__btn {
+  pointer-events: auto;
 }
 .fpad__cross {
   position: relative;
   width: 150px;
   height: 150px;
   border-radius: 50%;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.78);
   border: 4px solid #000;
   box-shadow: 4px 4px 0 #000;
   touch-action: none;
@@ -92,8 +102,8 @@
   font-weight: 900;
   touch-action: none;
 }
-.fpad__btn--a { background: #ff6b6b; margin-bottom: 36px; }
-.fpad__btn--b { background: #ffd93d; }
+.fpad__btn--a { background: rgba(255, 107, 107, 0.88); margin-bottom: 36px; }
+.fpad__btn--b { background: rgba(255, 217, 61, 0.88); }
 .fpad__btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
 
 /* 풀숲에서 만났을 때 번쩍번쩍 */

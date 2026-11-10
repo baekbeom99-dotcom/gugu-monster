@@ -50,9 +50,15 @@ export interface Anim {
   step: number | null;
 }
 
-/** 캔버스 폭에서 정수 배율을 구한다 */
-export function viewScale(cssWidth: number): number {
-  return Math.max(1, Math.floor(cssWidth / (VIEW_TILES_W * TILE_PX)));
+/**
+ * 정수 배율: 가로로 VIEW_TILES_W칸쯤 보이게 하되,
+ * 지도가 화면보다 작아 검은 띠가 생기지 않게 지도가 화면을 다 덮는 배율 이상으로 키운다.
+ */
+export function viewScale(cssWidth: number, cssHeight = 0, mapTilesW = 0, mapTilesH = 0): number {
+  const byWidth = Math.floor(cssWidth / (VIEW_TILES_W * TILE_PX));
+  const coverW = mapTilesW > 0 ? Math.ceil(cssWidth / (mapTilesW * TILE_PX)) : 1;
+  const coverH = mapTilesH > 0 ? Math.ceil(cssHeight / (mapTilesH * TILE_PX)) : 1;
+  return Math.max(1, byWidth, coverW, coverH);
 }
 
 function cam(center: number, viewPx: number, mapPx: number): number {

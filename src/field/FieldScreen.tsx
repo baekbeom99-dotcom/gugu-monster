@@ -264,7 +264,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       const dpr = window.devicePixelRatio || 1;
       canvas.width = Math.max(1, Math.round(r.width * dpr));
       canvas.height = Math.max(1, Math.round(r.height * dpr));
-      view = { tile: viewScale(r.width) * TILE_PX * dpr, w: canvas.width, h: canvas.height };
+      view = { tile: viewScale(r.width, r.height, map.width, map.height) * TILE_PX * dpr, w: canvas.width, h: canvas.height };
     };
     resize();
     const ro = new ResizeObserver(resize);
