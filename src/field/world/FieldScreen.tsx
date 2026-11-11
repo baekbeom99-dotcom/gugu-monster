@@ -211,6 +211,9 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     }
   }, []);
 
+  const onTapRef = useRef(onTap);
+  onTapRef.current = onTap;
+
   /** 걸음마다 만남 주사위(풀숲 30%·길 4%) → 만나면 멈추고 번쩍인 뒤 전투 화면으로 */
   const checkEncounter = useCallback((result: StepResult) => {
     leaveBattleReturn();
@@ -273,6 +276,10 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       if (d) {
         e.preventDefault();
         s.keys = [...s.keys.filter((k) => k !== d), d];
+      } else if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space') {
+        // 글·알림이 없으면 아무 일도 없다 (onTap이 알아서 거른다)
+        e.preventDefault();
+        onTapRef.current();
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {

@@ -72,6 +72,8 @@ export const EVOLVE_LEVELS = { 2: 8, 3: 18 } as const;
 export const STEP_MS = 180;
 /** 이보다 짧게 누르면 걷지 않고 방향만 바꾼다 */
 export const TURN_TAP_MS = 120;
+/** 이 안에 떼면(가운데에서 안 끌었을 때) 탭으로 쳐서 글·알림을 닫는다 */
+export const TAP_CLOSE_MS = 300;
 /** 만남 → 전투 화면으로 넘어가기 전 번쩍이는 시간 */
 export const ENCOUNTER_FLASH_MS = 800;
 /** "나타났다!" 글이 떠 있는 시간 (탭하면 바로 넘김) */

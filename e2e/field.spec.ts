@@ -133,6 +133,51 @@ test('표지판에 부딪히면 글이 뜨고, 탭하면 닫히고, 계속 눌�
   expect(await pos(page)).toEqual({ x: 9, y: 6 });
 });
 
+async function openSignAtNine(page: Page) {
+  await seedStarter(page);
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
+  await page.evaluate((starter) => {
+    localStorage.clear();
+    localStorage.setItem(
+      'gugu-monster:save',
+      JSON.stringify({ version: 1, state: { field: { ...starter, position: { map: 'meadow', x: 9, y: 6, facing: 'up' } } } }),
+    );
+  }, STARTER_FIELD);
+  await page.reload();
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '9,6');
+  await page.keyboard.down('ArrowUp');
+  await expect(page.getByRole('dialog', { name: '표지판' })).toBeVisible();
+  await page.keyboard.up('ArrowUp');
+}
+
+test('표지판 글은 Escape로 닫힌다', async ({ page }) => {
+  await openSignAtNine(page);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: '표지판' })).toHaveCount(0);
+});
+
+test('글 밖을 250ms쯤 눌렀다 떼도 표지판 글이 닫힌다', async ({ page }) => {
+  await openSignAtNine(page);
+  await page.mouse.move(100, 200);
+  await page.mouse.down();
+  await page.waitForTimeout(250);
+  await page.mouse.up();
+  await expect(page.getByRole('dialog', { name: '표지판' })).toHaveCount(0);
+});
+
+test('글이 없을 때 Enter는 아무 일도 없다', async ({ page }) => {
+  await seedStarter(page);
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
+  const before = await pos(page);
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(300);
+  expect(await pos(page)).toEqual(before);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
 test('메뉴의 처음 화면으로 돌아간다', async ({ page }) => {
   await seedStarter(page);
   await page.goto('/#/field');

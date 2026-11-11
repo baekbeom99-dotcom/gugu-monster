@@ -36,6 +36,7 @@ describe('필드 모험 운영 수치', () => {
       EVOLVE_LEVELS: { 2: 8, 3: 18 },
       STEP_MS: 180,
       TURN_TAP_MS: 120,
+      TAP_CLOSE_MS: 300,
       ENCOUNTER_FLASH_MS: 800,
       WILD_INTRO_MS: 1200,
       WILD_HIT_ANIM_MS: 600,

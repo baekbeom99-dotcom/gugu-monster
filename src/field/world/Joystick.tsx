@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Dir } from '../../domain/field/movement';
-import { TURN_TAP_MS } from '../../domain/field/tuning';
+import { TAP_CLOSE_MS } from '../../domain/field/tuning';
 import { padDirection } from './padDirection';
 
 interface Props {
@@ -59,7 +59,7 @@ export function Joystick({ onDir, onTap }: Props) {
     emit(null);
     setKnob(null);
     const o = origin.current;
-    if (isUp && !o.left && clientX !== undefined && clientY !== undefined && performance.now() - o.t < TURN_TAP_MS) {
+    if (isUp && !o.left && clientX !== undefined && clientY !== undefined && performance.now() - o.t < TAP_CLOSE_MS) {
       onTap(clientX, clientY);
     }
   };
