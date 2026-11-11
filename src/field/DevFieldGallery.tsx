@@ -16,7 +16,8 @@ import { CAPSULE_NAMES, CAPSULE_TYPES } from '../domain/field/capsules';
 import { HERO_DIRS, HERO_SPRITES } from './art/hero';
 import { PixelSprite } from './art/PixelSprite';
 import { debugFlags, setDebugFlag } from './debugFlags';
-import { EFFECTS, FX_NAMES, type FxName } from './fx/effects';
+import { ELEMENT_FX, ELEMENT_NAMES, type Element } from '../domain/field/elements';
+import { EFFECTS, type FxName, type FxSpec } from './fx/effects';
 import { playFx } from './fx/playFx';
 
 const MOODS: MonsterMood[] = ['idle', 'hit', 'happy', 'sleep'];
@@ -51,23 +52,40 @@ function DebugSwitches() {
 
 function EffectButtons() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [gold, setGold] = useState(false);
+  const [mirror, setMirror] = useState(false);
   const play = (name: FxName) => {
     const c = canvasRef.current;
     if (!c) return;
     c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
     const r = c.getBoundingClientRect();
-    void playFx(c, name, { x: r.width / 2, y: r.height / 2 });
+    const spec: FxSpec = EFFECTS[name];
+    const anchor = spec.anchor ?? 'ground';
+    void playFx(c, name, { x: r.width / 2, y: r.height * (anchor === 'center' ? 0.45 : 0.6) }, { gold, mirror });
   };
+  const button = (n: FxName) => (
+    <button key={n} type="button" className="btn btn--ghost" onClick={() => play(n)} title={EFFECTS[n].note}>
+      {n}
+    </button>
+  );
   return (
     <section>
       <h2>효과 (fx/effects.ts) — 동작 줄이기를 켠 기기에서는 안 보임</h2>
       <div style={row}>
-        {FX_NAMES.map((n) => (
-          <button key={n} type="button" className="btn btn--ghost" onClick={() => play(n)} title={EFFECTS[n].note}>
-            {n} — {EFFECTS[n].note}
-          </button>
-        ))}
+        {(['enter', 'hit', 'catch'] as const).map(button)}
       </div>
+      <label style={{ display: 'block' }}>
+        <input type="checkbox" checked={gold} onChange={() => setGold(!gold)} /> 금색 (황금 구구몬)
+      </label>
+      <label style={{ display: 'block' }}>
+        <input type="checkbox" checked={mirror} onChange={() => setMirror(!mirror)} /> 뒤집기 (적이 쏠 때)
+      </label>
+      {(Object.keys(ELEMENT_FX) as Element[]).map((el) => (
+        <div key={el} style={{ marginTop: 4 }}>
+          <strong>{ELEMENT_NAMES[el]}</strong>
+          <div style={row}>{ELEMENT_FX[el].map(button)}</div>
+        </div>
+      ))}
       <div style={{ ...box, position: 'relative', width: 320, height: 180, marginTop: 8, background: '#7cc06b' }}>
         <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', imageRendering: 'pixelated' }} />
       </div>

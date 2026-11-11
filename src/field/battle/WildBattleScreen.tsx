@@ -10,6 +10,7 @@ import { HintPanel } from '../../components/HintPanel';
 import { QuestionView } from '../../components/QuestionView';
 import { capsuleFor } from '../../domain/field/capsules';
 import { speciesDef } from '../../domain/field/creatures';
+import { ELEMENT_FX, elementOf } from '../../domain/field/elements';
 import { createAnswerTimer, elapsedMs, pauseTimer, resumeTimer, startTimer } from '../../domain/field/answerTimer';
 import { displayName } from '../../domain/field/growth';
 import type { Encounter } from '../../domain/field/encounter';
@@ -43,7 +44,8 @@ import { creatureSprite } from '../art/creatureSprite';
 import { CapsuleBall } from '../art/CapsuleBall';
 import { pickCompanion } from '../companion';
 import { debugFlags } from '../debugFlags';
-import { type FxName, playFx, preloadFx } from '../fx/playFx';
+import { EFFECTS, type FxSpec } from '../fx/effects';
+import { FX_PIXEL, playFx, preloadFx } from '../fx/playFx';
 import { endWildBattle, useFieldSession } from '../useFieldSession';
 import { HpBar, TimerBar } from './BattleBars';
 import { battleText } from './battleText';
@@ -130,19 +132,53 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   }, []);
   useEffect(() => () => timers.current.forEach((t) => clearTimeout(t)), []);
 
-  // 효과(명중·잡기·피격): 구구몬 발치에서 틀어 준다. 보기만 하는 것이라 시간·결과와 상관없다
+  // 효과(기술·잡기): 구구몬 발치에서 틀어 준다. 보기만 하는 것이라 시간·결과와 상관없다
   const stageRef = useRef<HTMLElement>(null);
   const fxRef = useRef<HTMLCanvasElement>(null);
-  useEffect(() => preloadFx('hit', 'catch'), []);
-  const fxAt = useCallback((selector: string, name: FxName) => {
+  const companionElement = elementOf(companion);
+  const wildElement = elementOf(encounter.species);
+  useEffect(() => preloadFx('hit', 'catch', ...new Set([...ELEMENT_FX[companionElement], ...ELEMENT_FX[wildElement]])), [companionElement, wildElement]);
+  /** 두 구구몬(.wild__foe 야생·.wild__ally 내 구구몬) 중 `side` 쪽의 효과 자리 (캔버스 안 CSS px) */
+  const fxPoint = useCallback((side: 'foe' | 'ally', anchor: 'ground' | 'center') => {
     const stage = stageRef.current;
-    const canvas = fxRef.current;
-    const el = stage?.querySelector(selector);
-    if (!stage || !canvas || !el) return;
+    const el = stage?.querySelector(`.wild__${side}`);
+    if (!stage || !el) return null;
     const s = stage.getBoundingClientRect();
     const f = el.getBoundingClientRect();
-    void playFx(canvas, name, { x: f.left - s.left + f.width / 2, y: f.top - s.top + f.height * 0.6 });
+    return { x: f.left - s.left + f.width / 2, y: f.top - s.top + f.height * (anchor === 'center' ? 0.45 : 0.6) };
   }, []);
+  /** 캡슐로 잡았을 때 야생 구구몬 위에서 */
+  const catchFx = useCallback(() => {
+    const canvas = fxRef.current;
+    const at = fxPoint('foe', 'ground');
+    if (canvas && at) void playFx(canvas, 'catch', at);
+  }, [fxPoint]);
+  /**
+   * 기술 효과: 쏘는 쪽(`attacker`)의 속성에서 고른 기술 번호(0~2)의 효과를 맞는 쪽 위에서 튼다.
+   * 내 공격(왼→오)은 효과 기본 방향, 적 공격(오→왼)은 뒤집는다. 옆으로 뻗는 효과는 쏘는 쪽으로 물려 튼다.
+   * 내 공격이 효과를 못 틀면(불러오기 실패) 불꽃으로 대신한다.
+   */
+  const moveFx = useCallback(
+    (attacker: 'ally' | 'foe', moveIndex: number) => {
+      const canvas = fxRef.current;
+      if (!canvas) return;
+      const ally = attacker === 'ally';
+      const name = ELEMENT_FX[ally ? companionElement : wildElement][Math.min(2, Math.max(0, moveIndex))];
+      const spec: FxSpec = EFFECTS[name];
+      const anchor = spec.anchor ?? 'ground';
+      const at = fxPoint(ally ? 'foe' : 'ally', anchor);
+      if (!at) return;
+      // 옆으로 뻗는 효과: 쏘는 쪽에서 시작해 끝이 맞는 구구몬에 닿게 물려 튼다 (화면 안으로)
+      if (spec.reach) at.x = Math.min(canvas.getBoundingClientRect().width, Math.max(0, at.x + (ally ? -1 : 1) * spec.reach * FX_PIXEL));
+      const gold = speciesDef(ally ? companion : encounter.species).legend;
+      void playFx(canvas, name, at, { mirror: !ally, gold }).then((ok) => {
+        if (ok || !ally) return;
+        const hitAt = fxPoint('foe', 'ground');
+        if (hitAt) void playFx(canvas, 'hit', hitAt);
+      });
+    },
+    [companion, companionElement, encounter.species, fxPoint, wildElement],
+  );
 
   useEffect(() => {
     markSeen(encounter.species);
@@ -188,7 +224,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       const it = itemRef.current;
       useGameStore.getState().damageCompanion(companion, damageOf(s), { factId: it.factId, type: it.type });
       setStruckCount((n) => n + 1);
-      fxAt('.wild__ally', 'hit');
+      moveFx('foe', s.lastMove ?? 0);
       setMessage(battleText.foeAttack(battleText.tierName(wildDef.name, s.tier), wildDef.moves[s.lastMove ?? 0]));
       if (s.phase === 'fainted') {
         struckDownRef.current = true;
@@ -201,7 +237,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         setMessage(timedOut ? battleText.timeUp : battleText.miss(moves[pickedMoveRef.current]));
       }, WILD_FOE_ATTACK_MS);
     },
-    [companion, fxAt, later, moves, setWild, wildDef],
+    [companion, moveFx, later, moves, setWild, wildDef],
   );
   const onStruckRef = useRef(onStruck);
   onStruckRef.current = onStruck;
@@ -334,7 +370,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       return;
     }
     setHitCount((n) => n + 1);
-    fxAt('.wild__foe', 'hit');
+    moveFx('ally', moveIndex);
     setMessage(battleText.hit(moves[moveIndex]));
     if (after.phase === 'hit') {
       later(() => {
@@ -378,7 +414,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       switch (thrown.outcome) {
         case 'caught':
           setWild(after);
-          fxAt('.wild__foe', 'catch');
+          catchFx();
           break;
         case 'retry':
           setMessage(battleText.retryThrow);

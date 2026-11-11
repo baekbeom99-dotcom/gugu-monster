@@ -26,8 +26,25 @@ export interface FxSpec {
   screen: boolean;
   /** pixelfx 효과에 넘기는 옵션 (색·뒤집기 등) */
   options?: Record<string, unknown>;
+  /** 옆으로 뻗는 효과(원점에서 오른쪽으로)의 길이 (효과 그림 화소): 끝이 맞는 구구몬에 닿도록 쏘는 쪽으로 이만큼 물려 튼다 */
+  reach?: number;
+  /** 틀 높이: 'ground'(기본) 발치 · 'center' 몸 한가운데 */
+  anchor?: 'ground' | 'center';
   /** 개발 화면에 보이는 설명 */
   note: string;
+}
+
+/** 황금 구구몬이 쏠 때의 금색 팔레트 — 효과마다 기본 색 개수(6·8·9)가 달라 그 길이에 맞춰 만든다 (어두운 금 → 흰빛) */
+const GOLD_RAMP = ['#3a1d05', '#6b3a0c', '#a8620f', '#e0961c', '#ffcf3a', '#ffe680', '#fff6cf', '#ffffff'];
+export function goldPalette(length: number): string[] {
+  if (length <= 1) return [GOLD_RAMP[4]];
+  return Array.from({ length }, (_, i) => GOLD_RAMP[Math.round((i / (length - 1)) * (GOLD_RAMP.length - 1))]);
+}
+
+/** 효과 모듈의 기본 팔레트 색 개수 (없으면 8) */
+export function paletteLength(mod: FxModule): number {
+  const p = (mod.meta?.options as { palette?: unknown[] } | undefined)?.palette;
+  return Array.isArray(p) && p.length > 0 ? p.length : 8;
 }
 
 export const EFFECTS = {
@@ -67,6 +84,7 @@ export const EFFECTS = {
     load: () => import('pixelfx/fx/nature/vine-whip'),
     until: 0.9,
     speed: 1.6,
+    reach: 100,
     hold: false,
     screen: false,
     note: '풀 1번 — 덩굴 휘두르기 (왼쪽에서 오른쪽으로 뻗음, 1.4초 중 0.9초까지 빠르게)',
@@ -147,6 +165,7 @@ export const EFFECTS = {
     load: () => import('pixelfx/fx/water/water-jet'),
     until: 0.6,
     speed: 1,
+    reach: 110,
     hold: false,
     screen: false,
     note: '물 2번 — 물줄기 쏘기 (왼쪽에서 오른쪽으로, 반복 효과라 0.6초까지만)',
@@ -171,6 +190,7 @@ export const EFFECTS = {
     load: () => import('pixelfx/fx/lightning/chain-lightning'),
     until: 1.2,
     speed: 2,
+    reach: 70,
     hold: false,
     screen: false,
     note: '번개 2번 — 이어지는 번개 (1.8초 중 1.2초까지 빠르게, 왼쪽에서 오른쪽으로)',
@@ -195,6 +215,7 @@ export const EFFECTS = {
     load: () => import('pixelfx/fx/nature/boulder'),
     until: 1.5,
     speed: 2.5,
+    reach: 120,
     hold: false,
     screen: false,
     note: '땅 2번 — 굴러가는 큰 바위 (2.3초 중 1.5초까지 2.5배속, 왼쪽에서 오른쪽으로)',
@@ -219,6 +240,7 @@ export const EFFECTS = {
     load: () => import('pixelfx/fx/fire/fire-breath'),
     until: 0.7,
     speed: 1.2,
+    reach: 110,
     hold: false,
     screen: false,
     note: '불 2번 — 불 뿜기 (왼쪽에서 오른쪽으로, 반복 효과라 0.7초까지 1.2배속)',

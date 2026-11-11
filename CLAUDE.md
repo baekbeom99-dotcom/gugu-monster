@@ -15,10 +15,10 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 | `src/store/useGameStore.ts` | 저장되는 게임 상태와 액션(Zustand persist) |
 | `src/store/saveData.ts` | `SaveData` 형식, `createInitialSave`, `mergeSave`(예전 저장 채우기), `SAVE_KEY` |
 | `src/store/useSessionStore.ts` | 저장 안 되는 화면 상태(진화·레벨업 알림 대기 등) |
-| `src/domain/field/` | 필드 모험 순수 로직: **`tuning`(운영 수치 전부)**, `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남), `creatures`(종·기술 이름), `fieldQuestions`, `growth`(경험치·레벨·진화), `strength`(만남 강함 단계), `capsules`(캡슐 4종·개수), `wounds`(체력·상처), `shopQuiz`(상점 연습), `roam`(마을 구구몬 배회) |
-| `src/field/shop/` | 마을 상점 팝업: `ShopPopup`, `CapsuleTab`(한 단 연습으로 캡슐), `PotionTab`·`HealPractice`(회복 연습), `shopText`(글) |
+| `src/domain/field/` | 필드 모험 순수 로직: **`tuning`(운영 수치 전부)**, `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남), `creatures`(종·기술 이름), `fieldQuestions`, `growth`(경험치·레벨·진화), `strength`(만남 강함 단계), `capsules`(캡슐 4종·개수), `wounds`(체력·상처), `shopQuiz`(상점 연습), `roam`(마을 구구몬 배회), `answerTimer`(문제 시계), `elements`(속성 7가지·기술 효과 표) |
+| `src/field/shop/` | 마을 상점 팝업: `ShopPopup`, `CapsuleTab`(한 단 연습으로 캡슐), `PotionTab`·`HealPractice`(회복 연습), `DanPractice`·`PracticeCard`(연습 문제 카드), `shopText`(글) |
 | `src/field/world/` | 필드 걷기: `FieldScreen`, `fieldRenderer`(캔버스), `Joystick`, `FieldHud`(왼쪽 위 캡슐·도감·체력), `loadField`, `maps/`(필드마다 지도·타일 그림) |
-| `src/field/battle/` | 야생 전투: `WildBattleScreen`, `useQuestionFeed`(문제 받기), `battleText`(화면 글) |
+| `src/field/battle/` | 야생 전투: `WildBattleScreen`, `useQuestionFeed`(문제 받기), `BattleBars`(`HpBar`·`TimerBar`), `battleText`(화면 글) |
 | `src/field/art/` | 그림: `creatureArt`(구구몬 그림 등록표), `creatureSprite`, `companionImage`, `hero`(주인공), `pixelArt`(픽셀 그림 틀·표지판), `CapsuleBall` |
 | `src/field/fx/` | 효과: `effects`(효과 목록), `playFx`(틀기) |
 | `src/field/` | 그 밖: `StarterScreen`, `FieldDexScreen`, `useFieldSession`(저장 안 되는 만남 상태), `debugFlags`(디버그 스위치), `DevFieldGallery`(#/dev/field) |
@@ -77,6 +77,7 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 | 기술 이름·종 이름 | `src/domain/field/creatures.ts` (`MOVES`), 이름은 `src/domain/monsterNames.ts` | — |
 | 상점 글 | `src/field/shop/shopText.ts` | E2E가 글을 찾으면 `e2e/field.spec.ts`도 |
 | 캡슐·단 연습 수치 | `src/domain/field/tuning.ts` | `tests/field/tuning.test.ts` |
+| 속성·기술 효과 | `src/domain/field/elements.ts`(속성 표)와 `src/field/fx/effects.ts`(효과 옵션·`reach`·`anchor`) | `#/dev/field`에서 속성별 버튼으로 확인, 효과 시간 ≤ 0.6초(`tests/field/elements.test.ts`) |
 | 전투 화면 글 | `src/field/battle/battleText.ts` | E2E가 글을 찾으면 `e2e/field.spec.ts`도 |
 | 구구몬 그림 교체 | 파일을 `src/field/art/creatures/`에 넣고 `src/field/art/creatureArt.ts`의 `IMAGE_ART`에 한 줄 | `#/dev/field`에서 앞·뒤·동행 크기 확인 (퀴즈 모험 몬스터 그림은 그대로) |
 | 주인공 그림 | `src/field/art/hero.ts` (32×32 글자 배열) | `tests/field/pixelArt.test.ts`가 크기 확인 |

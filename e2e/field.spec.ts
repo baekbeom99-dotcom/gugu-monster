@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
+import { collectErrors } from './helpers';
 
 test.use({ viewport: { width: 375, height: 812 } });
 
@@ -429,6 +430,36 @@ test('오답이면 적이 공격해 내 체력이 줄고, 힌트의 빛나는 �
   const cloud = await savedCloud(page);
   expect(cloud.hp).toBe(shown);
   expect(cloud.wounds).toHaveLength(1);
+});
+
+test('속성 효과: 정답(내 공격)과 오답(적 공격)에서 콘솔 오류가 없다', async ({ page }) => {
+  const errors = collectErrors(page);
+  await standBesideGrass(page);
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  const answer = await solveWild(page);
+  await moveButton(page, answer).click();
+  await page.waitForTimeout(900); // 효과가 도는 동안
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  const answer2 = await solveWild(page);
+  await wrongMoveButton(page, answer2).click();
+  await expect(page.getByLabel(/^내 체력 (80|75|66|50)$/)).toBeVisible();
+  await page.waitForTimeout(900);
+  expect(errors).toEqual([]);
+});
+
+test('동작 줄이기: 효과 없이도 오답 → 체력이 줄고 힌트로 가고 오류가 없다', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await standBesideGrass(page);
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await expect(page.getByLabel('내 체력 100')).toBeVisible();
+  const answer = await solveWild(page);
+  await wrongMoveButton(page, answer).click();
+  await expect(page.getByLabel(/^내 체력 (80|75|66|50)$/)).toBeVisible();
+  await expect(page.locator('.wild-move--glow')).toHaveCount(1);
+  expect(errors).toEqual([]);
 });
 
 test('시간이 다 되면 적이 공격하고, 쓰러지면 태초마을로 돌아가 "쓰러졌어…" 알림', async ({ page }) => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as core from 'pixelfx';
 import { ELEMENT_FX, ELEMENT_NAMES, elementOf } from '../../src/domain/field/elements';
 import { SPECIES } from '../../src/domain/field/creatures';
-import { EFFECTS, FX_NAMES, type FxSpec } from '../../src/field/fx/effects';
+import { EFFECTS, FX_NAMES, goldPalette, paletteLength, type FxSpec } from '../../src/field/fx/effects';
 import { WILD_HIT_ANIM_MS } from '../../src/domain/field/tuning';
 
 describe('속성 표', () => {
@@ -95,5 +95,23 @@ describe('속성 효과 21개', () => {
     let px = 0;
     for (const c of frame.color) if (c >>> 24) px++;
     expect(px).toBeGreaterThan(0);
+  });
+});
+
+describe('황금 팔레트', () => {
+  it.each(ELEMENT_EFFECTS)('%s: 금색 팔레트 길이가 효과의 기본 팔레트와 같다', async (name) => {
+    const mod = await EFFECTS[name].load();
+    const len = paletteLength(mod);
+    expect([6, 8, 9]).toContain(len);
+    const gold = goldPalette(len);
+    expect(gold).toHaveLength(len);
+    // 어두운 금에서 흰빛으로, 색 값은 모두 #rrggbb
+    for (const c of gold) expect(c).toMatch(/^#[0-9a-f]{6}$/);
+    expect(gold[len - 1]).toBe('#ffffff');
+    // 금색 팔레트로 만들어도 던지지 않고 그려진다
+    const fx = core.createFx(mod, { ...(EFFECTS[name] as FxSpec).options, palette: gold, x: 40, y: 80 });
+    const frame = core.createFrame(120, 100);
+    fx.update(0.1);
+    fx.draw(frame);
   });
 });
