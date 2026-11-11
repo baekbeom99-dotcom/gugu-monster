@@ -28,7 +28,9 @@ export function createDanQuiz(dan: Dan): DanQuiz {
   return { dan, index: 0, hint: false, done: false };
 }
 
-export function danQuizFact(q: DanQuiz): FactId {
+/** 지금 풀 문제. 다 끝났으면 풀 문제가 없으니 null */
+export function danQuizFact(q: DanQuiz): FactId | null {
+  if (q.done) return null;
   return factId(q.dan, (DAN_PRACTICE_FIRST + q.index) as Multiplier);
 }
 

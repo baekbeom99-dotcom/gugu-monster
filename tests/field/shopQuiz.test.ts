@@ -6,12 +6,22 @@ describe('상점 한 단 연습', () => {
     let q = createDanQuiz(2);
     const ids: string[] = [];
     while (!q.done) {
-      ids.push(danQuizFact(q));
+      ids.push(danQuizFact(q)!);
       q = answerDanQuiz(q, true);
     }
     expect(ids).toEqual(['2x1', '2x2', '2x3', '2x4', '2x5', '2x6', '2x7', '2x8', '2x9']);
     expect(q.index).toBe(9);
     expect(answerDanQuiz(q, true)).toBe(q);
+  });
+  it('끝난 퀴즈는 문제가 없고(null), x0·x10은 한 번도 안 나온다', () => {
+    let q = createDanQuiz(7);
+    const ids: string[] = [];
+    while (!q.done) {
+      ids.push(danQuizFact(q)!);
+      q = answerDanQuiz(q, true);
+    }
+    expect(danQuizFact(q)).toBeNull();
+    expect(ids.some((f) => f.endsWith('x0') || f.endsWith('x10'))).toBe(false);
   });
   it('틀리면 힌트, 같은 문제, 진도 안 나감', () => {
     const q = answerDanQuiz(createDanQuiz(3), false);
