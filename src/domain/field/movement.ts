@@ -24,6 +24,8 @@ export interface StepResult {
   /** 움직였으면 도착한 칸 종류, 못 움직였으면 null */
   tile: Tile | null;
   exitTo: FieldId | null;
+  /** 가려던 칸이 표지판(·문·구구몬)이라 못 갔으면 그 칸, 아니면 null */
+  bump: Pos | null;
 }
 
 export const DIR_DELTA: Record<Dir, Pos> = {
@@ -86,21 +88,22 @@ export function parseMap(id: FieldId, rows: string[], opts: ParseOpts): FieldMap
   return { id, width, height, tiles, entrances, exits, signs };
 }
 
-/** 한 칸 걷기. 막힘·표지판·꾸밈·지도 밖은 못 간다. */
-export function tryStep(map: FieldMap, pos: Pos, dir: Dir): StepResult {
+/** 한 칸 걷기. 막힘·표지판·꾸밈·지도 밖은 못 간다. `occupied`가 true인 칸도 막히고 부딪힌 칸(bump)이 된다. */
+export function tryStep(map: FieldMap, pos: Pos, dir: Dir, occupied?: (p: Pos) => boolean): StepResult {
   const d = DIR_DELTA[dir];
   const nx = pos.x + d.x;
   const ny = pos.y + d.y;
-  const stay: StepResult = { pos, moved: false, enteredGrass: false, tile: null, exitTo: null };
+  const stay: StepResult = { pos, moved: false, enteredGrass: false, tile: null, exitTo: null, bump: null };
   if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) return stay;
   const tile = map.tiles[ny][nx];
-  if (tile === 'block' || tile === 'sign' || tile === 'deco') return stay;
   const next = { x: nx, y: ny };
+  if (tile === 'sign' || occupied?.(next)) return { ...stay, bump: next };
+  if (tile === 'block' || tile === 'deco') return stay;
   if (tile === 'exit') {
     const exit = map.exits.find((e) => e.pos.x === nx && e.pos.y === ny);
-    return { pos: next, moved: true, enteredGrass: false, tile, exitTo: exit?.to ?? null };
+    return { pos: next, moved: true, enteredGrass: false, tile, exitTo: exit?.to ?? null, bump: null };
   }
-  return { pos: next, moved: true, enteredGrass: tile === 'grass', tile, exitTo: null };
+  return { pos: next, moved: true, enteredGrass: tile === 'grass', tile, exitTo: null, bump: null };
 }
 
 const WALKABLE: Tile[] = ['path', 'grass', 'exit'];

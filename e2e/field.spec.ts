@@ -25,17 +25,27 @@ async function pos(page: Page) {
   return { x, y };
 }
 
-test('패드 오른쪽을 누르면 걷고, 떼면 멈춘다', async ({ page }) => {
+/** 화면 가운데쯤 (조이스틱을 누를 자리) */
+async function center(page: Page) {
+  const box = (await page.getByTestId('field-canvas').boundingBox())!;
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+test('조이스틱을 오른쪽으로 끌면 걷고, 떼면 멈춘다', async ({ page }) => {
   await seedStarter(page);
   await page.goto('/#/field');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
-  const box = (await page.getByLabel('십자 패드').boundingBox())!;
+  const c = await center(page);
   const before = await pos(page);
-  await page.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2);
+  await expect(page.getByLabel('조이스틱')).toHaveCount(0);
+  await page.mouse.move(c.x, c.y);
   await page.mouse.down();
+  await page.mouse.move(c.x + 60, c.y, { steps: 4 });
+  await expect(page.getByLabel('조이스틱')).toBeVisible();
   await page.waitForTimeout(500);
   expect((await pos(page)).x).toBeGreaterThan(before.x);
   await page.mouse.up();
+  await expect(page.getByLabel('조이스틱')).toHaveCount(0);
   await page.waitForTimeout(300);
   const stopped = await pos(page);
   await page.waitForTimeout(400);
@@ -45,15 +55,15 @@ test('패드 오른쪽을 누르면 걷고, 떼면 멈춘다', async ({ page }) 
 test('눌린 채 pointercancel이 오면 걸음이 멈춘다', async ({ page }) => {
   await seedStarter(page);
   await page.goto('/#/field');
-  const pad = page.getByLabel('십자 패드');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
-  const box = (await pad.boundingBox())!;
+  const c = await center(page);
   const before = await pos(page);
-  await page.mouse.move(box.x + box.width * 0.1, box.y + box.height / 2);
+  await page.mouse.move(c.x, c.y);
   await page.mouse.down();
+  await page.mouse.move(c.x - 60, c.y, { steps: 4 });
   await page.waitForTimeout(500);
   expect((await pos(page)).x).toBeLessThan(before.x); // 취소 전에 실제로 걸었다
-  await pad.dispatchEvent('pointercancel', { pointerId: 1, pointerType: 'mouse', isPrimary: true });
+  await page.getByTestId('joystick-layer').dispatchEvent('pointercancel', { pointerId: 1, pointerType: 'mouse', isPrimary: true });
   await page.waitForTimeout(300);
   const stopped = await pos(page);
   await page.waitForTimeout(500);
@@ -61,17 +71,18 @@ test('눌린 채 pointercancel이 오면 걸음이 멈춘다', async ({ page }) 
   await page.mouse.up();
 });
 
-test('패드 밖으로 끌고 가서 떼도 걸음이 멈춘다', async ({ page }) => {
+test('화면 밖으로 끌고 나가서 떼도 걸음이 멈춘다', async ({ page }) => {
   await seedStarter(page);
   await page.goto('/#/field');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
-  const box = (await page.getByLabel('십자 패드').boundingBox())!;
+  const c = await center(page);
   const before = await pos(page);
-  await page.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2);
+  await page.mouse.move(c.x, c.y);
   await page.mouse.down();
+  await page.mouse.move(c.x + 60, c.y, { steps: 4 });
   await page.waitForTimeout(400);
   expect((await pos(page)).x).toBeGreaterThan(before.x);
-  await page.mouse.move(box.x + box.width / 2, 60); // 패드 밖(화면 위쪽)으로
+  await page.mouse.move(c.x, -50); // 화면 밖(위쪽)으로
   await page.mouse.up();
   await page.waitForTimeout(400);
   const stopped = await pos(page);
@@ -82,10 +93,12 @@ test('패드 밖으로 끌고 가서 떼도 걸음이 멈춘다', async ({ page 
 test('걸은 뒤 새로고침해도 같은 자리', async ({ page }) => {
   await seedStarter(page);
   await page.goto('/#/field');
-  const box = (await page.getByLabel('십자 패드').boundingBox())!;
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
+  const c = await center(page);
   const before = await pos(page);
-  await page.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2);
+  await page.mouse.move(c.x, c.y);
   await page.mouse.down();
+  await page.mouse.move(c.x + 60, c.y, { steps: 4 });
   await page.waitForTimeout(600);
   await page.mouse.up();
   await page.waitForTimeout(400);
@@ -95,11 +108,11 @@ test('걸은 뒤 새로고침해도 같은 자리', async ({ page }) => {
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', `${after.x},${after.y}`);
 });
 
-test('표지판 앞에서 A를 누르면 글이 보이고, B로 닫는다', async ({ page }) => {
+test('표지판에 부딪히면 글이 뜨고, 탭하면 닫히고, 계속 눌러도 다시 안 열린다', async ({ page }) => {
   await seedStarter(page);
   await page.goto('/#/field');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/); // 지도가 뜬 뒤에 저장본을 바꾼다
-  // 표지판(9,5) 바로 아래 (9,6)에 위쪽을 보고 서 있는 저장본을 만든다
+  // 표지판(9,5) 바로 아래 (9,6)에 서 있는 저장본을 만든다
   await page.evaluate((starter) => {
     localStorage.clear();
     localStorage.setItem(
@@ -109,10 +122,15 @@ test('표지판 앞에서 A를 누르면 글이 보이고, B로 닫는다', asyn
   }, STARTER_FIELD);
   await page.reload();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '9,6');
-  await page.getByLabel('A 버튼').click();
-  await expect(page.getByRole('dialog', { name: '표지판' })).toContainText('← 물가 · 사막 →');
-  await page.getByLabel('B 버튼').click();
-  await expect(page.getByRole('dialog', { name: '표지판' })).toHaveCount(0);
+  const dialog = page.getByRole('dialog', { name: '표지판' });
+  await page.keyboard.down('ArrowUp');
+  await expect(dialog).toContainText('← 물가 · 사막 →');
+  await dialog.click();
+  await expect(dialog).toHaveCount(0);
+  await page.waitForTimeout(300); // 위쪽을 계속 누르고 있어도 다시 안 열린다
+  await expect(dialog).toHaveCount(0);
+  await page.keyboard.up('ArrowUp');
+  expect(await pos(page)).toEqual({ x: 9, y: 6 });
 });
 
 test('메뉴의 처음 화면으로 돌아간다', async ({ page }) => {

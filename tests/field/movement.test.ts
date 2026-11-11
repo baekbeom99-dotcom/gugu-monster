@@ -15,6 +15,15 @@ describe('tryStep', () => {
   it('표지판 칸으로는 못 간다', () => {
     expect(tryStep(map, { x: 1, y: 2 }, 'right').moved).toBe(false);
   });
+  it('표지판에 부딪히면 bump에 그 칸', () => {
+    const r = tryStep(map, { x: 1, y: 2 }, 'right');
+    expect(r).toMatchObject({ moved: false, bump: { x: 2, y: 2 }, tile: null });
+  });
+  it('벽은 bump 없음', () => expect(tryStep(map, { x: 1, y: 1 }, 'up').bump).toBeNull());
+  it('occupied 칸은 막히고 bump', () => {
+    const r = tryStep(map, { x: 1, y: 1 }, 'right', (p) => p.x === 2 && p.y === 1);
+    expect(r).toMatchObject({ moved: false, bump: { x: 2, y: 1 } });
+  });
   it('풀숲에 들어가면 enteredGrass', () => {
     const r = tryStep(map, { x: 1, y: 1 }, 'right');
     expect(r).toMatchObject({ moved: true, enteredGrass: true, tile: 'grass', pos: { x: 2, y: 1 } });

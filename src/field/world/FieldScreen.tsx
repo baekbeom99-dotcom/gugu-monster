@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { companionStart, DIR_DELTA, type Dir, type FieldMap, type StepResult, safeStartPosition, tryStep } from '../../domain/field/movement';
+import { companionStart, type Dir, type FieldMap, type StepResult, safeStartPosition, tryStep } from '../../domain/field/movement';
 import { displayName } from '../../domain/field/growth';
 import { useSessionStore } from '../../store/useSessionStore';
 import { companionImage } from '../art/companionImage';
@@ -12,7 +12,7 @@ import { stepOnTile } from '../../domain/field/encounter';
 import { ENCOUNTER_FLASH_MS, STEP_MS, TURN_TAP_MS } from '../../domain/field/tuning';
 import { debugFlags } from '../debugFlags';
 import { useGameStore } from '../../store/useGameStore';
-import { TouchPad } from './TouchPad';
+import { Joystick } from './Joystick';
 import { type Companion, drawField, viewScale } from './fieldRenderer';
 import { FieldLoading } from './FieldLoading';
 import { OFFLINE_MESSAGE, getLoadedField, loadField, travelTo } from './loadField';
@@ -164,6 +164,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     heldSince: 0,
     needTurn: false,
     signOpen: false,
+    /** 방금 부딪힌 칸과 그때 잡은 방향 — 같은 방향을 계속 눌러도 글이 다시 열리지 않게 */
+    lastBump: null as { key: string; dir: Dir } | null,
     /** 만남이 정해지면 더 걷지 않는다 */
     frozen: false,
     /** 동행이 서 있는 칸 (걸음이 끝날 때마다 주인공이 방금 떠난 칸으로) */
@@ -196,28 +198,19 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     useGameStore.getState().setFieldPosition({ map: map.id, x: s.x, y: s.y, facing: s.facing });
   }, [map.id]);
 
-  const press = useCallback(
-    (kind: 'A' | 'B') => {
-      const s = st.current;
-      if (s.noticeOpen) {
-        dismissRef.current();
-        return;
-      }
-      if (s.signOpen) {
-        s.signOpen = false;
-        setSignText(null);
-        return;
-      }
-      if (kind === 'B' || s.move || s.frozen) return;
-      const d = DIR_DELTA[s.facing];
-      const sign = map.signs.find((g) => g.pos.x === s.x + d.x && g.pos.y === s.y + d.y);
-      if (sign) {
-        s.signOpen = true;
-        setSignText(sign.text);
-      }
-    },
-    [map],
-  );
+  /** 화면을 가볍게 탭: 알림이 떠 있으면 닫고, 표지판 글이 떠 있으면 닫는다 */
+  const onTap = useCallback(() => {
+    const s = st.current;
+    if (s.noticeOpen) {
+      dismissRef.current();
+      return;
+    }
+    if (s.signOpen) {
+      s.signOpen = false;
+      setSignText(null);
+    }
+  }, []);
+
   /** 걸음마다 만남 주사위(풀숲 30%·길 4%) → 만나면 멈추고 번쩍인 뒤 전투 화면으로 */
   const checkEncounter = useCallback((result: StepResult) => {
     leaveBattleReturn();
@@ -244,9 +237,6 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   useEffect(() => () => clearTimeout(flashTimer.current), []);
   const checkRef = useRef(checkEncounter);
   checkRef.current = checkEncounter;
-
-  const pressRef = useRef(press);
-  pressRef.current = press;
 
   const setPadDir = useCallback((d: Dir | null) => {
     st.current.padDir = d;
@@ -283,8 +273,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       if (d) {
         e.preventDefault();
         s.keys = [...s.keys.filter((k) => k !== d), d];
-      } else if (e.code === 'KeyZ') pressRef.current('A');
-      else if (e.code === 'KeyX') pressRef.current('B');
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => {
       const d = keyDir(e);
@@ -326,6 +315,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       if (paused) return;
       if (s.move && now - s.move.start >= STEP_MS) finishMove();
       if (!s.move) {
+        // 부딪힘은 방향을 떼거나 바꿔야 다시 반응한다
+        if (s.lastBump && held() !== s.lastBump.dir) s.lastBump = null;
         const h = s.signOpen || s.frozen || s.noticeOpen ? null : held();
         if (h !== s.lastHeld) {
           s.lastHeld = h;
@@ -335,7 +326,21 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         }
         if (h && (!s.needTurn || now - s.heldSince >= TURN_TAP_MS)) {
           const result = tryStep(map, { x: s.x, y: s.y }, h);
-          if (result.moved) s.move = { fx: s.x, fy: s.y, tx: result.pos.x, ty: result.pos.y, start: now, result };
+          if (result.moved) {
+            s.lastBump = null;
+            s.move = { fx: s.x, fy: s.y, tx: result.pos.x, ty: result.pos.y, start: now, result };
+          } else if (result.bump) {
+            const b = result.bump;
+            const key = `${b.x},${b.y}`;
+            if (s.lastBump?.key !== key) {
+              s.lastBump = { key, dir: h };
+              const sign = map.signs.find((g) => g.pos.x === b.x && g.pos.y === b.y);
+              if (sign) {
+                s.signOpen = true;
+                setSignText(sign.text);
+              }
+            }
+          }
         }
       }
       let hx = s.x;
@@ -381,6 +386,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     <section className="fieldmode">
       <div className="fieldmode__view" ref={wrapRef}>
         <canvas ref={canvasRef} className="fieldmode__canvas" data-testid="field-canvas" />
+        <Joystick onDir={setPadDir} onTap={onTap} />
         <button type="button" className="btn btn--ghost fieldmode__menu-btn" onClick={() => setMenuOpen((v) => !v)}>
           메뉴
         </button>
@@ -430,12 +436,11 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
           </button>
         )}
         {signText && (
-          <div className="fieldmode__text" role="dialog" aria-label="표지판">
+          <div className="fieldmode__text" role="dialog" aria-label="표지판" onClick={onTap}>
             {signText}
           </div>
         )}
       </div>
-      <TouchPad onDir={setPadDir} onA={() => pressRef.current('A')} onB={() => pressRef.current('B')} />
     </section>
   );
 }
