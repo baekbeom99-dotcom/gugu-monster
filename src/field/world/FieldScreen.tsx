@@ -7,7 +7,7 @@ import { companionImage } from '../art/companionImage';
 import { creatureArt } from '../art/creatureArt';
 import { STAGE_SCALE } from '../art/creatureSprite';
 import { playFx, preloadFx, prefersReducedMotion } from '../fx/playFx';
-import type { FieldId } from '../../domain/field/fields';
+import type { MapId } from '../../domain/field/fields';
 import { stepOnTile } from '../../domain/field/encounter';
 import { ENCOUNTER_FLASH_MS, STEP_MS, TURN_TAP_MS } from '../../domain/field/tuning';
 import { debugFlags } from '../debugFlags';
@@ -60,7 +60,7 @@ export function FieldScreen(props: Props) {
 function FieldRoot(props: Props) {
   const navigate = useNavigate();
   const [map, setMap] = useState<FieldMap | null>(() => getLoadedField(useGameStore.getState().field.position.map) ?? null);
-  const [loadingTo, setLoadingTo] = useState<FieldId | null>(null);
+  const [loadingTo, setLoadingTo] = useState<MapId | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -95,7 +95,7 @@ function FieldRoot(props: Props) {
   }, []);
 
   const goTo = useCallback(
-    (to: FieldId) => {
+    (to: MapId) => {
       const from = map;
       if (!from) return;
       setNotice(null);
@@ -128,11 +128,11 @@ function FieldRoot(props: Props) {
         </button>
       </section>
     );
-  if (!map) return <FieldLoading field={loadingTo ?? useGameStore.getState().field.position.map} />;
+  if (!map) return <FieldLoading map={loadingTo ?? useGameStore.getState().field.position.map} />;
   return <FieldView key={map.id + attempt + (notice ?? '')} map={map} onExit={goTo} notice={notice} {...props} />;
 }
 
-function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onExit: (to: FieldId) => void; notice: string | null }) {
+function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onExit: (to: MapId) => void; notice: string | null }) {
   const navigate = useNavigate();
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -225,7 +225,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     const flags = debugFlags();
     const r = stepOnTile(Math.random, {
       tile: result.tile,
-      field: map.id,
+      map: map.id,
       stepsSinceBattle: session.stepsSinceBattle,
       challengeUnlocked: learning.challengeUnlocked,
       seen: field.seen,

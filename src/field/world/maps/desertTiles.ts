@@ -126,6 +126,7 @@ export const DESERT_TILES: TileSet = {
   pick(map, x, y) {
     switch (map.tiles[y][x]) {
       case 'path':
+      case 'door': // 필드에는 문이 없다
         return [sand];
       case 'grass':
         return [dryBush];
@@ -134,7 +135,7 @@ export const DESERT_TILES: TileSet = {
       case 'sign':
         return [sand, SHARED_ARTS.sign];
       case 'exit':
-        return [sand, exitArrow(map, x)];
+        return [sand, exitArrow(map, x, y)];
       case 'block':
         // 테두리는 바위가 많고 가끔 선인장, 안쪽 덩어리는 선인장
         if (onBorder(map, x, y)) return [tileHash(x, y) % 4 === 0 ? cactus : rock];

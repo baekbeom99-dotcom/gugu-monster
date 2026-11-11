@@ -1,4 +1,4 @@
-/** 만남 주사위 — 걸을 수 있는 칸에 들어선 걸음마다 부른다(풀숲 30%, 길 4%) */
+/** 만남 주사위 — 걸을 수 있는 칸에 들어선 걸음마다 부른다(풀숲 30%, 길 4%, 태초마을은 늘 0) */
 import type { Dan } from '../facts';
 import { pickOne, randomInt, type Rng, weightedPick } from '../random';
 import { LEGEND_SPECIES, type SpeciesId } from './creatures';
@@ -12,7 +12,7 @@ import {
   WILD_LEVEL_MAX,
   WILD_LEVEL_MIN,
 } from './tuning';
-import { type FieldId, FIELDS, LEGEND_DAN, fieldDans } from './fields';
+import { type FieldId, FIELDS, LEGEND_DAN, type MapId, fieldDans } from './fields';
 import type { Tile } from './movement';
 
 export interface Encounter {
@@ -20,10 +20,13 @@ export interface Encounter {
   dan: Dan;
   level: number;
   legend: boolean;
+  /** 만난 필드 (레전드도 그 필드). 전투 문제는 이 필드로 낸다 */
+  field: FieldId;
 }
 
 export interface EncounterContext {
-  field: FieldId;
+  /** 지금 걷는 지도 */
+  map: MapId;
   stepsSinceBattle: number;
   challengeUnlocked: boolean;
   seen: readonly SpeciesId[];
@@ -31,8 +34,9 @@ export interface EncounterContext {
   force?: { grass?: boolean; path?: boolean; legend?: boolean; noWild?: boolean };
 }
 
-/** 칸 종류별 만남 확률: 풀숲 0.3, 길 0.04, 나머지 0 */
-export function encounterChance(_map: FieldId, tile: Tile | null): number {
+/** 칸 종류별 만남 확률: 풀숲 0.3, 길 0.04, 나머지 0. 태초마을은 늘 0 */
+export function encounterChance(map: MapId, tile: Tile | null): number {
+  if (map === 'town') return 0;
   if (tile === 'grass') return ENCOUNTER_CHANCE_GRASS;
   if (tile === 'path') return ENCOUNTER_CHANCE_PATH;
   return 0;
@@ -43,38 +47,41 @@ export function encounterChance(_map: FieldId, tile: Tile | null): number {
  * 그 칸 종류의 force(grass·path)면 만남 판정은 rng를 쓰지 않고 통과, force.legend면 (해금 때만) 레전드 판정을 건너뛰고 레전드.
  */
 export function rollEncounter(rng: Rng, ctx: EncounterContext & { tile: Tile | null }): Encounter | null {
+  const field = ctx.map;
+  // 마을에서는 강제 스위치여도 만나지 않는다 (rng도 안 씀)
+  if (field === 'town') return null;
   if (ctx.stepsSinceBattle < ENCOUNTER_GRACE_STEPS) return null;
   const forced = (ctx.tile === 'grass' && !!ctx.force?.grass) || (ctx.tile === 'path' && !!ctx.force?.path);
   if (!forced) {
     if (ctx.force?.noWild) return null;
-    if (!(rng() < encounterChance(ctx.field, ctx.tile))) return null;
+    if (!(rng() < encounterChance(field, ctx.tile))) return null;
   }
 
   if (ctx.challengeUnlocked) {
     const isLegend = ctx.force?.legend ? true : rng() < LEGEND_CHANCE;
     if (isLegend) {
-      return { species: pickOne(rng, LEGEND_SPECIES), dan: LEGEND_DAN, level: LEGEND_LEVEL, legend: true };
+      return { species: pickOne(rng, LEGEND_SPECIES), dan: LEGEND_DAN, level: LEGEND_LEVEL, legend: true, field };
     }
   }
 
-  const species = weightedPick(rng, FIELDS[ctx.field].species, (s) => (ctx.seen.includes(s) ? 1 : UNSEEN_WEIGHT));
+  const species = weightedPick(rng, FIELDS[field].species, (s) => (ctx.seen.includes(s) ? 1 : UNSEEN_WEIGHT));
   if (!species) return null;
-  const dan = pickOne(rng, fieldDans(ctx.field, ctx.challengeUnlocked));
+  const dan = pickOne(rng, fieldDans(field, ctx.challengeUnlocked));
   const level = randomInt(rng, WILD_LEVEL_MIN, WILD_LEVEL_MAX);
-  return { species, dan, level, legend: false };
+  return { species, dan, level, legend: false, field };
 }
 
 /**
  * 한 걸음: 지금 걸음 수로 먼저 주사위를 굴리고, 못 만났으면 걸음 수를 1 늘린다.
  * 그래서 전투 뒤(0)에는 ENCOUNTER_GRACE_STEPS 걸음이 안전하고,
  * 필드에 막 들어왔을 때(ENCOUNTER_GRACE_STEPS에서 시작)는 첫 걸음부터 만날 수 있다.
- * 만남 확률이 0인 칸(출구·못 움직임 등)은 난수도 걸음 수도 건드리지 않는다.
+ * 만남 확률이 0인 칸(출구·못 움직임·마을 등)은 난수도 걸음 수도 건드리지 않는다.
  */
 export function stepOnTile(
   rng: Rng,
   ctx: EncounterContext & { tile: Tile | null },
 ): { encounter: Encounter | null; stepsSinceBattle: number } {
-  if (encounterChance(ctx.field, ctx.tile) === 0) return { encounter: null, stepsSinceBattle: ctx.stepsSinceBattle };
+  if (encounterChance(ctx.map, ctx.tile) === 0) return { encounter: null, stepsSinceBattle: ctx.stepsSinceBattle };
   const encounter = rollEncounter(rng, ctx);
   return { encounter, stepsSinceBattle: encounter ? ctx.stepsSinceBattle : ctx.stepsSinceBattle + 1 };
 }

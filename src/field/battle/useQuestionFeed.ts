@@ -25,7 +25,7 @@ function planFor(encounter: Encounter, rng: Rng): PlannedItem[] {
     return Array.from({ length: 5 }, () => ({ factId: forced.factId as FactId, type: forced.type as QuestionType, isRetry: false, isConfidence: false }));
   const learner = snapshot();
   if (encounter.legend) return planLegendQuestions(learner, Date.now(), rng);
-  return planFieldQuestions(learner, useGameStore.getState().field.position.map, Date.now(), rng);
+  return planFieldQuestions(learner, encounter.field, Date.now(), rng);
 }
 
 /** 문제 받기: 목록을 다 쓰면 새로 받아 이어 붙이고, 틀린 사실은 필드 모양으로 다시 넣는다 */

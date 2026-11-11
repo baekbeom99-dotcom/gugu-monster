@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FIELDS, fieldDans } from '../../src/domain/field/fields';
-import { companionStart, parseMap, tryStep } from '../../src/domain/field/movement';
+import { companionStart, parseMap, safeStartPosition, tryStep } from '../../src/domain/field/movement';
 
 const map = parseMap('meadow', ['#####', '<.,.>', '#.S.#', '#@..#', '#####'], {
   exits: { '<': 'waterside', '>': 'desert' },
@@ -72,5 +72,45 @@ describe('companionStart', () => {
     expect(companionStart(map, { x: 1, y: 3 }, 'right')).toEqual({ x: 1, y: 3 });
     expect(companionStart(map, { x: 2, y: 3 }, 'up')).toEqual({ x: 2, y: 3 });
     expect(companionStart(map, { x: 2, y: 3 }, 'down')).toEqual({ x: 2, y: 3 });
+  });
+});
+
+describe('마을 글자 (위아래 출구·문·서식지)', () => {
+  const rows = ['##^##', '<...>', '#gDa#', '#p~@#', '###v#'];
+  const m = parseMap('town', rows, { exits: { '<': 'waterside', '>': 'desert', '^': 'meadow', v: 'town' }, signTexts: [] });
+  it('위 출구는 아래를 보고, 옆 출구 입구는 한 칸 안쪽', () => {
+    expect(m.exits.find((e) => e.pos.y === 0)).toEqual({ pos: { x: 2, y: 0 }, to: 'meadow', inward: 'down' });
+    expect(m.entrances.waterside).toEqual({ x: 1, y: 1 });
+    expect(m.entrances.meadow).toEqual({ x: 2, y: 1 });
+    expect(m.exits.find((e) => e.to === 'waterside')?.inward).toBe('right');
+    expect(m.exits.find((e) => e.to === 'desert')?.inward).toBe('left');
+  });
+  it('문·막힘·서식지·원래 글자', () => {
+    expect(m.doors).toEqual([{ x: 2, y: 2 }]);
+    expect(m.tiles[2][2]).toBe('door');
+    expect(m.tiles[3][2]).toBe('block');
+    expect(m.tiles[2][1]).toBe('path');
+    expect(m.zones).toEqual({ meadow: [{ x: 1, y: 2 }], desert: [{ x: 3, y: 2 }], waterside: [{ x: 1, y: 3 }] });
+    expect(m.raw).toBe(rows);
+  });
+  it('문에 부딪히면 bump = 문 칸', () => {
+    expect(tryStep(m, { x: 2, y: 1 }, 'down')).toMatchObject({ moved: false, bump: { x: 2, y: 2 } });
+  });
+  it('아래 출구는 위를 보고, 지나가면 exitTo', () => {
+    expect(m.exits.find((e) => e.to === 'town')).toEqual({ pos: { x: 3, y: 4 }, to: 'town', inward: 'up' });
+    expect(m.entrances.town).toEqual({ x: 3, y: 3 });
+    expect(tryStep(m, { x: 3, y: 3 }, 'down')).toMatchObject({ moved: true, exitTo: 'town' });
+  });
+  it('필드 지도에는 문·서식지가 없다', () => {
+    expect(map.doors).toEqual([]);
+    expect(map.zones).toEqual({});
+    expect(map.exits.map((e) => e.inward)).toEqual(['right', 'left']);
+  });
+  it('도착 필드가 없는 위 출구는 오류', () => {
+    expect(() => parseMap('town', ['#^#', '#@#'], { exits: {}, signTexts: [] })).toThrow();
+  });
+  it('저장 자리가 마을이면 마을 지도에서 그대로', () => {
+    expect(safeStartPosition(m, { map: 'town', x: 1, y: 1, facing: 'up' })).toEqual({ x: 1, y: 1, facing: 'up' });
+    expect(safeStartPosition(m, { map: 'meadow', x: 1, y: 1, facing: 'up' })).toEqual({ x: 3, y: 3, facing: 'down' });
   });
 });

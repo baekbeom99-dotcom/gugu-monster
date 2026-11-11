@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ART_SIZE, SHARED_ARTS, TRANSPARENT, type PixelArt } from '../../src/field/art/pixelArt';
+import { ART_SIZE, SHARED_ARTS, TRANSPARENT, exitArrow, type PixelArt } from '../../src/field/art/pixelArt';
+import { parseMap } from '../../src/domain/field/movement';
 import { MONSTER_FILL } from '../../src/field/art/creatureArt';
 import { HERO_DIRS, HERO_FRAMES, HERO_SIZE, HERO_SPRITES, heroFrame } from '../../src/field/art/hero';
 import { MEADOW_TILES } from '../../src/field/world/maps/meadow';
@@ -100,5 +101,21 @@ describe('필드마다 타일 묶음', () => {
     const top = MEADOW_TILES.pick(map, 3, 5, 0);
     expect(top.some((a) => a === MEADOW_TILES.arts.roofRedL || a === MEADOW_TILES.arts.roofBlueL)).toBe(true);
     expect(MEADOW_TILES.pick(map, 0, 0, 0)).toContain(MEADOW_TILES.arts.tree);
+  });
+});
+
+describe('출구 화살표', () => {
+  it('출구의 바깥쪽을 가리킨다 (위·아래·왼쪽·오른쪽)', () => {
+    const m = parseMap('town', ['##^##', '<.@.>', '##v##'], { exits: { '<': 'waterside', '>': 'desert', '^': 'meadow', v: 'meadow' }, signTexts: [] });
+    expect(exitArrow(m, 2, 0)).toBe(SHARED_ARTS.arrowUp);
+    expect(exitArrow(m, 2, 2)).toBe(SHARED_ARTS.arrowDown);
+    expect(exitArrow(m, 0, 1)).toBe(SHARED_ARTS.arrowLeft);
+    expect(exitArrow(m, 4, 1)).toBe(SHARED_ARTS.arrowRight);
+  });
+  it('위 화살표는 오른쪽 화살표를 돌린 그림 (끝이 위)', () => {
+    const up = SHARED_ARTS.arrowUp.rows;
+    expect(up[2]).toBe('................');
+    expect(up[3]).toBe('.......oo.......');
+    expect(SHARED_ARTS.arrowDown.rows).toEqual([...up].reverse());
   });
 });

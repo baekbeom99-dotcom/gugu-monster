@@ -1,4 +1,4 @@
-import type { FieldId } from '../../domain/field/fields';
+import type { MapId } from '../../domain/field/fields';
 import { type Dir, type FieldMap, type Pos, parseMap } from '../../domain/field/movement';
 import { registerTileSet } from './fieldRenderer';
 
@@ -7,11 +7,13 @@ import { MIN_LOADING_MS } from '../../domain/field/tuning';
 export { MIN_LOADING_MS };
 export const OFFLINE_MESSAGE = '인터넷에 연결되면 갈 수 있어요';
 
-export type FieldLoaders = Record<FieldId, () => Promise<FieldMap>>;
-export type SavedPosition = { map: FieldId; x: number; y: number; facing: Dir };
+export type FieldLoaders = Record<MapId, () => Promise<FieldMap>>;
+export type SavedPosition = { map: MapId; x: number; y: number; facing: Dir };
 
-/** 필드마다 따로 불러온다 (Vite가 지도 파일마다 묶음을 따로 만든다). 타일 그림도 같은 묶음에 있다 */
+/** 지도마다 따로 불러온다 (Vite가 지도 파일마다 묶음을 따로 만든다). 타일 그림도 같은 묶음에 있다 */
 export const DEFAULT_LOADERS: FieldLoaders = {
+  // 태초마을 지도(maps/town)는 Task 5가 채운다
+  town: () => Promise.reject(new Error('태초마을 지도는 아직 없어요')),
   meadow: () =>
     import('./maps/meadow').then((m) => {
       registerTileSet('meadow', m.MEADOW_TILES);
@@ -29,14 +31,14 @@ export const DEFAULT_LOADERS: FieldLoaders = {
     }),
 };
 
-const cache = new Map<FieldId, FieldMap>();
+const cache = new Map<MapId, FieldMap>();
 
 /** 이미 불러온 지도가 있으면 바로 (없으면 undefined) */
-export function getLoadedField(id: FieldId): FieldMap | undefined {
+export function getLoadedField(id: MapId): FieldMap | undefined {
   return cache.get(id);
 }
 
-export async function loadField(id: FieldId, loaders: FieldLoaders = DEFAULT_LOADERS): Promise<FieldMap> {
+export async function loadField(id: MapId, loaders: FieldLoaders = DEFAULT_LOADERS): Promise<FieldMap> {
   const hit = cache.get(id);
   if (hit) return hit;
   const map = await loaders[id]();
@@ -44,20 +46,19 @@ export async function loadField(id: FieldId, loaders: FieldLoaders = DEFAULT_LOA
   return map;
 }
 
-/** 출구에서 지도 안쪽을 바라보는 방향 */
-function inwardFacing(map: FieldMap, to: FieldId): Dir {
-  const exit = map.exits.find((e) => e.to === to);
-  return exit && exit.pos.x === 0 ? 'right' : 'left';
+/** `to`로 가는 출구에서 지도 안쪽을 바라보는 방향 (그런 출구가 없으면 아래) */
+function inwardFacing(map: FieldMap, to: MapId): Dir {
+  return map.exits.find((e) => e.to === to)?.inward ?? 'down';
 }
 
 /** `dest` 지도에 `from`에서 걸어 들어왔을 때 서는 자리 (입구, 지도 안쪽을 봄) */
-export function arrivalPosition(dest: FieldMap, from: FieldId): SavedPosition {
+export function arrivalPosition(dest: FieldMap, from: MapId): SavedPosition {
   const p: Pos = dest.entrances[from] ?? dest.entrances.start ?? { x: 1, y: 1 };
   return { map: dest.id, x: p.x, y: p.y, facing: inwardFacing(dest, from) };
 }
 
 /** 못 가게 됐을 때: 원래 필드의 `to`행 출구 한 칸 앞 */
-export function bounceBackPosition(from: FieldMap, to: FieldId): SavedPosition {
+export function bounceBackPosition(from: FieldMap, to: MapId): SavedPosition {
   return arrivalPosition(from, to);
 }
 
@@ -67,10 +68,10 @@ export type TravelOutcome =
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/** `from` 필드의 출구를 지나 `to` 필드로. 불러오기는 최소 `minMs`는 걸린다. 실패하면 원래 필드 출구 한 칸 앞 */
+/** `from` 지도의 출구를 지나 `to` 지도로. 불러오기는 최소 `minMs`는 걸린다. 실패하면 원래 지도 출구 한 칸 앞 */
 export async function travelTo(
   from: FieldMap,
-  to: FieldId,
+  to: MapId,
   minMs: number = MIN_LOADING_MS,
   loaders: FieldLoaders = DEFAULT_LOADERS,
 ): Promise<TravelOutcome> {

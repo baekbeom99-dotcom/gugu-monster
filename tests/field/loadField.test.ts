@@ -9,6 +9,7 @@ import {
   loadField,
   travelTo,
 } from '../../src/field/world/loadField';
+import { parseMap } from '../../src/domain/field/movement';
 
 describe('필드 불러오기', () => {
   it('최소 로딩 시간은 600ms', () => {
@@ -42,10 +43,30 @@ describe('필드 불러오기', () => {
       meadow: () => Promise.reject(new Error('x')),
       waterside: () => Promise.reject(new Error('offline')),
       desert: () => Promise.reject(new Error('offline')),
+      town: () => Promise.reject(new Error('offline')),
     };
     const r = await travelTo(meadow, 'waterside', 0, failing);
     expect(r.ok).toBe(false);
     expect(r.position).toEqual({ map: 'meadow', ...meadow.entrances.waterside!, facing: 'right' });
     expect(bounceBackPosition(meadow, 'desert')).toEqual({ map: 'meadow', ...meadow.entrances.desert!, facing: 'left' });
+  });
+
+  it('위(^)로 들어오면 아래를, 아래(v)로 들어오면 위를 본다', async () => {
+    clearFieldCache();
+    const town = parseMap('town', ['##^##', '#...#', '#.@.#', '#...#', '##v##'], { exits: { '^': 'meadow', v: 'desert' }, signTexts: [] });
+    const field = parseMap('meadow', ['#####', '#.@.#', '##v##'], { exits: { v: 'town' }, signTexts: [] });
+    const fake: FieldLoaders = {
+      town: () => Promise.resolve(town),
+      meadow: () => Promise.resolve(field),
+      waterside: () => Promise.reject(new Error('x')),
+      desert: () => Promise.reject(new Error('x')),
+    };
+    expect(arrivalPosition(town, 'meadow')).toEqual({ map: 'town', x: 2, y: 1, facing: 'down' });
+    expect(arrivalPosition(town, 'desert')).toEqual({ map: 'town', x: 2, y: 3, facing: 'up' });
+    const r = await travelTo(field, 'town', 0, fake);
+    expect(r).toMatchObject({ ok: true, position: { map: 'town', x: 2, y: 1, facing: 'down' } });
+    const back = await travelTo(town, 'meadow', 0, fake);
+    expect(back).toMatchObject({ ok: true, position: { map: 'meadow', x: 2, y: 1, facing: 'up' } });
+    clearFieldCache();
   });
 });

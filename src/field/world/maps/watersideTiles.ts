@@ -185,7 +185,7 @@ export const WATERSIDE_TILES: TileSet = {
     else layers.push(sand);
     if (isWater(map, x, y - 1) && layers[0] !== planks) layers.push(bank);
     if (t === 'sign') layers.push(SHARED_ARTS.sign);
-    if (t === 'exit') layers.push(exitArrow(map, x));
+    if (t === 'exit') layers.push(exitArrow(map, x, y));
     return layers;
   },
 };

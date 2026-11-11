@@ -4,7 +4,7 @@
  * 주인공은 hero.ts, 구구몬 그림은 creatureArt.ts.
  * 필드마다 다른 타일은 그 필드 지도 파일(world/maps/*Tiles.ts)에 함께 있어서 그 필드를 불러올 때만 내려받는다.
  */
-import type { FieldMap } from '../../domain/field/movement';
+import type { Dir, FieldMap } from '../../domain/field/movement';
 
 /** 그림 한 장의 칸 수 (가로·세로) */
 export const ART_SIZE = 16;
@@ -103,14 +103,39 @@ const ARROW_RIGHT: PixelArt = {
   ],
 };
 
+/** 왼쪽으로 한 번(반시계 90°) 돌린 그림 (정사각형 그림만) */
+function rotateLeft(art: PixelArt): PixelArt {
+  const n = art.rows.length;
+  return { palette: art.palette, rows: art.rows.map((_, r) => art.rows.map((row) => row[n - 1 - r]).join('')) };
+}
+
+/** 위아래를 뒤집은 그림 */
+function flipVertical(art: PixelArt): PixelArt {
+  return { palette: art.palette, rows: [...art.rows].reverse() };
+}
+
+const ARROW_UP = rotateLeft(ARROW_RIGHT);
+
 export const SHARED_ARTS = {
   sign: SIGN,
   arrowRight: ARROW_RIGHT,
   arrowLeft: mirror(ARROW_RIGHT),
+  arrowUp: ARROW_UP,
+  arrowDown: flipVertical(ARROW_UP),
 };
 
-/** 출구 칸 위에 얹는 화살표 (지도 왼쪽 끝이면 ←) */
-export function exitArrow(map: FieldMap, x: number): PixelArt {
+/** 출구 안쪽 방향 → 바깥을 가리키는 화살표 */
+const OUTWARD_ARROW: Record<Dir, PixelArt> = {
+  right: SHARED_ARTS.arrowLeft,
+  left: SHARED_ARTS.arrowRight,
+  down: SHARED_ARTS.arrowUp,
+  up: SHARED_ARTS.arrowDown,
+};
+
+/** 출구 칸 위에 얹는 화살표: 그 출구의 바깥쪽 (출구가 아니면 지도 왼쪽 절반은 ←, 오른쪽은 →) */
+export function exitArrow(map: FieldMap, x: number, y: number): PixelArt {
+  const exit = map.exits.find((e) => e.pos.x === x && e.pos.y === y);
+  if (exit) return OUTWARD_ARROW[exit.inward];
   return x < map.width / 2 ? SHARED_ARTS.arrowLeft : SHARED_ARTS.arrowRight;
 }
 

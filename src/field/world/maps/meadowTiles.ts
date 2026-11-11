@@ -228,6 +228,7 @@ export const MEADOW_TILES: TileSet = {
     const floor = onCross(map, x, y) ? dirt : ground;
     switch (map.tiles[y][x]) {
       case 'path':
+      case 'door': // 필드에는 문이 없다
         return [floor];
       case 'grass':
         return [tallGrass];
@@ -236,7 +237,7 @@ export const MEADOW_TILES: TileSet = {
       case 'sign':
         return [floor, SHARED_ARTS.sign];
       case 'exit':
-        return [dirt, exitArrow(map, x)];
+        return [dirt, exitArrow(map, x, y)];
       case 'block': {
         if (onBorder(map, x, y)) return [tree];
         const h = houseRole(map, x, y);

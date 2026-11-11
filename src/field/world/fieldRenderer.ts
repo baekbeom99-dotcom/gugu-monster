@@ -1,4 +1,4 @@
-import type { FieldId } from '../../domain/field/fields';
+import type { MapId } from '../../domain/field/fields';
 import type { Dir, FieldMap, Tile } from '../../domain/field/movement';
 import { WATER_FRAME_MS } from '../../domain/field/tuning';
 import { TILE_PX, VIEW_TILES_W } from './padDirection';
@@ -14,12 +14,13 @@ const TILE_COLOR: Record<Tile, string> = {
   deco: '#2e7d32',
   sign: '#8d5a2b',
   exit: '#f5e663',
+  door: '#6d4c41',
 };
 
-const tileSets = new Map<FieldId, TileSet>();
+const tileSets = new Map<MapId, TileSet>();
 
-/** 필드 묶음을 불러올 때 그 필드의 타일 그림을 알려 준다 */
-export function registerTileSet(id: FieldId, set: TileSet): void {
+/** 지도 묶음을 불러올 때 그 지도의 타일 그림을 알려 준다 */
+export function registerTileSet(id: MapId, set: TileSet): void {
   tileSets.set(id, set);
 }
 

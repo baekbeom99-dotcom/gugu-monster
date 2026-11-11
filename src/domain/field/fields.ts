@@ -2,6 +2,10 @@ import type { MonsterKind } from '../battle';
 import type { Dan } from '../facts';
 
 export type FieldId = 'meadow' | 'waterside' | 'desert';
+/** 지도 이름: 세 필드와 태초마을 */
+export type MapId = FieldId | 'town';
+export const MAP_IDS: readonly MapId[] = ['town', 'meadow', 'waterside', 'desert'];
+export const TOWN_NAME = '태초마을';
 
 export const CHALLENGE_DAN: Dan = 12;
 /** 레전드 단 */

@@ -1,6 +1,6 @@
 /** 필드 모험 저장 데이터 — 구구몬 도감·동료·마지막 자리 */
 import { MONSTER_KINDS } from '../domain/battle';
-import type { FieldId } from '../domain/field/fields';
+import type { FieldId, MapId } from '../domain/field/fields';
 import { type Dir, parseMap } from '../domain/field/movement';
 import { MEADOW_ROWS, MEADOW_SIGNS } from '../field/world/maps/meadow';
 import { LEGEND_SPECIES, type SpeciesId } from '../domain/field/creatures';
@@ -18,7 +18,7 @@ export interface SpeciesEntry {
 }
 
 export interface FieldPosition {
-  map: FieldId;
+  map: MapId;
   x: number;
   y: number;
   facing: Dir;
