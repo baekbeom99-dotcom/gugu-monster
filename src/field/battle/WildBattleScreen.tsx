@@ -379,11 +379,11 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           setWild(after);
           break;
         case 'angry':
-          // 강력해져서 체력을 다 채우고 새 문제로
+          // 강력해져서 체력을 다 채우고 문제로 돌아간다. 다음 문제는 어지러워질 때 이미 넘겨 두었으니(말풍선이 안 보여 아직 안 낸 문제)
+          // 여기서 또 넘기지 않는다 — 넘기면 끼워 둔 틀린 문제(insertRetry)를 건너뛸 수 있다. 시간은 throwCapsule이 처음부터로 돌려 둔다
           setWild(after);
           setHitCount((n) => n + 1);
           setMessage(battleText.angry(name));
-          next(false);
           break;
       }
     }, CAPSULE_SHAKES * CAPSULE_SHAKE_MS);

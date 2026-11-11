@@ -366,7 +366,8 @@ test('시간이 다 되면 적이 공격하고, 쓰러지면 태초마을로 돌
   await page.addInitScript(() => {
     (window as unknown as { __GUGU_E2E_QUESTION__: unknown }).__GUGU_E2E_QUESTION__ = { factId: '7x8', type: 'product' };
   });
-  await standBesideGrass(page, { timer: true, cloud: { hp: 20 } });
+  // 단계를 보통(7초)으로 고정한다: 강함·강력(5초)이면 쓰러짐 글이 보이는 때가 달라진다
+  await standBesideGrass(page, { timer: true, cloud: { hp: 20 }, tier: 'normal' });
   await stepIntoGrass(page);
   await expect(page.locator('.wild__bubble')).toHaveAttribute('data-fact', '7x8');
   await expect(page.getByRole('timer')).toBeVisible();
@@ -379,8 +380,8 @@ test('시간이 다 되면 적이 공격하고, 쓰러지면 태초마을로 돌
       if (el) w.__loadingSeen.push(el.textContent ?? '');
     }).observe(document.body, { childList: true, subtree: true, characterData: true });
   });
-  await page.waitForTimeout(8000);
-  await expect(page.getByRole('status').filter({ hasText: '쓰러졌다' })).toBeVisible();
+  // 정해진 시간만큼 자지 않고 쓰러짐 글이 뜨기를 기다린다 (7초 + 공격 연출)
+  await expect(page.getByRole('status').filter({ hasText: '쓰러졌다' })).toBeVisible({ timeout: 10000 });
   await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,31'); // 태초마을 시작 칸
   const seen = await page.evaluate(() => (window as unknown as { __loadingSeen: string[] }).__loadingSeen);
@@ -418,7 +419,7 @@ test('전투 중 맞고 새로고침하면 필드로 돌아오고, 체력은 줄
 });
 
 test('도망 확인창을 6초 열어 둬도 시간이 흐르지 않아 맞지 않는다', async ({ page }) => {
-  await standBesideGrass(page, { timer: true });
+  await standBesideGrass(page, { timer: true, tier: 'normal' }); // 시간 상한(7초)을 정해 둔다
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '싸우자!' }).click();
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
