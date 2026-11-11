@@ -3,7 +3,7 @@ import * as core from 'pixelfx';
 import { ELEMENT_FX, ELEMENT_NAMES, elementOf } from '../../src/domain/field/elements';
 import { SPECIES } from '../../src/domain/field/creatures';
 import { EFFECTS, FX_NAMES, type FxSpec } from '../../src/field/fx/effects';
-import { WILD_FOE_ATTACK_MS, WILD_HIT_ANIM_MS } from '../../src/domain/field/tuning';
+import { WILD_HIT_ANIM_MS } from '../../src/domain/field/tuning';
 
 describe('속성 표', () => {
   it('종 11개 모두 속성이 있고 레전드는 기본 종과 같다', () => {
@@ -51,24 +51,49 @@ describe('속성 효과 21개', () => {
     expect(FX_NAMES).toHaveLength(24);
   });
 
-  it.each(ELEMENT_EFFECTS)('%s: 불러와지고 그려도 던지지 않고, 전투 연출 시간 안에 끝난다', async (name) => {
+  it.each(ELEMENT_EFFECTS)('%s: 실제 트는 시간이 명중 연출(0.6초) 안이다', async (name) => {
     const spec: FxSpec = EFFECTS[name];
     expect(spec.screen).toBe(false);
     expect(spec.hold).toBe(false);
     expect(spec.note.length).toBeGreaterThan(0);
-    // 실제로 트는 시간 = (until 또는 효과 길이) / 속도 → 적 공격 연출(0.7초) 안
+    // 같은 효과를 내 공격(명중 0.6초)과 적 공격(0.7초)에 쓰므로 짧은 쪽에 맞춘다
     const mod = await spec.load();
     const real = Math.min(spec.until ?? Infinity, mod.meta?.duration ?? Infinity) / spec.speed;
-    expect(real).toBeLessThanOrEqual(WILD_FOE_ATTACK_MS / 1000);
-    expect(WILD_HIT_ANIM_MS).toBeLessThanOrEqual(WILD_FOE_ATTACK_MS);
+    expect(real).toBeLessThanOrEqual(WILD_HIT_ANIM_MS / 1000 + 0.001);
+  });
 
-    const fx = core.createFx(mod, { ...spec.options, x: 40, y: 40 });
-    const frame = core.createFrame(96, 96);
-    for (let i = 0; i < 5; i++) {
-      fx.update(0.016);
+  it.each(ELEMENT_EFFECTS)('%s: playFx처럼 끝까지 돌려도 던지지 않고, 도중에 그림이 나온다', async (name) => {
+    const spec: FxSpec = EFFECTS[name];
+    const mod = await spec.load();
+    const W = 120;
+    const H = 100;
+    const fx = core.createFx(mod, { ...spec.options, x: 40, y: 80 });
+    const frame = core.createFrame(W, H);
+    const until = spec.until ?? Infinity;
+    const dt = Math.min(0.05, 1 / 60) * spec.speed; // playFx와 같은 한 걸음
+    const CAP = 120;
+    let drawn = 0;
+    let frames = 0;
+    let finished = false;
+    while (frames < CAP) {
+      fx.update(dt);
       core.clearFrame(frame);
       fx.draw(frame);
+      for (const c of frame.color) if (c >>> 24) { drawn++; break; }
+      frames++;
+      if (fx.t >= until || fx.done()) { finished = true; break; }
     }
-    expect(fx.t).toBeGreaterThan(0);
+    expect(finished).toBe(true); // 상한 프레임 안에 끝난다
+    expect(fx.t).toBeGreaterThanOrEqual(Math.min(until, mod.meta?.duration ?? Infinity) - 1e-9);
+    expect(drawn).toBeGreaterThan(0); // 끝날 때까지 한 번은 화소가 그려진다
+    // 중간 시점(절반)에서도 비어 있지 않다
+    const half = core.createFx(mod, { ...spec.options, x: 40, y: 80 });
+    const target = Math.min(until, mod.meta?.duration ?? Infinity) / 2;
+    while (half.t < target) half.update(dt);
+    core.clearFrame(frame);
+    half.draw(frame);
+    let px = 0;
+    for (const c of frame.color) if (c >>> 24) px++;
+    expect(px).toBeGreaterThan(0);
   });
 });

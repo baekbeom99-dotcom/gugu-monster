@@ -60,16 +60,16 @@ export const EFFECTS = {
     note: '캡슐로 잡았을 때',
   },
   // ---- 속성별 기술 효과 21개 (설계서 11절, 속성·순서는 domain/field/elements.ts의 ELEMENT_FX) ----
-  // 전부 캔버스 한 칸 크기 효과. 전투 연출 시간(명중 0.6초·적 공격 0.7초) 안에 끝나도록
-  // 긴 효과는 until로 앞부분만 자르고 speed로 빠르게 튼다 (실제로 트는 시간 = until ÷ speed ≤ 0.7초).
+  // 전부 캔버스 한 칸 크기 효과. 전투 연출 시간(내 공격 명중 0.6초·적 공격 0.7초 — 같은 효과를 양쪽에 쓰므로 짧은 0.6초에 맞춤) 안에 끝나도록
+  // 긴 효과는 until로 앞부분만 자르고 speed로 빠르게 튼다 (실제로 트는 시간 = until ÷ speed ≤ 0.6초).
   // 바닥에 붙는 효과는 at.y를 땅 높이로, 방향 있는 효과는 왼쪽에서 오른쪽으로 날아간다 (틀 곳은 Task 21).
   'vine-whip': {
     load: () => import('pixelfx/fx/nature/vine-whip'),
-    until: 1.0,
+    until: 0.9,
     speed: 1.6,
     hold: false,
     screen: false,
-    note: '풀 1번 — 덩굴 휘두르기 (왼쪽에서 오른쪽으로 뻗음, 1.4초 중 1.0초까지 빠르게)',
+    note: '풀 1번 — 덩굴 휘두르기 (왼쪽에서 오른쪽으로 뻗음, 1.4초 중 0.9초까지 빠르게)',
   },
   thorns: {
     load: () => import('pixelfx/fx/nature/thorns'),
@@ -121,19 +121,19 @@ export const EFFECTS = {
   },
   smite: {
     load: () => import('pixelfx/fx/holy/smite'),
-    until: 1.4,
+    until: 1.3,
     speed: 2.3,
     hold: false,
     screen: false,
-    note: '빛 2번 — 하늘에서 내리치는 빛 (2.8초 중 1.4초까지 빠르게, 땅에 붙는 효과)',
+    note: '빛 2번 — 하늘에서 내리치는 빛 (2.8초 중 1.3초까지 빠르게, 땅에 붙는 효과)',
   },
   sunburst: {
     load: () => import('pixelfx/fx/holy/sunburst'),
-    until: 1.6,
+    until: 1.5,
     speed: 2.5,
     hold: false,
     screen: false,
-    note: '빛 3번 — 햇살 폭발 (반복 효과라 1.6초까지 2.5배속)',
+    note: '빛 3번 — 햇살 폭발 (반복 효과라 1.5초까지 2.5배속)',
   },
   splash: {
     load: () => import('pixelfx/fx/water/splash'),
@@ -153,11 +153,11 @@ export const EFFECTS = {
   },
   'wave-crash': {
     load: () => import('pixelfx/fx/water/wave-crash'),
-    until: 1.6,
+    until: 1.5,
     speed: 2.5,
     hold: false,
     screen: false,
-    note: '물 3번 — 큰 파도 (3.2초 중 1.6초까지 2.5배속, 땅에 붙는 효과)',
+    note: '물 3번 — 큰 파도 (3.2초 중 1.5초까지 2.5배속, 땅에 붙는 효과)',
   },
   'zap-hit': {
     load: () => import('pixelfx/fx/lightning/zap-hit'),
@@ -185,27 +185,27 @@ export const EFFECTS = {
   },
   'earth-spike': {
     load: () => import('pixelfx/fx/nature/earth-spike'),
-    until: 1.6,
+    until: 1.5,
     speed: 2.6,
     hold: false,
     screen: false,
-    note: '땅 1번 — 솟는 바위 가시 (3.4초 중 1.6초까지 빠르게, 땅에 붙는 효과)',
+    note: '땅 1번 — 솟는 바위 가시 (3.4초 중 1.5초까지 빠르게, 땅에 붙는 효과)',
   },
   boulder: {
     load: () => import('pixelfx/fx/nature/boulder'),
-    until: 1.4,
-    speed: 2.3,
+    until: 1.5,
+    speed: 2.5,
     hold: false,
     screen: false,
-    note: '땅 2번 — 굴러가는 큰 바위 (2.3초 중 1.4초까지 빠르게, 왼쪽에서 오른쪽으로)',
+    note: '땅 2번 — 굴러가는 큰 바위 (2.3초 중 1.5초까지 2.5배속, 왼쪽에서 오른쪽으로)',
   },
   quake: {
     load: () => import('pixelfx/fx/nature/quake'),
-    until: 1.6,
+    until: 1.5,
     speed: 2.6,
     hold: false,
     screen: false,
-    note: '땅 3번 — 땅 흔들림 (3.1초 중 1.6초까지 빠르게, 땅에 붙는 효과)',
+    note: '땅 3번 — 땅 흔들림 (3.1초 중 1.5초까지 빠르게, 땅에 붙는 효과)',
   },
   fireball: {
     load: () => import('pixelfx/fx/fire/fireball'),
@@ -218,10 +218,10 @@ export const EFFECTS = {
   'fire-breath': {
     load: () => import('pixelfx/fx/fire/fire-breath'),
     until: 0.7,
-    speed: 1,
+    speed: 1.2,
     hold: false,
     screen: false,
-    note: '불 2번 — 불 뿜기 (왼쪽에서 오른쪽으로, 반복 효과라 0.7초까지만)',
+    note: '불 2번 — 불 뿜기 (왼쪽에서 오른쪽으로, 반복 효과라 0.7초까지 1.2배속)',
   },
   'flame-pillar': {
     load: () => import('pixelfx/fx/fire/flame-pillar'),
