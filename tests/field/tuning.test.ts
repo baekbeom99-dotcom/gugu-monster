@@ -5,7 +5,8 @@ import * as T from '../../src/domain/field/tuning';
 describe('필드 모험 운영 수치', () => {
   it('설계서 값 그대로', () => {
     expect({ ...T }).toEqual({
-      ENCOUNTER_CHANCE: 0.12,
+      ENCOUNTER_CHANCE_GRASS: 0.3,
+      ENCOUNTER_CHANCE_PATH: 0.04,
       ENCOUNTER_GRACE_STEPS: 3,
       LEGEND_CHANCE: 0.02,
       UNSEEN_WEIGHT: 2,

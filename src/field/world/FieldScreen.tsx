@@ -8,7 +8,7 @@ import { creatureArt } from '../art/creatureArt';
 import { STAGE_SCALE } from '../art/creatureSprite';
 import { playFx, preloadFx, prefersReducedMotion } from '../fx/playFx';
 import type { FieldId } from '../../domain/field/fields';
-import { stepIntoGrass } from '../../domain/field/encounter';
+import { stepOnTile } from '../../domain/field/encounter';
 import { ENCOUNTER_FLASH_MS, STEP_MS, TURN_TAP_MS } from '../../domain/field/tuning';
 import { debugFlags } from '../debugFlags';
 import { useGameStore } from '../../store/useGameStore';
@@ -218,19 +218,20 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     },
     [map],
   );
-  /** 풀숲 걸음마다 만남 주사위 → 만나면 멈추고 번쩍인 뒤 전투 화면으로 */
+  /** 걸음마다 만남 주사위(풀숲 30%·길 4%) → 만나면 멈추고 번쩍인 뒤 전투 화면으로 */
   const checkEncounter = useCallback((result: StepResult) => {
     leaveBattleReturn();
-    if (!result.enteredGrass) return;
+    if (!result.moved) return;
     const session = useFieldSession.getState();
     const { field, learning } = useGameStore.getState();
     const flags = debugFlags();
-    const r = stepIntoGrass(Math.random, {
+    const r = stepOnTile(Math.random, {
+      tile: result.tile,
       field: map.id,
       stepsSinceBattle: session.stepsSinceBattle,
       challengeUnlocked: learning.challengeUnlocked,
       seen: field.seen,
-      force: { encounter: flags.encounter, legend: flags.legend },
+      force: { grass: flags.encounter, path: flags.path, legend: flags.legend, noWild: flags.noWild },
     });
     session.set({ stepsSinceBattle: r.stepsSinceBattle, encounter: r.encounter });
     if (!r.encounter) return;

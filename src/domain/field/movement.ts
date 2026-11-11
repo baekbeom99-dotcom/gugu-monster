@@ -21,6 +21,8 @@ export interface StepResult {
   pos: Pos;
   moved: boolean;
   enteredGrass: boolean;
+  /** 움직였으면 도착한 칸 종류, 못 움직였으면 null */
+  tile: Tile | null;
   exitTo: FieldId | null;
 }
 
@@ -89,16 +91,16 @@ export function tryStep(map: FieldMap, pos: Pos, dir: Dir): StepResult {
   const d = DIR_DELTA[dir];
   const nx = pos.x + d.x;
   const ny = pos.y + d.y;
-  const stay: StepResult = { pos, moved: false, enteredGrass: false, exitTo: null };
+  const stay: StepResult = { pos, moved: false, enteredGrass: false, tile: null, exitTo: null };
   if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) return stay;
   const tile = map.tiles[ny][nx];
   if (tile === 'block' || tile === 'sign' || tile === 'deco') return stay;
   const next = { x: nx, y: ny };
   if (tile === 'exit') {
     const exit = map.exits.find((e) => e.pos.x === nx && e.pos.y === ny);
-    return { pos: next, moved: true, enteredGrass: false, exitTo: exit?.to ?? null };
+    return { pos: next, moved: true, enteredGrass: false, tile, exitTo: exit?.to ?? null };
   }
-  return { pos: next, moved: true, enteredGrass: tile === 'grass', exitTo: null };
+  return { pos: next, moved: true, enteredGrass: tile === 'grass', tile, exitTo: null };
 }
 
 const WALKABLE: Tile[] = ['path', 'grass', 'exit'];

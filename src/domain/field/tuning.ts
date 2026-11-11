@@ -4,9 +4,11 @@
  * 값을 바꾸면 tests/field/tuning.test.ts의 고정값도 함께 고치고, MVP_DESIGN.md 변경 이력에 한 줄 남긴다.
  */
 
-// ── 만남 (풀숲) ──
+// ── 만남 ──
 /** 풀숲 한 걸음에 만날 확률 */
-export const ENCOUNTER_CHANCE = 0.12;
+export const ENCOUNTER_CHANCE_GRASS = 0.3;
+/** 풀숲 밖 길 한 걸음에 만날 확률 */
+export const ENCOUNTER_CHANCE_PATH = 0.04;
 /** 전투가 끝난 뒤 이 걸음 수 안에는 만나지 않음 */
 export const ENCOUNTER_GRACE_STEPS = 3;
 /** 만났을 때 레전드일 확률(12단 열린 뒤에만) */

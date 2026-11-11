@@ -170,6 +170,17 @@ async function totalAttempts(page: Page): Promise<number> {
   return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save') ?? '{}').state?.learning?.totalAttempts ?? 0);
 }
 
+test('길 스위치를 켜면 풀숲 밖 길 한 걸음에도 만나 전투 화면으로 간다', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { __GUGU_E2E_PATH__: boolean }).__GUGU_E2E_PATH__ = true;
+  });
+  await standBesideGrass(page); // (5,8)에서 오른쪽을 봄. 아래 (5,9)는 길 칸
+  await page.keyboard.down('ArrowDown');
+  await page.waitForTimeout(120);
+  await page.keyboard.up('ArrowDown');
+  await expect(page).toHaveURL(/#\/field\/battle$/);
+});
+
 test('풀숲에서 만나 정답으로 HP를 0으로 만들면 캡슐 던지기 버튼이 나온다', async ({ page }) => {
   await standBesideGrass(page);
   await stepIntoGrass(page);

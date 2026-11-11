@@ -25,7 +25,7 @@ const box = { background: '#f3f0e8', borderRadius: 8, padding: 8 } as const;
 
 function DebugSwitches() {
   const [flags, setFlags] = useState(debugFlags);
-  const toggle = (name: 'encounter' | 'legend') => {
+  const toggle = (name: 'encounter' | 'path' | 'legend') => {
     setDebugFlag(name, !flags[name]);
     setFlags(debugFlags());
   };
@@ -34,6 +34,9 @@ function DebugSwitches() {
       <h2>디버그 스위치 (새로고침하면 꺼짐)</h2>
       <label style={{ display: 'block' }}>
         <input type="checkbox" checked={flags.encounter} onChange={() => toggle('encounter')} /> 풀숲 걸음마다 만남 · 캡슐 100%
+      </label>
+      <label style={{ display: 'block' }}>
+        <input type="checkbox" checked={flags.path} onChange={() => toggle('path')} /> 길 걸음마다 만남 100%
       </label>
       <label style={{ display: 'block' }}>
         <input type="checkbox" checked={flags.legend} onChange={() => toggle('legend')} /> 만남이 레전드 (12단이 열려 있을 때)

@@ -20,7 +20,8 @@ export const STARTERS: SpeciesId[] = ['cloud', 'jelly', 'pebble'];
 
 // 만남 수치는 tuning.ts에서 정한다 (예전 import 자리 유지용으로 다시 내보냄)
 export {
-  ENCOUNTER_CHANCE,
+  ENCOUNTER_CHANCE_GRASS,
+  ENCOUNTER_CHANCE_PATH,
   ENCOUNTER_GRACE_STEPS,
   LEGEND_CHANCE,
   LEGEND_LEVEL,

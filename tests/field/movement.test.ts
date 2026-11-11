@@ -9,7 +9,7 @@ const map = parseMap('meadow', ['#####', '<.,.>', '#.S.#', '#@..#', '#####'], {
 
 describe('tryStep', () => {
   it('막힘 칸·지도 밖으로는 못 간다', () => {
-    expect(tryStep(map, { x: 1, y: 1 }, 'up').moved).toBe(false);
+    expect(tryStep(map, { x: 1, y: 1 }, 'up')).toMatchObject({ moved: false, tile: null });
     expect(tryStep(map, { x: 0, y: 1 }, 'left').moved).toBe(false);
   });
   it('표지판 칸으로는 못 간다', () => {
@@ -17,7 +17,7 @@ describe('tryStep', () => {
   });
   it('풀숲에 들어가면 enteredGrass', () => {
     const r = tryStep(map, { x: 1, y: 1 }, 'right');
-    expect(r).toMatchObject({ moved: true, enteredGrass: true, pos: { x: 2, y: 1 } });
+    expect(r).toMatchObject({ moved: true, enteredGrass: true, tile: 'grass', pos: { x: 2, y: 1 } });
   });
   it('출구 칸이면 exitTo', () => {
     expect(tryStep(map, { x: 1, y: 1 }, 'left').exitTo).toBe('waterside');

@@ -4,7 +4,9 @@ import { test as base } from '@playwright/test';
 export const test = base.extend({
   page: async ({ page }, use) => {
     await page.addInitScript(() => {
-      (window as unknown as { __GUGU_E2E_CALM__: boolean }).__GUGU_E2E_CALM__ = true;
+      const w = window as unknown as { __GUGU_E2E_CALM__: boolean; __GUGU_E2E_NO_WILD__: boolean };
+      w.__GUGU_E2E_CALM__ = true;
+      w.__GUGU_E2E_NO_WILD__ = true;
     });
     await use(page);
   },
