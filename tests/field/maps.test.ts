@@ -6,6 +6,7 @@ import type { FieldId } from '../../src/domain/field/fields';
 const DIRS = Object.keys(DIR_DELTA) as Dir[];
 const IDS: FieldId[] = ['meadow', 'waterside', 'desert'];
 const key = (p: Pos) => `${p.x},${p.y}`;
+const MIN_GRASS: Record<FieldId, number> = { meadow: 176, waterside: 140, desert: 120 };
 
 /** tryStep으로 걸어서 닿는 칸들 (출구 칸에 서면 거기서 멈춘다) */
 function reach(map: FieldMap, from: Pos): Set<string> {
@@ -32,7 +33,7 @@ describe.each(IDS)('%s 지도', (id) => {
     expect(map.width).toBe(20);
     expect(map.height).toBe(20);
     expect(map.entrances.start).toBeDefined();
-    expect(map.tiles.flat().filter((t) => t === 'grass').length).toBeGreaterThan(20);
+    expect(map.tiles.flat().filter((t) => t === 'grass').length).toBeGreaterThanOrEqual(MIN_GRASS[id]);
     expect(map.signs.length).toBeGreaterThan(0);
   });
 
@@ -51,6 +52,14 @@ describe.each(IDS)('%s 지도', (id) => {
         expect(near, `${name}에서 표지판 ${s.pos.x},${s.pos.y}`).toBe(true);
       }
     }
+  });
+});
+
+describe('E2E가 쓰는 칸', () => {
+  it('E2E가 쓰는 칸은 그대로', async () => {
+    const m = await loadField('meadow'), w = await loadField('waterside');
+    expect([m.tiles[8][5], m.tiles[8][6], m.tiles[10][1], m.tiles[10][18], m.tiles[5][9], m.tiles[6][9]]).toEqual(['path', 'grass', 'path', 'path', 'sign', 'path']);
+    expect([w.tiles[9][4], w.tiles[9][5], w.tiles[10][18]]).toEqual(['path', 'grass', 'path']);
   });
 });
 
