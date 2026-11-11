@@ -1,5 +1,9 @@
 /** 필드 모험 저장 데이터 — 구구몬 도감·동료·마지막 자리 */
 import { MONSTER_KINDS } from '../domain/battle';
+import { FACTS } from '../domain/facts';
+import { FIELD_TYPES } from '../domain/field/fieldQuestions';
+import { COMPANION_MAX_HP } from '../domain/field/tuning';
+import { addWound, type Wound } from '../domain/field/wounds';
 import { MAP_IDS, type MapId } from '../domain/field/fields';
 import { type Dir, parseMap } from '../domain/field/movement';
 import { TOWN_EXITS, TOWN_ROWS, TOWN_SIGNS } from '../field/world/maps/town';
@@ -15,6 +19,10 @@ export interface SpeciesEntry {
   stage: 1 | 2 | 3;
   caught: number;
   firstCaughtAt: number;
+  /** 체력 0~100 (0이면 쓰러짐). 전투에서 맞는 순간 저장된다 */
+  hp: number;
+  /** 맞게 한 문제, 최근 WOUNDS_MAX개 (회복 연습에 쓴다) */
+  wounds: Wound[];
 }
 
 export interface FieldPosition {
@@ -36,7 +44,8 @@ export interface FieldData {
 /** 저장 안 되는 알림: 레벨이 오르거나 진화했을 때 화면에 띄운다 */
 export type FieldNotice =
   | { kind: 'levelUp'; species: SpeciesId; level: number }
-  | { kind: 'evolve'; species: SpeciesId; stage: 2 | 3 };
+  | { kind: 'evolve'; species: SpeciesId; stage: 2 | 3 }
+  | { kind: 'fainted'; species: SpeciesId };
 
 const DIRS: readonly Dir[] = ['up', 'down', 'left', 'right'];
 
@@ -48,6 +57,12 @@ function isMapId(v: unknown): v is MapId {
 }
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isCount = (v: unknown): v is number => isNum(v) && v >= 0;
+const FACT_IDS = new Set<string>(FACTS.map((f) => f.id));
+function isWound(v: unknown): v is Wound {
+  if (!v || typeof v !== 'object') return false;
+  const w = v as Record<string, unknown>;
+  return typeof w.factId === 'string' && FACT_IDS.has(w.factId) && (FIELD_TYPES as readonly unknown[]).includes(w.type);
+}
 
 /** 처음 시작 자리: 태초마을의 `@` (마을 지도 글자만 가져온다 — 타일 그림은 불러오기 때) */
 export function townStart(): { x: number; y: number } {
@@ -72,7 +87,16 @@ function mergeEntry(raw: unknown): SpeciesEntry | null {
   const e = raw as Record<string, unknown>;
   if (!isCount(e.level) || !isCount(e.exp) || !isCount(e.caught) || !isNum(e.firstCaughtAt)) return null;
   if (e.stage !== 1 && e.stage !== 2 && e.stage !== 3) return null;
-  return { level: e.level, exp: e.exp, stage: e.stage, caught: e.caught, firstCaughtAt: e.firstCaughtAt };
+  // 옛 저장(체력·상처 없음)이나 깨진 값은 가득 찬 체력, 상처 없음
+  const hp = isNum(e.hp) && Number.isInteger(e.hp) && e.hp >= 0 && e.hp <= COMPANION_MAX_HP ? e.hp : COMPANION_MAX_HP;
+  let wounds: Wound[] = [];
+  if (Array.isArray(e.wounds)) for (const w of e.wounds) if (isWound(w)) wounds = addWound(wounds, w);
+  return { level: e.level, exp: e.exp, stage: e.stage, caught: e.caught, firstCaughtAt: e.firstCaughtAt, hp, wounds };
+}
+
+/** 새로 얻은 종의 기록 (체력 가득, 상처 없음) */
+export function newSpeciesEntry(level: number, now: number): SpeciesEntry {
+  return { level, exp: 0, stage: 1, caught: 1, firstCaughtAt: now, hp: COMPANION_MAX_HP, wounds: [] };
 }
 
 /** 저장본의 필드 칸을 기본값 위에 얹는다. 모르는 종·잘못된 지도 이름·깨진 값은 버리고 기본값.

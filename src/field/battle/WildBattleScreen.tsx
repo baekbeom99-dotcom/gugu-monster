@@ -168,8 +168,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       const r = useGameStore.getState().finishWildBattle({
         species: encounter.species,
         level: encounter.level,
-        caught: ending === 'caught',
-        fled: ending !== 'caught',
+        // Task 11 전까지는 끝 모양만 새 계약으로 (강함 단계는 아직 보통)
+        tier: 'normal',
+        end: ending === 'caught' ? 'caught' : ending === 'quit' ? 'quit' : 'escaped',
         correct: correctRef.current,
         now: Date.now(),
       });

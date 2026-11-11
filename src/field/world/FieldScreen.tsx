@@ -521,11 +521,15 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         {iris && <canvas ref={irisRef} className="fieldmode__iris" aria-hidden />}
         {notice0 && (
           <button type="button" className="fieldmode__growth" role="dialog" aria-label="성장 알림" onClick={dismissNotice}>
-            <span className="fieldmode__growth-title">{notice0.kind === 'levelUp' ? '레벨이 올랐어!' : '진화했어!'}</span>
+            <span className="fieldmode__growth-title">
+              {notice0.kind === 'levelUp' ? '레벨이 올랐어!' : notice0.kind === 'evolve' ? '진화했어!' : '쓰러졌어…'}
+            </span>
             <span className="fieldmode__growth-body">
               {notice0.kind === 'levelUp'
                 ? `${displayName(notice0.species, noticeStage)} Lv${notice0.level}`
-                : displayName(notice0.species, notice0.stage)}
+                : notice0.kind === 'evolve'
+                  ? displayName(notice0.species, notice0.stage)
+                  : displayName(notice0.species, noticeStage)}
             </span>
             <span className="fieldmode__growth-hint">탭하면 닫혀요</span>
           </button>

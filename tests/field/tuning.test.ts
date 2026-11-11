@@ -63,6 +63,7 @@ describe('필드 모험 운영 수치', () => {
       THROW_ESCAPE: 0.21,
       THROW_ANGRY: 0.03,
       COMPANION_MAX_HP: 100,
+      WOUNDS_MAX: 10,
       TIMER_WARN_MS: 2000,
       WILD_FOE_ATTACK_MS: 700,
     });

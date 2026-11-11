@@ -127,3 +127,5 @@ export const COMPANION_MAX_HP = 100;
 export const TIMER_WARN_MS = 2000;
 /** 야생 몬스터가 공격하는 연출 시간 */
 export const WILD_FOE_ATTACK_MS = 700;
+/** 상처 목록에 남기는 최근 문제 수 */
+export const WOUNDS_MAX = 10;

@@ -84,7 +84,38 @@ describe('저장 데이터 field', () => {
       position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
       stats: { battles: 9, catches: 3, fled: 2 },
     };
-    expect(mergeSave(createInitialSave(NOW), { ...oldSave(), field: v135 }).field).toEqual(v135);
+    // 버려지거나 초기화되는 칸 없이, 종 기록에 체력 100·상처 []만 채워진다
+    expect(mergeSave(createInitialSave(NOW), { ...oldSave(), field: v135 }).field).toEqual({
+      ...v135,
+      species: { horn: { ...entry, hp: 100, wounds: [] } },
+    });
+  });
+
+  it('옛 종 기록에 hp 100, wounds []', () => {
+    const f = mergeField(initialField(), { species: { cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1 } } });
+    expect(f.species.cloud).toMatchObject({ hp: 100, wounds: [] });
+  });
+
+  it('이상한 hp·상처는 거른다', () => {
+    const ok = { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1 };
+    const f = mergeField(initialField(), { species: { cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1, hp: -3,
+      wounds: [{ factId: '99x1', type: 'product' }, { factId: '2x3', type: 'skipCount' }, { factId: '2x3', type: 'product' }, 'x'] } } });
+    expect(f.species.cloud).toMatchObject({ hp: 100, wounds: [{ factId: '2x3', type: 'product' }] });
+    expect(mergeField(initialField(), { species: { cloud: { ...ok, hp: 42.5 } } }).species.cloud!.hp).toBe(100);
+    for (const hp of [101, '50', null, Number.NaN]) {
+      expect(mergeField(initialField(), { species: { cloud: { ...ok, hp } } }).species.cloud!.hp).toBe(100);
+    }
+    expect(mergeField(initialField(), { species: { cloud: { ...ok, wounds: 'x' } } }).species.cloud!.wounds).toEqual([]);
+  });
+
+  it('저장된 체력·상처는 그대로(0도), 상처는 중복 없이 최근 10개', () => {
+    const ok = { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1 };
+    const wounds = [{ factId: '2x3', type: 'product' }, { factId: '7x8', type: 'missingSecond' }];
+    expect(mergeField(initialField(), { species: { cloud: { ...ok, hp: 0, wounds } } }).species.cloud).toEqual({ ...ok, hp: 0, wounds });
+    const many = Array.from({ length: 12 }, (_, i) => ({ factId: `3x${(i % 9) + 1}`, type: 'product' }));
+    const got = mergeField(initialField(), { species: { cloud: { ...ok, hp: 50, wounds: many } } }).species.cloud!.wounds;
+    expect(got.length).toBe(9);
+    expect(got[got.length - 1]).toEqual({ factId: '3x3', type: 'product' });
   });
 
   it('fieldData.ts는 필드 지도·타일 그림을 가져오지 않는다 (마을 지도 글자만)', () => {
@@ -120,7 +151,12 @@ describe('저장 데이터 field', () => {
       position: { map: 'desert', x: 2, y: 3, facing: 'left' },
       stats: { battles: 4, catches: 2, fled: 1 },
     };
-    expect(mergeSave(createInitialSave(NOW), { ...oldSave(), field }).field).toEqual(field);
+    expect(mergeSave(createInitialSave(NOW), { ...oldSave(), field }).field).toEqual({
+      ...field,
+      species: { horn: { ...entry, hp: 100, wounds: [] } },
+    });
+    const hurt = { ...field, species: { horn: { ...entry, hp: 35, wounds: [{ factId: '6x7', type: 'product' }] } } };
+    expect(mergeSave(createInitialSave(NOW), { ...oldSave(), field: hurt }).field).toEqual(hurt);
   });
 
   it('markSeen은 같은 종을 한 번만 넣는다', () => {
@@ -148,5 +184,19 @@ describe('저장 데이터 field', () => {
     useGameStore.getState().replaceSave(oldSave());
     expect(useGameStore.getState().field).toEqual(initialField());
     expect(useGameStore.getState().economy.stars).toBe(777);
+  });
+
+  it('체력·상처가 없는 옛 백업을 불러와도 도감·자리는 그대로, 체력 100·상처 []', () => {
+    const entry = { level: 7, exp: 4, stage: 2, caught: 3, firstCaughtAt: NOW };
+    const field = {
+      starterChosen: true,
+      companion: 'horn',
+      species: { horn: entry },
+      seen: ['horn'],
+      position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
+      stats: { battles: 9, catches: 3, fled: 2 },
+    };
+    useGameStore.getState().replaceSave({ ...oldSave(), field });
+    expect(useGameStore.getState().field).toEqual({ ...field, species: { horn: { ...entry, hp: 100, wounds: [] } } });
   });
 });
