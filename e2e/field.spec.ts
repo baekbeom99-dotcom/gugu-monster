@@ -157,6 +157,22 @@ test('표지판 글은 Escape로 닫힌다', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: '표지판' })).toHaveCount(0);
 });
 
+test('표지판 글이 열려 있으면 Space로도 닫힌다', async ({ page }) => {
+  await openSignAtNine(page);
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('dialog', { name: '표지판' })).toHaveCount(0);
+});
+
+test('Tab으로 메뉴 버튼에 포커스를 두고 Enter를 누르면 메뉴가 열린다', async ({ page }) => {
+  await seedStarter(page);
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: '메뉴' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('menu')).toBeVisible();
+});
+
 test('글 밖을 250ms쯤 눌렀다 떼도 표지판 글이 닫힌다', async ({ page }) => {
   await openSignAtNine(page);
   await page.mouse.move(100, 200);
@@ -171,8 +187,22 @@ test('글이 없을 때 Enter는 아무 일도 없다', async ({ page }) => {
   await page.goto('/#/field');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
   const before = await pos(page);
-  await page.keyboard.press('Enter');
-  await page.keyboard.press('Space');
+  const prevented = await page.evaluate(
+    () =>
+      new Promise<boolean[]>((resolve) => {
+        const out: boolean[] = [];
+        // 화면의 keydown 처리(window, 버블링)가 끝난 뒤 값을 읽는다
+        const on = (e: KeyboardEvent) => {
+          setTimeout(() => out.push(e.defaultPrevented));
+        };
+        document.addEventListener('keydown', on);
+        for (const code of ['Enter', 'Space', 'Escape']) {
+          document.body.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true }));
+        }
+        setTimeout(() => resolve(out), 50);
+      }),
+  );
+  expect(prevented).toEqual([false, false, false]);
   await page.waitForTimeout(300);
   expect(await pos(page)).toEqual(before);
   await expect(page.getByRole('dialog')).toHaveCount(0);

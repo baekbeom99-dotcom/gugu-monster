@@ -199,16 +199,18 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   }, [map.id]);
 
   /** 화면을 가볍게 탭: 알림이 떠 있으면 닫고, 표지판 글이 떠 있으면 닫는다 */
-  const onTap = useCallback(() => {
+  const onTap = useCallback((): boolean => {
     const s = st.current;
     if (s.noticeOpen) {
       dismissRef.current();
-      return;
+      return true;
     }
     if (s.signOpen) {
       s.signOpen = false;
       setSignText(null);
+      return true;
     }
+    return false;
   }, []);
 
   const onTapRef = useRef(onTap);
@@ -277,9 +279,11 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         e.preventDefault();
         s.keys = [...s.keys.filter((k) => k !== d), d];
       } else if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space') {
-        // 글·알림이 없으면 아무 일도 없다 (onTap이 알아서 거른다)
-        e.preventDefault();
-        onTapRef.current();
+        // 버튼·입력칸에 포커스가 있으면 브라우저 기본 동작(Enter·Space로 누르기)을 그대로 둔다
+        const t = e.target as HTMLElement | null;
+        if (t?.closest?.('button, input, textarea, select, a') || t?.isContentEditable) return;
+        // 글·알림을 실제로 닫았을 때만 기본 동작을 막는다
+        if (onTapRef.current()) e.preventDefault();
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
