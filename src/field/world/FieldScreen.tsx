@@ -346,9 +346,10 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
             if (s.lastBump?.key !== key) {
               s.lastBump = { key, dir: h };
               const sign = map.signs.find((g) => g.pos.x === b.x && g.pos.y === b.y);
-              if (sign) {
+              const isDoor = map.doors.some((d) => d.x === b.x && d.y === b.y);
+              if (sign || isDoor) {
                 s.signOpen = true;
-                setSignText(sign.text);
+                setSignText(sign ? sign.text : '상점은 곧 열려요!'); // 문 반응은 상점 팝업(M3·M4)이 바꾼다
               }
             }
           }

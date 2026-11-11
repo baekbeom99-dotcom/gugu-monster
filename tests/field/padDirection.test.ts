@@ -17,7 +17,7 @@ describe('padDirection', () => {
 });
 
 describe('safeStartPosition', () => {
-  const map = parseMap('meadow', MEADOW_ROWS, { exits: { '<': 'waterside', '>': 'desert' }, signTexts: MEADOW_SIGNS });
+  const map = parseMap('meadow', MEADOW_ROWS, { exits: { '<': 'waterside', '>': 'desert', '^': 'town' }, signTexts: MEADOW_SIGNS });
   const start = map.entrances.start!;
   it('걸을 수 있는 저장 자리는 그대로', () => {
     expect(safeStartPosition(map, { map: 'meadow', x: 3, y: 3, facing: 'left' })).toEqual({ x: 3, y: 3, facing: 'left' });

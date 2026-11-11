@@ -12,22 +12,25 @@ export type SavedPosition = { map: MapId; x: number; y: number; facing: Dir };
 
 /** 지도마다 따로 불러온다 (Vite가 지도 파일마다 묶음을 따로 만든다). 타일 그림도 같은 묶음에 있다 */
 export const DEFAULT_LOADERS: FieldLoaders = {
-  // 태초마을 지도(maps/town)는 Task 5가 채운다
-  town: () => Promise.reject(new Error('태초마을 지도는 아직 없어요')),
+  town: () =>
+    Promise.all([import('./maps/town'), import('./maps/townTiles')]).then(([m, t]) => {
+      registerTileSet('town', t.TOWN_TILES);
+      return parseMap('town', m.TOWN_ROWS, { exits: m.TOWN_EXITS, signTexts: m.TOWN_SIGNS });
+    }),
   meadow: () =>
     import('./maps/meadow').then((m) => {
       registerTileSet('meadow', m.MEADOW_TILES);
-      return parseMap('meadow', m.MEADOW_ROWS, { exits: { '<': 'waterside', '>': 'desert' }, signTexts: m.MEADOW_SIGNS });
+      return parseMap('meadow', m.MEADOW_ROWS, { exits: { '<': 'waterside', '>': 'desert', '^': 'town' }, signTexts: m.MEADOW_SIGNS });
     }),
   waterside: () =>
     import('./maps/waterside').then((m) => {
       registerTileSet('waterside', m.WATERSIDE_TILES);
-      return parseMap('waterside', m.WATERSIDE_ROWS, { exits: { '>': 'meadow' }, signTexts: m.WATERSIDE_SIGNS });
+      return parseMap('waterside', m.WATERSIDE_ROWS, { exits: { '>': 'meadow', '^': 'town' }, signTexts: m.WATERSIDE_SIGNS });
     }),
   desert: () =>
     import('./maps/desert').then((m) => {
       registerTileSet('desert', m.DESERT_TILES);
-      return parseMap('desert', m.DESERT_ROWS, { exits: { '<': 'meadow' }, signTexts: m.DESERT_SIGNS });
+      return parseMap('desert', m.DESERT_ROWS, { exits: { '<': 'meadow', '^': 'town' }, signTexts: m.DESERT_SIGNS });
     }),
 };
 

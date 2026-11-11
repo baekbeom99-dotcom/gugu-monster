@@ -49,7 +49,7 @@ const isCount = (v: unknown): v is number => isNum(v) && v >= 0;
 
 /** 처음 시작 자리: 초원의 `@` */
 export function meadowStart(): { x: number; y: number } {
-  const map = parseMap('meadow', MEADOW_ROWS, { exits: { '<': 'waterside', '>': 'desert' }, signTexts: MEADOW_SIGNS });
+  const map = parseMap('meadow', MEADOW_ROWS, { exits: { '<': 'waterside', '>': 'desert', '^': 'town' }, signTexts: MEADOW_SIGNS });
   return map.entrances.start ?? { x: 1, y: 1 };
 }
 

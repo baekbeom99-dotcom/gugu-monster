@@ -52,11 +52,13 @@ export interface Anim {
 /**
  * 정수 배율: 가로로 VIEW_TILES_W칸쯤 보이게 하되,
  * 지도가 화면보다 작아 검은 띠가 생기지 않게 지도가 화면을 다 덮는 배율 이상으로 키운다.
+ * 세로로 긴 지도(마을 20×40)도 필드와 같은 크기로 보이도록, 덮는 배율은 짧은 변의 정사각형 기준으로 계산한다.
  */
 export function viewScale(cssWidth: number, cssHeight = 0, mapTilesW = 0, mapTilesH = 0): number {
   const byWidth = Math.floor(cssWidth / (VIEW_TILES_W * TILE_PX));
-  const coverW = mapTilesW > 0 ? Math.ceil(cssWidth / (mapTilesW * TILE_PX)) : 1;
-  const coverH = mapTilesH > 0 ? Math.ceil(cssHeight / (mapTilesH * TILE_PX)) : 1;
+  const square = Math.min(mapTilesW, mapTilesH);
+  const coverW = square > 0 ? Math.ceil(cssWidth / (square * TILE_PX)) : 1;
+  const coverH = square > 0 ? Math.ceil(cssHeight / (square * TILE_PX)) : 1;
   return Math.max(1, byWidth, coverW, coverH);
 }
 

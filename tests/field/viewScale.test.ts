@@ -10,6 +10,11 @@ describe('필드 화면 배율', () => {
     expect(viewScale(320, 640, 20, 20)).toBe(2);
   });
 
+  it('세로로 긴 마을(20×40)도 필드(20×20)와 같은 배율', () => {
+    expect(viewScale(375, 812, 20, 40)).toBe(viewScale(375, 812, 20, 20));
+    expect(viewScale(375, 812, 20, 40)).toBe(3);
+  });
+
   it('지도 크기를 모르면 예전처럼 가로로 8칸쯤 보이는 배율', () => {
     expect(viewScale(375)).toBe(2);
     expect(viewScale(100)).toBe(1);
