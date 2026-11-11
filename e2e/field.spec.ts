@@ -269,7 +269,7 @@ test('길 스위치를 켜면 풀숲 밖 길 한 걸음에도 만나 전투 화�
   });
   await standBesideGrass(page); // (5,8)에서 오른쪽을 봄. 아래 (5,9)는 길 칸
   await page.keyboard.down('ArrowDown');
-  await page.waitForTimeout(120);
+  await page.waitForTimeout(400);
   await page.keyboard.up('ArrowDown');
   await expect(page).toHaveURL(/#\/field\/battle$/);
 });
