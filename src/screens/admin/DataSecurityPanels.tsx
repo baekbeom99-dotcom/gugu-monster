@@ -9,7 +9,8 @@ import { dateStamp, downloadText } from './fields';
 import { RecoveryNotice } from './LockScreen';
 import { PinPad } from './PinPad';
 
-function currentSave(): SaveData {
+/** 백업에 넣는 저장 데이터 전체 (테스트에서도 쓴다) */
+export function currentSave(): SaveData {
   const s = useGameStore.getState();
   return {
     schemaVersion: s.schemaVersion,

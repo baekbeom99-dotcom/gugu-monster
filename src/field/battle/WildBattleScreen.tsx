@@ -8,6 +8,7 @@ import { DAN_COLORS } from '../../art/colors';
 import type { MonsterMood } from '../../art/MonsterSprite';
 import { HintPanel } from '../../components/HintPanel';
 import { QuestionView } from '../../components/QuestionView';
+import { capsuleFor } from '../../domain/field/capsules';
 import { speciesDef } from '../../domain/field/creatures';
 import { createAnswerTimer, elapsedMs, pauseTimer, resumeTimer, startTimer } from '../../domain/field/answerTimer';
 import { displayName } from '../../domain/field/growth';
@@ -53,11 +54,6 @@ import './wildBattle.css';
 const rng: Rng = Math.random;
 const COMPANION_COLOR = DAN_COLORS[5];
 
-/** 남은 캡슐 수. M3에서는 캡슐이 무제한(R17) — M4(Task 14)에서 저장된 개수로 바꾼다 */
-function capsulesLeft(): number {
-  return Infinity;
-}
-
 /** 끝난 단계 → 정산의 끝 모양 (직접 도망치기는 quit) */
 function endOf(w: WildState, quit: boolean): WildEnd | null {
   if (quit) return 'quit';
@@ -84,6 +80,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const companionStage = useGameStore((s) => s.field.species[companion]?.stage ?? 1);
   const companionLevel = useGameStore((s) => s.field.species[companion]?.level ?? 1);
   const wildDef = speciesDef(encounter.species);
+  // 이 야생을 잡는 캡슐 종류 (화나서 강력해져도 종 기준이라 그대로)와 남은 수
+  const capsuleType = capsuleFor(encounter.species);
+  const capsulesLeft = useGameStore((s) => s.field.capsules[capsuleType]);
   const moves = speciesDef(companion).moves;
   const allyName = displayName(companion, companionStage);
 
@@ -113,6 +112,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const [struckCount, setStruckCount] = useState(0);
   /** 캡슐이 흔들리는 중: 결과가 나올 때까지 아무것도 흐르지 않는다 */
   const [throwing, setThrowing] = useState(false);
+  /** 같은 순간의 두 번째 누름을 막는다 (state는 다시 그린 뒤에야 바뀐다) */
+  const throwingRef = useRef(false);
   const settledRef = useRef(false);
   /** 마지막으로 고른 내 기술 (힌트 글에 쓴다) */
   const pickedMoveRef = useRef(0);
@@ -262,6 +263,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       // 정산은 끝났을 때의 단계·레벨로 (화나서 강력이 되었으면 강력 값, R12)
       const r = useGameStore.getState().finishWildBattle({
         species: encounter.species,
+        companion,
         level: w.level,
         tier: w.tier,
         end: ending,
@@ -283,7 +285,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         : ending === 'escaped'
           ? battleText.escaped(name)
           : ending === 'released'
-            ? battleText.released
+            ? battleText.noCapsule
             : ending === 'fainted'
               ? battleText.fainted(allyName)
               : battleText.quit;
@@ -308,12 +310,12 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [ending, throwing]);
 
-  /** 어지러워졌다(또는 재도전): 맞는 캡슐이 없으면 돌려보낸다 (M3는 캡슐 무제한이라 늘 던질 수 있다, R18은 M4) */
+  /** 어지러워졌다(또는 재도전): 맞는 캡슐이 없으면 버튼 없이 돌려보낸다 (R18, 다른 종류 캡슐은 못 쓴다) */
   const onDizzy = useCallback(
     (w: WildState) => {
-      if (capsulesLeft() <= 0) setWild(releaseWild(w));
+      if (useGameStore.getState().field.capsules[capsuleType] <= 0) setWild(releaseWild(w));
     },
-    [setWild],
+    [capsuleType, setWild],
   );
 
   const pick = (moveIndex: number) => {
@@ -356,13 +358,20 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
 
   const onCapsule = () => {
     const w = wildRef.current!;
-    if (w.phase !== 'dizzy' || throwing) return;
+    if (w.phase !== 'dizzy' || throwing || throwingRef.current) return;
     // 결과는 던지는 순간 정해 두고, 흔들림이 끝난 뒤에 보여 준다 (E2E 만남 스위치면 언제나 잡힌다)
     const thrown = throwCapsule(w, debugFlags().encounter ? () => 0 : rng, companionLevel);
     if (!thrown) return;
+    // 맞는 캡슐 1개를 던지는 순간 바로 저장해 쓴다 (결과와 상관없이). 없으면 돌려보낸다
+    if (!useGameStore.getState().spendCapsule(capsuleType)) {
+      setWild(releaseWild(w));
+      return;
+    }
+    throwingRef.current = true;
     setThrowing(true);
     setMessage(battleText.throwCapsule);
     later(() => {
+      throwingRef.current = false;
       setThrowing(false);
       const after = thrown.state;
       const name = battleText.tierName(wildDef.name, after.tier);
@@ -465,7 +474,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           </button>
         ) : dizzy ? (
           <button type="button" className="btn btn--primary wild__capsule" aria-label="캡슐 던지기" disabled={throwing} onClick={onCapsule}>
-            <GachaCapsule size={28} /> 캡슐 던지기
+            <GachaCapsule size={28} /> {battleText.throwButton(capsulesLeft)}
           </button>
         ) : ending ? null : (
           <>

@@ -2,7 +2,8 @@
 import { MONSTER_KINDS } from '../domain/battle';
 import { FACTS } from '../domain/facts';
 import { FIELD_TYPES } from '../domain/field/fieldQuestions';
-import { COMPANION_MAX_HP } from '../domain/field/tuning';
+import { CAPSULE_START, COMPANION_MAX_HP } from '../domain/field/tuning';
+import { CAPSULE_TYPES, type Capsules, isCapsuleCount } from '../domain/field/capsules';
 import { addWound, type Wound } from '../domain/field/wounds';
 import { MAP_IDS, type MapId } from '../domain/field/fields';
 import { type Dir, parseMap } from '../domain/field/movement';
@@ -39,6 +40,8 @@ export interface FieldData {
   seen: SpeciesId[];
   position: FieldPosition;
   stats: { battles: number; catches: number; fled: number };
+  /** 남은 캡슐 (종류마다 0 이상 정수). 던지는 순간 바로 줄어 저장된다 */
+  capsules: Capsules;
 }
 
 /** 저장 안 되는 알림: 레벨이 오르거나 진화했을 때 화면에 띄운다 */
@@ -79,6 +82,7 @@ export function initialField(): FieldData {
     seen: [],
     position: { map: 'town', x, y, facing: 'down' },
     stats: { battles: 0, catches: 0, fled: 0 },
+    capsules: { ...CAPSULE_START },
   };
 }
 
@@ -139,6 +143,14 @@ export function mergeField(initial: FieldData, persisted: unknown): FieldData {
     fled: isCount(st.fled) ? st.fled : initial.stats.fled,
   };
 
+  // 캡슐: 옛 저장(없음)은 시작 개수. 종류마다 0 이상 정수가 아니면 그 종류만 기본값, 모르는 종류는 버린다
+  const cp = p.capsules && typeof p.capsules === 'object' && !Array.isArray(p.capsules) ? (p.capsules as Record<string, unknown>) : {};
+  const capsules = { ...initial.capsules };
+  for (const t of CAPSULE_TYPES) {
+    const v = Object.prototype.hasOwnProperty.call(cp, t) ? cp[t] : undefined;
+    if (isCapsuleCount(v)) capsules[t] = v;
+  }
+
   return {
     starterChosen: typeof p.starterChosen === 'boolean' ? p.starterChosen : initial.starterChosen,
     companion: isSpecies(p.companion) ? p.companion : null,
@@ -146,5 +158,6 @@ export function mergeField(initial: FieldData, persisted: unknown): FieldData {
     seen,
     position,
     stats,
+    capsules,
   };
 }

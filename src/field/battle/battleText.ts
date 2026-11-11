@@ -21,8 +21,10 @@ export const battleText = {
   retryThrow: '아직 어지러워해! 한 번 더!',
   escaped: (name: string) => `${josa(name, '이', '가')} 도망갔다…`,
   angry: (name: string) => `${josa(name, '이', '가')} 화가 났다! 강력해졌다!`,
-  /** 캡슐이 없어 돌려보냄 (캡슐 개수는 M4) */
-  released: '캡슐이 없어서 돌려보냈어! 상점에서 캡슐을 구해 오자',
+  /** 던지기 버튼: 맞는 캡슐의 남은 수 */
+  throwButton: (left: number) => `캡슐 던지기 (${left})`,
+  /** 맞는 캡슐이 없어 돌려보냄 (R18) */
+  noCapsule: '캡슐이 없어서 돌려보냈어! 상점에서 캡슐을 구해 오자',
   quit: '무사히 도망쳤다!',
   /** 필드: 동행이 쓰러져 있을 때 */
   faintedField: '구구몬이 쓰러졌어요. 상점에서 회복시켜요',

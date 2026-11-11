@@ -3,11 +3,14 @@ import { hatch, chooseEgg, initialPet } from '../../src/domain/pet';
 import { townStart } from '../../src/store/fieldData';
 import { useGameStore } from '../../src/store/useGameStore';
 import type { Wound } from '../../src/domain/field/wounds';
+import { currentSave } from '../../src/screens/admin/DataSecurityPanels';
 
 const NOW = new Date('2026-11-03T09:00:00').getTime();
 
 function batch(over: Partial<Parameters<ReturnType<typeof useGameStore.getState>['finishWildBattle']>[0]> = {}) {
-  return { species: 'horn' as const, level: 4, tier: 'normal' as const, end: 'caught' as const, correct: 3, now: NOW, ...over };
+  // 싸운 구구몬: 따로 주지 않으면 저장의 동행 (화면은 전투를 시작할 때 고른 종을 넘긴다)
+  const companion = useGameStore.getState().field.companion ?? 'cloud';
+  return { species: 'horn' as const, companion, level: 4, tier: 'normal' as const, end: 'caught' as const, correct: 3, now: NOW, ...over };
 }
 
 function hatchedPet() {
@@ -226,5 +229,79 @@ describe('구구몬 체력·상처 저장', () => {
     useGameStore.getState().finishWildBattle(batch({ end: 'quit', correct: 0 }));
     expect(useGameStore.getState().field.stats).toEqual({ battles: 2, catches: 0, fled: 2 });
     expect(useGameStore.getState().field.species.horn).toBeUndefined();
+  });
+});
+
+describe('싸운 구구몬으로 정산 (end.companion)', () => {
+  beforeEach(() => {
+    useGameStore.getState().resetAll();
+  });
+
+  it('저장의 companion이 null이어도 end.companion의 구구몬이 경험치를 받고 쓰러짐 알림이 그 종으로 뜬다', () => {
+    useGameStore.getState().chooseStarter('jelly', NOW);
+    useGameStore.setState((s) => ({
+      field: {
+        ...s.field,
+        companion: null,
+        species: { ...s.field.species, cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 0, wounds: [] } },
+      },
+    }));
+    const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'fainted', correct: 2 }));
+    const f = useGameStore.getState().field;
+    expect(f.species.cloud!.exp).toBe(14);
+    expect(f.species.jelly!.exp).toBe(0);
+    expect(r.notices[0]).toEqual({ kind: 'fainted', species: 'cloud' });
+  });
+
+  it('저장의 companion과 다른 종이 싸웠으면 싸운 종이 받는다', () => {
+    useGameStore.getState().chooseStarter('jelly', NOW);
+    useGameStore.setState((s) => ({
+      field: { ...s.field, species: { ...s.field.species, cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [] } } },
+    }));
+    useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'escaped', correct: 0 }));
+    expect(useGameStore.getState().field.species.cloud!.exp).toBe(10);
+    expect(useGameStore.getState().field.species.jelly!.exp).toBe(0);
+  });
+});
+
+describe('캡슐 개수 저장', () => {
+  beforeEach(() => {
+    useGameStore.getState().resetAll();
+  });
+
+  it('처음은 3·3·3·0', () => {
+    expect(useGameStore.getState().field.capsules).toEqual({ meadow: 3, waterside: 3, desert: 3, legend: 0 });
+  });
+
+  it('spendCapsule: 0 아래로 안 감', () => {
+    useGameStore.setState((s) => ({ field: { ...s.field, capsules: { ...s.field.capsules, desert: 1 } } }));
+    expect(useGameStore.getState().spendCapsule('desert')).toBe(true);
+    expect(useGameStore.getState().spendCapsule('desert')).toBe(false);
+    expect(useGameStore.getState().field.capsules.desert).toBe(0);
+  });
+
+  it('spendCapsule: 한 번에 그 종류만 정확히 1개, 0이면 상태를 바꾸지 않는다', () => {
+    useGameStore.getState().chooseStarter('cloud', NOW);
+    expect(useGameStore.getState().spendCapsule('meadow')).toBe(true);
+    expect(useGameStore.getState().field.capsules).toEqual({ meadow: 2, waterside: 3, desert: 3, legend: 0 });
+    const before = useGameStore.getState().field;
+    expect(useGameStore.getState().spendCapsule('legend')).toBe(false);
+    expect(useGameStore.getState().field).toBe(before);
+  });
+
+  it('grantCapsules: 더한다, 음수·소수는 무시', () => {
+    useGameStore.getState().grantCapsules('legend', 3);
+    useGameStore.getState().grantCapsules('meadow', 3);
+    expect(useGameStore.getState().field.capsules).toEqual({ meadow: 6, waterside: 3, desert: 3, legend: 3 });
+    useGameStore.getState().grantCapsules('meadow', -5);
+    useGameStore.getState().grantCapsules('meadow', 1.5);
+    expect(useGameStore.getState().field.capsules.meadow).toBe(6);
+  });
+
+  it('쓴 캡슐은 저장 대상(partialize)과 백업 currentSave()에 들어간다', () => {
+    useGameStore.getState().spendCapsule('waterside');
+    const persisted = useGameStore.persist.getOptions().partialize!(useGameStore.getState()) as { field: { capsules: unknown } };
+    expect(persisted.field.capsules).toEqual({ meadow: 3, waterside: 2, desert: 3, legend: 0 });
+    expect(currentSave().field.capsules).toEqual({ meadow: 3, waterside: 2, desert: 3, legend: 0 });
   });
 });

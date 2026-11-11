@@ -48,6 +48,7 @@ import { speciesDef } from '../domain/field/creatures';
 import { addExp, CORRECT_EXP, DUPLICATE_EXP, PARTICIPATION_EXP } from '../domain/field/growth';
 import { type Tier, tierExp } from '../domain/field/strength';
 import { COMPANION_MAX_HP } from '../domain/field/tuning';
+import { addCapsules, type CapsuleType, takeCapsule } from '../domain/field/capsules';
 import { addWound, applyDamage, isFainted, type Wound } from '../domain/field/wounds';
 import { type FieldData, type FieldNotice, newSpeciesEntry, SPECIES_IDS, type SpeciesEntry, type SpeciesId, townStart } from './fieldData';
 import { createInitialSave, mergeSave, migrateSave, SAVE_KEY, type SaveData, SCHEMA_VERSION, type Settings } from './saveData';
@@ -74,6 +75,8 @@ export type WildEnd = 'caught' | 'escaped' | 'released' | 'fainted' | 'quit';
 
 export interface WildBattleEnd {
   species: SpeciesId;
+  /** 싸운 우리 구구몬 (전투를 시작할 때 고른 종 — 저장의 동행이 비어 있어도 이 종으로 정산한다) */
+  companion: SpeciesId;
   level: number;
   /** 끝났을 때의 야생 강함 단계 (경험치 배율) */
   tier: Tier;
@@ -163,6 +166,10 @@ interface GameActions {
   damageCompanion: (id: SpeciesId, dmg: number, wound: Wound) => { hp: number; fainted: boolean };
   /** 필드 모험: 체력 가득, 상처 비움 */
   healSpecies: (id: SpeciesId) => void;
+  /** 필드 모험: 캡슐 n개 받기 (n은 0 이상 정수만) */
+  grantCapsules: (t: CapsuleType, n: number) => void;
+  /** 필드 모험: 캡슐 1개 쓰기 — 던지는 순간 바로 저장. 없으면 false, 아무것도 안 바꾼다 */
+  spendCapsule: (t: CapsuleType) => boolean;
   /** 필드 모험: 야생 전투 끝 — 잡기·기록·펫 친밀도 */
   finishWildBattle: (r: WildBattleEnd) => WildResult;
   /** 전체 초기화 */
@@ -357,6 +364,21 @@ export const useGameStore = create<GameStore>()(
           if (!e) return {};
           return { field: { ...s.field, species: { ...s.field.species, [id]: { ...e, hp: COMPANION_MAX_HP, wounds: [] } } } };
         }),
+      grantCapsules: (t, n) =>
+        set((s) => {
+          const capsules = addCapsules(s.field.capsules, t, n);
+          return capsules === s.field.capsules ? {} : { field: { ...s.field, capsules } };
+        }),
+      spendCapsule: (t) => {
+        let ok = false;
+        set((s) => {
+          const capsules = takeCapsule(s.field.capsules, t);
+          if (!capsules) return {};
+          ok = true;
+          return { field: { ...s.field, capsules } };
+        });
+        return ok;
+      },
       finishWildBattle: (r) => {
         let result!: WildResult;
         // 읽고 쓰기를 한 번의 set 안에서 (그 사이 다른 저장이 끼어들지 않게)
@@ -376,7 +398,8 @@ export const useGameStore = create<GameStore>()(
           const correct = Number.isFinite(r.correct) ? Math.max(0, r.correct) : 0;
           const gains: [SpeciesId, number][] = [];
           if (caught && known) gains.push([r.species, tierExp(DUPLICATE_EXP, r.tier)]);
-          const companion = s.field.companion;
+          // 싸운 구구몬은 화면이 넘겨 준 종 (저장의 동행이 비었거나 기록이 없어도 같은 종으로)
+          const companion = SPECIES_IDS.includes(r.companion) ? r.companion : null;
           if (companion && species[companion]) gains.push([companion, tierExp(PARTICIPATION_EXP + correct * CORRECT_EXP, r.tier)]);
           const total = new Map<SpeciesId, number>();
           for (const [id, exp] of gains) total.set(id, (total.get(id) ?? 0) + exp);

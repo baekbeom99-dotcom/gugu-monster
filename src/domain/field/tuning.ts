@@ -98,3 +98,9 @@ export const TIMER_WARN_MS = 2000;
 export const WILD_FOE_ATTACK_MS = 700;
 /** 상처 목록에 남기는 최근 문제 수 */
 export const WOUNDS_MAX = 10;
+
+// ── 캡슐 (설계서 4절·5절) ──
+/** 처음 갖고 시작하는 캡슐 (옛 저장도 업데이트 때 같은 개수) */
+export const CAPSULE_START = { meadow: 3, waterside: 3, desert: 3, legend: 0 } as const;
+/** 상점에서 한 단을 끝까지 풀면 받는 캡슐 수 (Task 17) */
+export const CAPSULE_REWARD = 3;

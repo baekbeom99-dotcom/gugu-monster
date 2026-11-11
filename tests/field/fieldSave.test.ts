@@ -5,6 +5,7 @@ import { TOWN_EXITS, TOWN_ROWS, TOWN_SIGNS } from '../../src/field/world/maps/to
 import fieldDataSource from '../../src/store/fieldData.ts?raw';
 import { createInitialSave, mergeSave } from '../../src/store/saveData';
 import { useGameStore } from '../../src/store/useGameStore';
+import { exportBackup, parseBackup } from '../../src/domain/shareCode';
 
 const NOW = new Date('2026-11-03T09:00:00').getTime();
 
@@ -84,10 +85,11 @@ describe('저장 데이터 field', () => {
       position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
       stats: { battles: 9, catches: 3, fled: 2 },
     };
-    // 버려지거나 초기화되는 칸 없이, 종 기록에 체력 100·상처 []만 채워진다
+    // 버려지거나 초기화되는 칸 없이, 종 기록에 체력 100·상처 [], 캡슐 3·3·3·0만 채워진다
     expect(mergeSave(createInitialSave(NOW), { ...oldSave(), field: v135 }).field).toEqual({
       ...v135,
       species: { horn: { ...entry, hp: 100, wounds: [] } },
+      capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
     });
   });
 
@@ -197,6 +199,66 @@ describe('저장 데이터 field', () => {
       stats: { battles: 9, catches: 3, fled: 2 },
     };
     useGameStore.getState().replaceSave({ ...oldSave(), field });
-    expect(useGameStore.getState().field).toEqual({ ...field, species: { horn: { ...entry, hp: 100, wounds: [] } } });
+    expect(useGameStore.getState().field).toEqual({
+      ...field,
+      species: { horn: { ...entry, hp: 100, wounds: [] } },
+      capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
+    });
+  });
+
+  // ── 캡슐 개수 (설계서 4절·12절) ──
+  it('새 저장은 캡슐 3·3·3·0', () => {
+    expect(initialField().capsules).toEqual({ meadow: 3, waterside: 3, desert: 3, legend: 0 });
+    expect(createInitialSave(NOW).field.capsules).toEqual({ meadow: 3, waterside: 3, desert: 3, legend: 0 });
+  });
+
+  it('옛 저장에 capsules 3·3·3·0', () =>
+    expect(mergeField(initialField(), { starterChosen: true }).capsules).toEqual({ meadow: 3, waterside: 3, desert: 3, legend: 0 }));
+
+  it('이상한 캡슐 수는 그 항목만 기본값', () => {
+    expect(mergeField(initialField(), { capsules: { meadow: -2, waterside: 1.5, desert: 7, legend: 'x' } }).capsules).toEqual({ meadow: 3, waterside: 3, desert: 7, legend: 0 });
+    expect(mergeField(initialField(), { capsules: { meadow: Number.NaN, waterside: Infinity, desert: null, legend: [2] } }).capsules).toEqual({ meadow: 3, waterside: 3, desert: 3, legend: 0 });
+    expect(mergeField(initialField(), { capsules: { meadow: 0, waterside: 12, desert: '5', legend: 4 } }).capsules).toEqual({ meadow: 0, waterside: 12, desert: 3, legend: 4 });
+  });
+
+  it('capsules가 객체가 아니면 전부 기본값, 모르는 키는 버린다', () => {
+    for (const bad of [null, 5, 'x', [1, 2, 3, 4]]) {
+      expect(mergeField(initialField(), { capsules: bad }).capsules).toEqual({ meadow: 3, waterside: 3, desert: 3, legend: 0 });
+    }
+    const c = mergeField(initialField(), { capsules: { meadow: 1, rainbow: 9, constructor: 3 } }).capsules;
+    expect(c).toEqual({ meadow: 1, waterside: 3, desert: 3, legend: 0 });
+    expect(Object.keys(c)).toEqual(['meadow', 'waterside', 'desert', 'legend']);
+  });
+
+  it('캡슐을 쓴 저장도 mergeSave를 지나면 그대로', () => {
+    const save = createInitialSave(NOW);
+    const field = { ...save.field, capsules: { meadow: 0, waterside: 2, desert: 5, legend: 1 } };
+    expect(mergeSave(createInitialSave(NOW), JSON.parse(JSON.stringify({ ...save, field }))).field.capsules).toEqual(field.capsules);
+  });
+
+  it('캡슐이 없는 옛 백업 파일을 불러와도(parseBackup → replaceSave) 3·3·3·0, 도감은 그대로', () => {
+    const entry = { level: 7, exp: 4, stage: 2, caught: 3, firstCaughtAt: NOW, hp: 60, wounds: [] };
+    const field = {
+      starterChosen: true,
+      companion: 'horn',
+      species: { horn: entry },
+      seen: ['horn'],
+      position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
+      stats: { battles: 9, catches: 3, fled: 2 },
+    };
+    const r = parseBackup(exportBackup({ ...oldSave(), field }, NOW));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    useGameStore.getState().replaceSave(r.save);
+    expect(useGameStore.getState().field).toEqual({ ...field, capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 } });
+    expect(useGameStore.getState().economy.stars).toBe(777);
+  });
+
+  it('깨진 캡슐 수가 든 백업을 불러오면 그 항목만 기본값', () => {
+    const field = { ...initialField(), capsules: { meadow: -1, waterside: 2, desert: 0.5, legend: 2 } };
+    const r = parseBackup(exportBackup({ ...oldSave(), field }, NOW));
+    if (!r.ok) throw new Error('백업을 못 읽음');
+    useGameStore.getState().replaceSave(r.save);
+    expect(useGameStore.getState().field.capsules).toEqual({ meadow: 3, waterside: 2, desert: 3, legend: 2 });
   });
 });

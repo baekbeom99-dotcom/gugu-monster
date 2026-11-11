@@ -225,6 +225,8 @@ interface GrassOptions {
   cloud?: Record<string, unknown>;
   /** 야생 강함 단계 고정 (__GUGU_E2E_TIER__) */
   tier?: string;
+  /** 저장본의 캡슐 개수 (없으면 기본 3·3·3·0) */
+  capsules?: Record<string, number>;
 }
 
 /** 풀숲(6,8) 바로 왼쪽 (5,8)에 오른쪽을 보고 선 저장본 + 만남 100% 스위치 */
@@ -242,13 +244,18 @@ async function standBesideGrass(page: Page, opts: GrassOptions = {}) {
   await page.goto('/#/field');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
   await page.evaluate(
-    ([starter, cloud]) => {
+    ([starter, cloud, capsules]) => {
       localStorage.clear();
       const s = starter as typeof STARTER_FIELD;
-      const field = { ...s, species: { cloud: { ...s.species.cloud, ...(cloud as object) } }, position: { map: 'meadow', x: 5, y: 8, facing: 'right' } };
+      const field = {
+        ...s,
+        species: { cloud: { ...s.species.cloud, ...(cloud as object) } },
+        position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
+        ...(capsules ? { capsules } : {}),
+      };
       localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
     },
-    [STARTER_FIELD, opts.cloud ?? {}] as const,
+    [STARTER_FIELD, opts.cloud ?? {}, opts.capsules ?? null] as const,
   );
   await page.reload();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,8');
@@ -316,6 +323,68 @@ test('풀숲에서 만나 정답으로 HP를 0으로 만들면 캡슐 던지기 
   }
   await expect(page.getByRole('button', { name: '캡슐 던지기' })).toBeVisible();
   await expect(page.getByLabel('야생 체력 0')).toBeVisible();
+});
+
+/** 저장본의 캡슐 개수 */
+async function savedCapsules(page: Page): Promise<Record<string, number>> {
+  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.capsules);
+}
+
+/** 정답만 골라 어지러워질 때까지 (캡슐 버튼이 나오거나, 캡슐이 없어 돌려보낼 때까지) */
+async function answerUntilDizzy(page: Page) {
+  for (let i = 0; i < 8; i++) {
+    if (await page.getByRole('button', { name: '캡슐 던지기' }).isVisible()) return;
+    if (await page.getByText(/캡슐이 없어서/).isVisible()) return;
+    const answer = await solveWild(page);
+    await moveButton(page, answer).click();
+    await page.waitForTimeout(800);
+  }
+}
+
+test('던지기 버튼에 맞는 캡슐의 남은 수 (3)가 보인다', async ({ page }) => {
+  await standBesideGrass(page, { tier: 'weak' });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  const button = page.getByRole('button', { name: '캡슐 던지기' });
+  await expect(button).toBeVisible();
+  await expect(button).toContainText('캡슐 던지기 (3)');
+  await page.screenshot({ path: '.superpowers/sdd/2026-11-12-field-adventure-2/task-14-shots/capsule-button-375.png' });
+});
+
+test('잡으면 초원 캡슐이 1개 준다 (3 → 2, 저장본)', async ({ page }) => {
+  await standBesideGrass(page, { tier: 'weak' });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  // 연타해도 한 번만 던진다
+  await page.getByRole('button', { name: '캡슐 던지기' }).click();
+  await page.getByRole('button', { name: '캡슐 던지기' }).click({ force: true }).catch(() => undefined);
+  // 던지는 순간 바로 저장된다 (흔들리는 중)
+  expect((await savedCapsules(page)).meadow).toBe(2);
+  await expect(page.getByText(/잡았다!/)).toBeVisible({ timeout: 5000 });
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
+  expect(await savedCapsules(page)).toEqual({ meadow: 2, waterside: 3, desert: 3, legend: 0 });
+});
+
+test('캡슐 0개면 어지러워질 때 돌려보낸다 (버튼 없음)', async ({ page }) => {
+  await standBesideGrass(page, { tier: 'weak', capsules: { meadow: 0, waterside: 3, desert: 3, legend: 0 } });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  await expect(page.getByRole('status')).toHaveText('캡슐이 없어서 돌려보냈어! 상점에서 캡슐을 구해 오자');
+  await expect(page.getByRole('button', { name: '캡슐 던지기' })).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
+  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  expect(field.capsules.meadow).toBe(0);
+  expect(field.stats).toMatchObject({ battles: 1, catches: 0, fled: 1 });
+});
+
+test('다른 종류 캡슐만 있으면 초원 구구몬은 돌려보낸다', async ({ page }) => {
+  await standBesideGrass(page, { tier: 'weak', capsules: { meadow: 0, waterside: 5, desert: 5, legend: 5 } });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  await expect(page.getByRole('status')).toHaveText(/캡슐이 없어서 돌려보냈어/);
+  await expect(page.getByRole('button', { name: '캡슐 던지기' })).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
+  expect(await savedCapsules(page)).toEqual({ meadow: 0, waterside: 5, desert: 5, legend: 5 });
 });
 
 test('전투 중 답 하나 뒤 새로고침하면 필드로 돌아오고 답은 기록돼 있다', async ({ page }) => {
