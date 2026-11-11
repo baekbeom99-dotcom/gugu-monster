@@ -10,7 +10,7 @@ import { playFx, preloadFx, prefersReducedMotion } from '../fx/playFx';
 import type { FieldId, MapId } from '../../domain/field/fields';
 import { stepOnTile } from '../../domain/field/encounter';
 import { ENCOUNTER_FLASH_MS, ROAM_BUBBLE_MS, STEP_MS, TURN_TAP_MS } from '../../domain/field/tuning';
-import { type Roamer, createRoamers, habitatOf, pokeRoamer, stepRoamer } from '../../domain/field/roam';
+import { type Roamer, createRoamers, habitatOf, pokeRoamer, stepRoamers } from '../../domain/field/roam';
 import type { SpeciesId } from '../../domain/field/creatures';
 import { debugFlags } from '../debugFlags';
 import { useGameStore } from '../../store/useGameStore';
@@ -388,9 +388,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       if (paused) return;
       if (s.move && now - s.move.start >= STEP_MS) finishMove();
       if (s.roamers.length > 0) {
-        s.roamers = s.roamers.map((r) =>
-          stepRoamer(r, now, Math.random, (p) => inHabitat(r.species, p) && !crowded(p) && !roamerAt(s.roamers.filter((o) => o !== r), p)),
-        );
+        s.roamers = stepRoamers(s.roamers, now, Math.random, (r, others, p) => inHabitat(r.species, p) && !crowded(p) && !roamerAt(others, p));
       }
       const isRoamerAt = (p: { x: number; y: number }) => roamerAt(s.roamers, p) !== undefined;
       if (!s.move) {

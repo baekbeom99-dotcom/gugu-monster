@@ -73,3 +73,22 @@ export function pokeRoamer(r: Roamer, now: number): Roamer {
   if (r.fainted) return r;
   return make(r.species, { x: r.x, y: r.y }, 'jump', now, now + ROAM_JUMP_MS, false, r.facing);
 }
+
+/**
+ * 한 프레임 전체: 모두에게 차례로 stepRoamer를 부른다. 뒤 구구몬은 앞 구구몬이 방금 옮긴 자리를 보고 정하므로
+ * 같은 프레임에 같은 칸으로 겹쳐 가지 않는다. canStandFor의 others는 자기를 뺀 나머지(앞은 갱신된 자리).
+ */
+export function stepRoamers(
+  roamers: Roamer[],
+  now: number,
+  rng: Rng,
+  canStandFor: (r: Roamer, others: Roamer[], p: Pos) => boolean,
+): Roamer[] {
+  const next = roamers.slice();
+  for (let i = 0; i < next.length; i++) {
+    const r = next[i];
+    const others = next.filter((_, j) => j !== i);
+    next[i] = stepRoamer(r, now, rng, (p) => canStandFor(r, others, p));
+  }
+  return next;
+}

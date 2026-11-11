@@ -8,6 +8,7 @@ import {
   habitatOf,
   pokeRoamer,
   stepRoamer,
+  stepRoamers,
 } from '../../src/domain/field/roam';
 import { ROAM_IDLE_MAX_MS, ROAM_IDLE_MIN_MS, ROAM_JUMP_MS, ROAM_MOVE_MS, ROAM_SLEEP_MS } from '../../src/domain/field/tuning';
 
@@ -123,5 +124,25 @@ describe('돌아다니는 구구몬', () => {
     expect(p.since).toBe(10);
     expect(p.until).toBe(10 + ROAM_JUMP_MS);
     expect([p.x, p.y]).toEqual([8, 2]);
+  });
+
+  it('같은 프레임에 두 마리가 같은 빈 칸을 고르려 하면 한 마리만 간다', () => {
+    const mk = (x: number): Roamer => ({ species: 'jelly', x, y: 1, fromX: x, fromY: 1, facing: 'down', motion: 'idle', since: 0, until: 0, fainted: false });
+    const target = { x: 2, y: 1 };
+    // 갈 수 있는 칸은 (2,1) 하나뿐, 다른 구구몬이 서 있으면 못 간다. rng 0 → 둘 다 move를 고른다
+    const canStandFor = (_r: Roamer, others: Roamer[], p: Pos) => p.x === target.x && p.y === target.y && !others.some((o) => o.x === p.x && o.y === p.y);
+    const out = stepRoamers([mk(1), mk(3)], 0, () => 0, canStandFor);
+    expect(out.filter((r) => r.x === 2 && r.y === 1)).toHaveLength(1);
+    expect(out.map((r) => r.motion).sort()).toEqual(['idle', 'move']);
+  });
+
+  it('여러 프레임을 돌려도 두 마리가 한 칸에 겹친 적이 없다', () => {
+    const rng = seededRng(11);
+    let rs = createRoamers(map, [{ species: 'cloud', fainted: false }, { species: 'legend-fluff', fainted: false }, { species: 'fluff', fainted: false }], rng, 0);
+    const canStandFor = (_r: Roamer, others: Roamer[], p: Pos) => inZone('meadow', p) && !others.some((o) => o.x === p.x && o.y === p.y);
+    for (let now = 0; now < 3000 * 400; now += 400) {
+      rs = stepRoamers(rs, now, rng, canStandFor);
+      expect(new Set(rs.map((r) => `${r.x},${r.y}`)).size).toBe(rs.length);
+    }
   });
 });
