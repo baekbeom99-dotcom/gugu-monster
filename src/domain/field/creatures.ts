@@ -26,8 +26,6 @@ export {
   LEGEND_CHANCE,
   LEGEND_LEVEL,
   UNSEEN_WEIGHT,
-  WILD_LEVEL_MAX,
-  WILD_LEVEL_MIN,
 } from './tuning';
 
 /** 기술 이름 3개 (버튼 순서대로). 기술 이름을 바꿀 때는 여기만 */

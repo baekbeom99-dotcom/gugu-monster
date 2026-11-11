@@ -9,7 +9,7 @@ import { STAGE_SCALE } from '../art/creatureSprite';
 import { playFx, preloadFx, prefersReducedMotion } from '../fx/playFx';
 import type { FieldId, MapId } from '../../domain/field/fields';
 import { stepOnTile } from '../../domain/field/encounter';
-import { ENCOUNTER_FLASH_MS, ROAM_BUBBLE_MS, STEP_MS, TURN_TAP_MS } from '../../domain/field/tuning';
+import { COMPANION_MAX_HP, ENCOUNTER_FLASH_MS, ROAM_BUBBLE_MS, STEP_MS, TURN_TAP_MS } from '../../domain/field/tuning';
 import { type Roamer, createRoamers, habitatOf, pokeRoamer, stepRoamers } from '../../domain/field/roam';
 import type { SpeciesId } from '../../domain/field/creatures';
 import { debugFlags } from '../debugFlags';
@@ -259,7 +259,11 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     const session = useFieldSession.getState();
     const { field, learning } = useGameStore.getState();
     const flags = debugFlags();
+    // 동행(없으면 처음 잡은 종)의 레벨·체력: 쓰러져 있으면 만남이 없다 (안내 글은 Task 11)
+    const compId = field.companion && field.species[field.companion] ? field.companion : (Object.keys(field.species)[0] as SpeciesId | undefined);
+    const comp = compId ? field.species[compId] : undefined;
     const r = stepOnTile(Math.random, {
+      companion: { level: comp?.level ?? 1, hp: comp?.hp ?? COMPANION_MAX_HP },
       tile: result.tile,
       map: map.id,
       stepsSinceBattle: session.stepsSinceBattle,

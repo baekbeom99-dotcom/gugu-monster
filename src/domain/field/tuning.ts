@@ -15,39 +15,8 @@ export const ENCOUNTER_GRACE_STEPS = 3;
 export const LEGEND_CHANCE = 0.02;
 /** 아직 못 본 종이 뽑힐 가중치(본 종은 1) */
 export const UNSEEN_WEIGHT = 2;
-/** 야생 구구몬 레벨 범위 */
-export const WILD_LEVEL_MIN = 3;
-export const WILD_LEVEL_MAX = 6;
+/** 레전드(황금) 구구몬 레벨 — 다른 단계 레벨은 TIER_RULES.levels로 동행 레벨에서 정한다 */
 export const LEGEND_LEVEL = 20;
-
-// ── 야생 전투 ──
-export const WILD_MAX_HP = 100;
-/** 정답 한 번에 깎는 HP */
-export const HIT_DAMAGE = 40;
-/** 빨리 맞히면 더 깎는 HP */
-export const FAST_HIT_BONUS = 10;
-/** 문제가 떠 있는 동안 1초에 차오르는 HP */
-export const REGEN_PER_SEC = 3;
-/** 이만큼 문제를 내도 못 쓰러뜨리면 지쳐서 잠든다 */
-export const WILD_MAX_QUESTIONS = 12;
-
-// ── 도망 시간: HP가 꽉 찬 채로 이만큼 지나면 도망간다 (관리자 '도망 빠르기'가 곱해짐) ──
-/** 2~5단 / 6~11단 / 12단 이상 */
-export const FLEE_BASE_LOW_MS = 7000;
-export const FLEE_BASE_MID_MS = 9000;
-export const FLEE_BASE_HIGH_MS = 12000;
-/** 아직 잘 모르는 문제(상자 0·1)면 더 기다려 줌 */
-export const FLEE_LOW_BOX_BONUS_MS = 3000;
-/** 빈칸 문제면 더 기다려 줌 */
-export const FLEE_MISSING_BONUS_MS = 2000;
-
-// ── 캡슐 ──
-/** 첫 캡슐로 잡힐 확률 */
-export const CATCH_CHANCE = 0.3;
-/** 빠져나올 때마다 오르는 확률 */
-export const CATCH_STEP = 0.15;
-/** 빠져나온 뒤 야생 HP */
-export const ESCAPE_HP = 40;
 
 // ── 출제 ──
 /** 기술 버튼(보기) 개수 */

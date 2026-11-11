@@ -1,5 +1,5 @@
 /** 야생 전투 화면 — 설계서 5-1~5-4. 문제가 떠 있는 동안에만 시간이 흐른다 */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { DAN_COLORS } from '../../art/colors';
 import type { MonsterMood } from '../../art/MonsterSprite';
@@ -9,19 +9,17 @@ import { STARTERS, speciesDef, type SpeciesId } from '../../domain/field/creatur
 import { createAnswerTimer, elapsedMs, pauseTimer, resumeTimer, startTimer } from '../../domain/field/answerTimer';
 import { displayName } from '../../domain/field/growth';
 import type { Encounter } from '../../domain/field/encounter';
-import { CAPSULE_SHAKE_MS, CAPSULE_SHAKES, WILD_END_MS, WILD_HIT_ANIM_MS, WILD_INTRO_MS } from '../../domain/field/tuning';
+import { CAPSULE_SHAKE_MS, CAPSULE_SHAKES, COMPANION_MAX_HP, WILD_END_MS, WILD_HIT_ANIM_MS, WILD_INTRO_MS } from '../../domain/field/tuning';
 import {
   answerWild,
   createWild,
-  fleeTimeMs,
   resumeWild,
   throwCapsule,
   tick,
-  WILD_MAX_HP,
+  wildHpRatio,
   type WildState,
 } from '../../domain/field/wildBattle';
 import type { FactId } from '../../domain/facts';
-import { fastThresholdMs } from '../../domain/mastery';
 import type { Rng } from '../../domain/random';
 import { useGameStore } from '../../store/useGameStore';
 import { useSessionStore } from '../../store/useSessionStore';
@@ -51,11 +49,11 @@ export function WildBattleScreen() {
   return <WildBattle encounter={encounter} />;
 }
 
-type Ending = 'fled' | 'caught' | 'quit';
+// Task 11 전까지는 새 규칙에 타입만 맞춰 둔 임시 화면 (문제 시간·피격·던지기 결과 화면은 Task 11)
+type Ending = 'fled' | 'caught' | 'quit' | 'fainted';
 
 function WildBattle({ encounter }: { encounter: Encounter }) {
   const { recordAnswer, markSeen } = useGameStore.getState();
-  const fleeScale = useGameStore((s) => s.settings.fieldFleeScale);
   const companion = useGameStore(pickCompanion);
   const companionStage = useGameStore((s) => s.field.species[companion]?.stage ?? 1);
   const wildDef = speciesDef(encounter.species);
@@ -63,7 +61,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
 
   const { item, fact, question, key, next } = useQuestionFeed(encounter, rng);
 
-  const wildRef = useRef<WildState>(createWild());
+  const wildRef = useRef<WildState>(createWild(encounter.tier, encounter.level, useGameStore.getState().field.species[companion]?.hp ?? COMPANION_MAX_HP));
   const [wild, setWildState] = useState<WildState>(wildRef.current);
   // ref를 바로 바꿔 두면 같은 순간의 두 번째 클릭은 'question'이 아니라서 무시된다
   const setWild = useCallback((w: WildState) => {
@@ -109,14 +107,6 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     markSeen(encounter.species);
   }, [markSeen, encounter.species]);
 
-  // 도망 시간은 지금 떠 있는 문제로 정한다 (상자는 문제가 뜬 때의 것)
-  const fleeMs = useMemo(() => {
-    const box = useGameStore.getState().learning.facts[fact.id].box;
-    return fleeTimeMs(fact, box, item.type, fleeScale);
-  }, [key, fleeScale]);
-  const fleeRef = useRef(fleeMs);
-  fleeRef.current = fleeMs;
-
   // 시작 글: 1.2초 뒤 자동으로 넘어간다
   useEffect(() => {
     if (!intro) {
@@ -127,7 +117,15 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     return () => clearTimeout(t);
   }, [intro]);
 
-  const ending: Ending | null = quit ? 'quit' : wild.phase === 'fled' ? 'fled' : wild.phase === 'caught' ? 'caught' : null;
+  const ending: Ending | null = quit
+    ? 'quit'
+    : wild.phase === 'escaped' || wild.phase === 'released'
+      ? 'fled'
+      : wild.phase === 'caught'
+        ? 'caught'
+        : wild.phase === 'fainted'
+          ? 'fainted'
+          : null;
   const running = !intro && !confirmQuit && !ending;
 
   // 시계: 화면이 가려져 있으면 흐르지 않는다
@@ -139,7 +137,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       raf = requestAnimationFrame(frame);
       const dt = document.hidden ? 0 : now - last;
       last = now;
-      setWild(tick(wildRef.current, dt, fleeRef.current));
+      const t = tick(wildRef.current, dt, rng);
+      // 시간 초과 피격은 바로 힌트로 (피격 연출은 Task 11)
+      setWild(t.phase === 'struck' ? resumeWild(t) : t);
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
@@ -170,7 +170,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         level: encounter.level,
         // Task 11 전까지는 끝 모양만 새 계약으로 (강함 단계는 아직 보통)
         tier: 'normal',
-        end: ending === 'caught' ? 'caught' : ending === 'quit' ? 'quit' : 'escaped',
+        end: ending === 'caught' ? 'caught' : ending === 'quit' ? 'quit' : ending === 'fainted' ? 'fainted' : 'escaped',
         correct: correctRef.current,
         now: Date.now(),
       });
@@ -183,7 +183,11 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       }
     }
     setMessage(
-      ending === 'fled' ? battleText.fled(wildDef.name) : ending === 'quit' ? battleText.quit : battleText.caught(wildDef.name, newSpecies),
+      ending === 'fled' || ending === 'fainted'
+        ? battleText.fled(wildDef.name)
+        : ending === 'quit'
+          ? battleText.quit
+          : battleText.caught(wildDef.name, newSpecies),
     );
     const t = window.setTimeout(endWildBattle, WILD_END_MS);
     return () => clearTimeout(t);
@@ -204,8 +208,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     const value = question.choices[moveIndex];
     const correct = value === question.answer;
     const ms = Math.round(elapsedMs(timerRef.current, performance.now()));
-    const fast = ms <= fastThresholdMs(fact, 'choice');
-    const after = answerWild(w, correct, fast);
+    const answered = answerWild(w, correct, rng);
+    // 피격은 바로 힌트로 (피격 연출은 Task 11)
+    const after = answered.phase === 'struck' ? resumeWild(answered) : answered;
     setWild(after);
     // 고르는 순간 바로 저장한다 (전투 중 앱을 닫아도 기록이 남게)
     recordAnswer({
@@ -226,17 +231,17 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       correctRef.current += 1;
       setHitCount((n) => n + 1);
       fxAtFoe('hit');
-      setMessage(battleText.hit(moves[moveIndex], fast));
+      setMessage(battleText.hit(moves[moveIndex], false));
     } else {
       setMessage(battleText.miss(moves[moveIndex]));
     }
-    if (after.phase === 'anim') {
+    if (after.phase === 'hit') {
       later(() => {
         setWild(resumeWild(wildRef.current));
         next(false);
       }, WILD_HIT_ANIM_MS);
     } else if (after.phase === 'dizzy') {
-      setMessage(battleText.dizzy(wildDef.name, after.asleep));
+      setMessage(battleText.dizzy(wildDef.name, false));
       next(false);
     }
   };
@@ -252,7 +257,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     const w = wildRef.current;
     if (w.phase !== 'dizzy' || throwing) return;
     // 결과는 던지는 순간 정해 두고, 흔들림이 끝난 뒤에 보여 준다 (E2E에서는 언제나 잡힌다)
-    const after = throwCapsule(w, debugFlags().encounter ? () => 0 : rng);
+    const thrown = throwCapsule(w, debugFlags().encounter ? () => 0 : rng, useGameStore.getState().field.species[companion]?.level ?? 1);
+    if (!thrown) return;
+    const after = thrown.state;
     setThrowing(true);
     setMessage(battleText.throwCapsule);
     later(() => {
@@ -263,13 +270,12 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     }, CAPSULE_SHAKES * CAPSULE_SHAKE_MS);
   };
 
-  const hpShown = Math.round(wild.hp);
-  const full = asking && wild.hp >= WILD_MAX_HP;
-  const fleeLeft = Math.max(0, fleeMs - wild.fullMs);
+  const hpRatio = wildHpRatio(wild);
+  const hpShown = Math.round(hpRatio * 100);
   const inHint = wild.phase === 'hint';
   const dizzy = wild.phase === 'dizzy';
   const wildMood: MonsterMood =
-    wild.phase === 'anim' ? 'hit' : dizzy ? 'sleep' : wild.phase === 'caught' ? 'happy' : 'idle';
+    wild.phase === 'hit' ? 'hit' : dizzy ? 'sleep' : wild.phase === 'caught' ? 'happy' : 'idle';
 
   return (
     <div className={`wild ${wildDef.legend ? 'wild--legend' : ''}`}>
@@ -288,20 +294,12 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
             {wildDef.name} <small>Lv{encounter.level}</small>
           </div>
           <div
-            className={`wild__hp ${full ? 'wild__hp--full' : ''}`}
+            className="wild__hp"
             role="img"
             aria-label={`야생 체력 ${hpShown}`}
           >
-            <span className="wild__hp-fill" style={{ width: `${(wild.hp / WILD_MAX_HP) * 100}%` }} />
+            <span className="wild__hp-fill" style={{ width: `${hpRatio * 100}%` }} />
           </div>
-          {full && (
-            <div className="wild__hourglass" aria-label={`도망가기까지 ${Math.ceil(fleeLeft / 1000)}초`}>
-              <span aria-hidden>⏳</span>
-              <span className="wild__hourglass-bar">
-                <span style={{ width: `${(fleeLeft / fleeMs) * 100}%` }} />
-              </span>
-            </div>
-          )}
         </div>
       </header>
 
@@ -317,7 +315,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           </div>
         ) : (
           <>
-            <div key={`w${hitCount}`} className={`wild__foe ${wild.phase === 'anim' ? 'wild__foe--hit' : ''} ${ending === 'fled' || ending === 'quit' ? 'wild__foe--gone' : ''} ${throwing ? 'wild__foe--capsule' : ''}`}>
+            <div key={`w${hitCount}`} className={`wild__foe ${wild.phase === 'hit' ? 'wild__foe--hit' : ''} ${ending === 'fled' || ending === 'quit' ? 'wild__foe--gone' : ''} ${throwing ? 'wild__foe--capsule' : ''}`}>
               {creatureSprite(encounter.species, { view: 'front', mood: wildMood, color: DAN_COLORS[encounter.dan], size: 150 })}
             </div>
             {throwing && (
@@ -325,7 +323,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
                 <GachaCapsule size={64} />
               </div>
             )}
-            <div key={`a${hitCount}`} className={`wild__ally ${wild.phase === 'anim' ? 'wild__ally--attack' : ''}`}>
+            <div key={`a${hitCount}`} className={`wild__ally ${wild.phase === 'hit' ? 'wild__ally--attack' : ''}`}>
               {creatureSprite(companion, { view: 'back', stage: companionStage, color: COMPANION_COLOR, size: 150 })}
               <small className="wild__ally-name" style={{ display: 'block', textAlign: 'center', fontWeight: 800 }}>
                 {displayName(companion, companionStage)}

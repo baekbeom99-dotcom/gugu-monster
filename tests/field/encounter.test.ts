@@ -7,13 +7,12 @@ import {
   LEGEND_LEVEL,
   STARTERS,
   UNSEEN_WEIGHT,
-  WILD_LEVEL_MAX,
-  WILD_LEVEL_MIN,
   SPECIES,
   speciesDef,
 } from '../../src/domain/field/creatures';
 import { encounterChance, rollEncounter, stepOnTile } from '../../src/domain/field/encounter';
 import { LEGEND_DAN } from '../../src/domain/field/fields';
+import { tierLevelRange } from '../../src/domain/field/strength';
 import { seededRng, type Rng } from '../../src/domain/random';
 
 const scripted = (...values: number[]): Rng & { calls: () => number } => {
@@ -22,7 +21,7 @@ const scripted = (...values: number[]): Rng & { calls: () => number } => {
   f.calls = () => i;
   return f;
 };
-const base = { map: 'meadow' as const, stepsSinceBattle: 10, challengeUnlocked: false, seen: [] as never[], tile: 'grass' as const };
+const base = { map: 'meadow' as const, stepsSinceBattle: 10, challengeUnlocked: false, seen: [] as never[], tile: 'grass' as const, companion: { level: 5, hp: 100 } };
 
 describe('종 표', () => {
   it('상수 고정', () => {
@@ -31,8 +30,6 @@ describe('종 표', () => {
     expect(ENCOUNTER_GRACE_STEPS).toBe(3);
     expect(LEGEND_CHANCE).toBe(0.02);
     expect(UNSEEN_WEIGHT).toBe(2);
-    expect(WILD_LEVEL_MIN).toBe(3);
-    expect(WILD_LEVEL_MAX).toBe(6);
     expect(LEGEND_LEVEL).toBe(20);
     expect(STARTERS).toEqual(['cloud', 'jelly', 'pebble']);
   });
@@ -65,9 +62,12 @@ describe('rollEncounter', () => {
     const rng = scripted(0.31);
     expect(rollEncounter(rng, base)).toBeNull();
     expect(rng.calls()).toBe(1);
-    const closed = scripted(0.29, 0.5, 0.5, 0.5);
+    const closed = scripted(0.29, 0.5, 0.5, 0.5, 0.5);
     rollEncounter(closed, base);
-    expect(closed.calls()).toBe(4); // 만남, 종, 단, 레벨
+    expect(closed.calls()).toBe(5); // 만남, 종, 단, 단계, 레벨
+    const open = scripted(0.29, 0.5, 0.5, 0.5, 0.5, 0.5);
+    rollEncounter(open, { ...base, challengeUnlocked: true });
+    expect(open.calls()).toBe(6); // 만남, 레전드, 종, 단, 단계, 레벨
   });
   it('초원 1000번', () => {
     const rng = seededRng(1);
@@ -76,8 +76,10 @@ describe('rollEncounter', () => {
       if (!e) continue;
       expect(['cloud', 'mushroom', 'fluff']).toContain(e.species);
       expect([2, 4, 8]).toContain(e.dan);
-      expect(e.level).toBeGreaterThanOrEqual(3);
-      expect(e.level).toBeLessThanOrEqual(6);
+      const [lo, hi] = tierLevelRange(e.tier, 5);
+      expect(e.level).toBeGreaterThanOrEqual(lo);
+      expect(e.level).toBeLessThanOrEqual(hi);
+      expect(e.tier).not.toBe('legend');
       expect(e.legend).toBe(false);
     }
   });
@@ -114,6 +116,7 @@ describe('rollEncounter', () => {
         legends++;
         expect(e.dan).toBe(LEGEND_DAN);
         expect(e.level).toBe(LEGEND_LEVEL);
+        expect(e.tier).toBe('legend');
         expect(speciesDef(e.species).legend).toBe(true);
       }
     }
@@ -142,7 +145,7 @@ describe('rollEncounter', () => {
 });
 
 describe('stepOnTile (풀숲 한 걸음: 먼저 주사위, 못 만나면 걸음 수 +1)', () => {
-  const ctx = { map: 'meadow' as const, challengeUnlocked: false, seen: [], tile: 'grass' as const };
+  const ctx = { map: 'meadow' as const, challengeUnlocked: false, seen: [], tile: 'grass' as const, companion: { level: 5, hp: 100 } };
   it('필드에 들어온 직후(안전 걸음 다 채움) 첫 풀숲 걸음부터 만날 수 있다', () => {
     const r = stepOnTile(() => 0, { ...ctx, stepsSinceBattle: ENCOUNTER_GRACE_STEPS });
     expect(r.encounter).not.toBeNull();
@@ -166,7 +169,7 @@ describe('stepOnTile (풀숲 한 걸음: 먼저 주사위, 못 만나면 걸음 
 });
 
 describe('칸 종류별 만남', () => {
-  const ctx = { map: 'meadow' as const, challengeUnlocked: false, seen: [] };
+  const ctx = { map: 'meadow' as const, challengeUnlocked: false, seen: [], companion: { level: 5, hp: 100 } };
   it('칸 종류별 만남 확률', () => {
     expect(encounterChance('meadow', 'grass')).toBe(0.3);
     expect(encounterChance('meadow', 'path')).toBe(0.04);
@@ -197,7 +200,7 @@ describe('칸 종류별 만남', () => {
 });
 
 describe('태초마을 (만남 없음)', () => {
-  const ctx = { map: 'town' as const, challengeUnlocked: false, seen: [], stepsSinceBattle: 10 };
+  const ctx = { map: 'town' as const, challengeUnlocked: false, seen: [], stepsSinceBattle: 10, companion: { level: 5, hp: 100 } };
   it('마을은 풀숲·길 모두 0', () => {
     expect(encounterChance('town', 'grass')).toBe(0);
     expect(encounterChance('town', 'path')).toBe(0);
@@ -214,5 +217,35 @@ describe('태초마을 (만남 없음)', () => {
     expect(rollEncounter(() => 0, { ...base, map: 'waterside' })).toMatchObject({ field: 'waterside', legend: false });
     const legend = rollEncounter(() => 0, { ...base, map: 'desert', challengeUnlocked: true, force: { legend: true } });
     expect(legend).toMatchObject({ field: 'desert', legend: true });
+  });
+});
+
+describe('만남의 강함 단계·레벨 (설계서 6-1)', () => {
+  it('만남에 단계·레벨·필드: 동행 Lv10, 보통이면 9~11', () => {
+    // 만남 0 → 종 0 → 단 0 → 단계 0.2(보통: 0.15 이상 0.8 미만) → 레벨
+    expect(rollEncounter(scripted(0, 0, 0, 0.2, 0), { ...base, companion: { level: 10, hp: 100 } }))
+      .toMatchObject({ tier: 'normal', level: 9, field: 'meadow', legend: false });
+    expect(rollEncounter(scripted(0, 0, 0, 0.2, 0.999), { ...base, companion: { level: 10, hp: 100 } }))
+      .toMatchObject({ tier: 'normal', level: 11 });
+    expect(rollEncounter(scripted(0, 0, 0, 0, 0), { ...base, companion: { level: 10, hp: 100 } }))
+      .toMatchObject({ tier: 'weak', level: 5 });
+    expect(rollEncounter(scripted(0, 0, 0, 0.99, 0.999), { ...base, companion: { level: 10, hp: 100 } }))
+      .toMatchObject({ tier: 'mighty', level: 19 });
+  });
+  it('레전드는 legend 단계 Lv20, 종 뒤에는 난수를 안 씀', () => {
+    const rng = scripted(0, 0, 0);
+    expect(rollEncounter(rng, { ...base, challengeUnlocked: true, companion: { level: 3, hp: 100 } }))
+      .toMatchObject({ tier: 'legend', level: LEGEND_LEVEL, legend: true, dan: LEGEND_DAN });
+    expect(rng.calls()).toBe(3); // 만남, 레전드, 종
+  });
+  it('동행 체력 0이면 만남 없음, 난수도 안 씀', () => {
+    const ctx = { map: 'meadow' as const, challengeUnlocked: true, seen: [] };
+    const rng = vi.fn(() => 0);
+    expect(stepOnTile(rng, { ...ctx, tile: 'grass', stepsSinceBattle: 5, companion: { level: 5, hp: 0 }, force: { grass: true } }))
+      .toEqual({ encounter: null, stepsSinceBattle: 5 });
+    expect(stepOnTile(rng, { ...ctx, tile: 'path', stepsSinceBattle: 5, companion: { level: 5, hp: 0 }, force: { path: true, legend: true } }))
+      .toEqual({ encounter: null, stepsSinceBattle: 5 });
+    expect(rollEncounter(rng, { ...ctx, tile: 'grass', stepsSinceBattle: 5, companion: { level: 5, hp: -3 } })).toBeNull();
+    expect(rng).not.toHaveBeenCalled();
   });
 });

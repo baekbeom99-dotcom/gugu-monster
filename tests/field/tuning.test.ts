@@ -10,22 +10,7 @@ describe('필드 모험 운영 수치', () => {
       ENCOUNTER_GRACE_STEPS: 3,
       LEGEND_CHANCE: 0.02,
       UNSEEN_WEIGHT: 2,
-      WILD_LEVEL_MIN: 3,
-      WILD_LEVEL_MAX: 6,
       LEGEND_LEVEL: 20,
-      WILD_MAX_HP: 100,
-      HIT_DAMAGE: 40,
-      FAST_HIT_BONUS: 10,
-      REGEN_PER_SEC: 3,
-      WILD_MAX_QUESTIONS: 12,
-      FLEE_BASE_LOW_MS: 7000,
-      FLEE_BASE_MID_MS: 9000,
-      FLEE_BASE_HIGH_MS: 12000,
-      FLEE_LOW_BOX_BONUS_MS: 3000,
-      FLEE_MISSING_BONUS_MS: 2000,
-      CATCH_CHANCE: 0.3,
-      CATCH_STEP: 0.15,
-      ESCAPE_HP: 40,
       FIELD_CHOICES: 3,
       MAX_LEVEL: 30,
       DUPLICATE_EXP: 40,
@@ -67,10 +52,5 @@ describe('필드 모험 운영 수치', () => {
       TIMER_WARN_MS: 2000,
       WILD_FOE_ATTACK_MS: 700,
     });
-  });
-
-  it('도망 시간은 7초(쉬운 문제)~17초(12단·처음 보는 빈칸)', () => {
-    expect(T.FLEE_BASE_LOW_MS).toBe(7000);
-    expect(T.FLEE_BASE_HIGH_MS + T.FLEE_LOW_BOX_BONUS_MS + T.FLEE_MISSING_BONUS_MS).toBe(17000);
   });
 });
