@@ -1,8 +1,8 @@
 /** 필드 모험 저장 데이터 — 구구몬 도감·동료·마지막 자리 */
 import { MONSTER_KINDS } from '../domain/battle';
-import type { FieldId, MapId } from '../domain/field/fields';
+import { MAP_IDS, type MapId } from '../domain/field/fields';
 import { type Dir, parseMap } from '../domain/field/movement';
-import { MEADOW_ROWS, MEADOW_SIGNS } from '../field/world/maps/meadow';
+import { TOWN_EXITS, TOWN_ROWS, TOWN_SIGNS } from '../field/world/maps/town';
 import { LEGEND_SPECIES, type SpeciesId } from '../domain/field/creatures';
 
 export { LEGEND_SPECIES };
@@ -38,29 +38,31 @@ export type FieldNotice =
   | { kind: 'levelUp'; species: SpeciesId; level: number }
   | { kind: 'evolve'; species: SpeciesId; stage: 2 | 3 };
 
-const FIELD_IDS: readonly FieldId[] = ['meadow', 'waterside', 'desert'];
 const DIRS: readonly Dir[] = ['up', 'down', 'left', 'right'];
 
 function isSpecies(v: unknown): v is SpeciesId {
   return typeof v === 'string' && (SPECIES_IDS as readonly string[]).includes(v);
 }
+function isMapId(v: unknown): v is MapId {
+  return typeof v === 'string' && (MAP_IDS as readonly string[]).includes(v);
+}
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isCount = (v: unknown): v is number => isNum(v) && v >= 0;
 
-/** 처음 시작 자리: 초원의 `@` */
-export function meadowStart(): { x: number; y: number } {
-  const map = parseMap('meadow', MEADOW_ROWS, { exits: { '<': 'waterside', '>': 'desert', '^': 'town' }, signTexts: MEADOW_SIGNS });
+/** 처음 시작 자리: 태초마을의 `@` (마을 지도 글자만 가져온다 — 타일 그림은 불러오기 때) */
+export function townStart(): { x: number; y: number } {
+  const map = parseMap('town', TOWN_ROWS, { exits: TOWN_EXITS, signTexts: TOWN_SIGNS });
   return map.entrances.start ?? { x: 1, y: 1 };
 }
 
 export function initialField(): FieldData {
-  const { x, y } = meadowStart();
+  const { x, y } = townStart();
   return {
     starterChosen: false,
     companion: null,
     species: {},
     seen: [],
-    position: { map: 'meadow', x, y, facing: 'down' },
+    position: { map: 'town', x, y, facing: 'down' },
     stats: { battles: 0, catches: 0, fled: 0 },
   };
 }
@@ -73,7 +75,8 @@ function mergeEntry(raw: unknown): SpeciesEntry | null {
   return { level: e.level, exp: e.exp, stage: e.stage, caught: e.caught, firstCaughtAt: e.firstCaughtAt };
 }
 
-/** 저장본의 필드 칸을 기본값 위에 얹는다. 모르는 종·잘못된 지도 이름·깨진 값은 버리고 기본값 */
+/** 저장본의 필드 칸을 기본값 위에 얹는다. 모르는 종·잘못된 지도 이름·깨진 값은 버리고 기본값.
+ * 옛 저장(초원·물가·사막 자리)은 그대로 둔다. 벽 같은 칸은 그리는 쪽의 `safeStartPosition`이 한 번 더 지킨다 */
 export function mergeField(initial: FieldData, persisted: unknown): FieldData {
   if (!persisted || typeof persisted !== 'object') return initial;
   const p = persisted as Record<string, unknown>;
@@ -95,14 +98,14 @@ export function mergeField(initial: FieldData, persisted: unknown): FieldData {
   if (
     pos &&
     typeof pos === 'object' &&
-    FIELD_IDS.includes(pos.map as FieldId) &&
+    isMapId(pos.map) &&
     isCount(pos.x) &&
     isCount(pos.y) &&
     Number.isInteger(pos.x) &&
     Number.isInteger(pos.y) &&
     DIRS.includes(pos.facing as Dir)
   ) {
-    position = { map: pos.map as FieldId, x: pos.x, y: pos.y, facing: pos.facing as Dir };
+    position = { map: pos.map, x: pos.x, y: pos.y, facing: pos.facing as Dir };
   }
 
   const st = p.stats && typeof p.stats === 'object' ? (p.stats as Record<string, unknown>) : {};

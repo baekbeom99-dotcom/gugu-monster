@@ -20,17 +20,17 @@ export const DEFAULT_LOADERS: FieldLoaders = {
   meadow: () =>
     import('./maps/meadow').then((m) => {
       registerTileSet('meadow', m.MEADOW_TILES);
-      return parseMap('meadow', m.MEADOW_ROWS, { exits: { '<': 'waterside', '>': 'desert', '^': 'town' }, signTexts: m.MEADOW_SIGNS });
+      return parseMap('meadow', m.MEADOW_ROWS, { exits: m.MEADOW_EXITS, signTexts: m.MEADOW_SIGNS });
     }),
   waterside: () =>
     import('./maps/waterside').then((m) => {
       registerTileSet('waterside', m.WATERSIDE_TILES);
-      return parseMap('waterside', m.WATERSIDE_ROWS, { exits: { '>': 'meadow', '^': 'town' }, signTexts: m.WATERSIDE_SIGNS });
+      return parseMap('waterside', m.WATERSIDE_ROWS, { exits: m.WATERSIDE_EXITS, signTexts: m.WATERSIDE_SIGNS });
     }),
   desert: () =>
     import('./maps/desert').then((m) => {
       registerTileSet('desert', m.DESERT_TILES);
-      return parseMap('desert', m.DESERT_ROWS, { exits: { '<': 'meadow', '^': 'town' }, signTexts: m.DESERT_SIGNS });
+      return parseMap('desert', m.DESERT_ROWS, { exits: m.DESERT_EXITS, signTexts: m.DESERT_SIGNS });
     }),
 };
 

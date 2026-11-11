@@ -422,6 +422,31 @@ test('초원 오른쪽 출구로 나가면 사막 (5·7단)', async ({ page }) =
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '1,10');
 });
 
+test('처음 필드는 첫 구구몬 고르기로 가고, 고르면 태초마을 @에서 시작한다', async ({ page }) => {
+  await page.goto('/#/field');
+  await expect(page).toHaveURL(/#\/field\/starter$/);
+  await page.getByRole('button', { name: '젤리몬 고르기' }).click();
+  await expect(page).toHaveURL(/#\/field$/);
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,31');
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position);
+  expect(saved).toEqual({ map: 'town', x: 10, y: 31, facing: 'down' });
+});
+
+test('초원 위 출구로 나가면 태초마을 아래 출구 위 칸, 마을 아래 출구로 나가면 초원 위 출구 아래 칸', async ({ page }) => {
+  await standAt(page, 'meadow', 7, 1, 'up');
+  await tap(page, 'ArrowUp');
+  await expect(page.getByRole('status', { name: '불러오는 중' })).toContainText('태초마을');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '9,38');
+  await page.reload();
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '9,38');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position.map)).toBe('town');
+
+  await tap(page, 'ArrowDown', 400); // 도착하면 위를 보고 있어서 돌아선 뒤 걷는다
+  await expect(page.getByRole('status', { name: '불러오는 중' })).toContainText('초원');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '7,1');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position.map)).toBe('meadow');
+});
+
 test('물가 풀숲에서 만난 구구몬은 젤리몬·안테나몬·뿔뿔몬 중 하나', async ({ page }) => {
   await page.addInitScript(() => {
     (window as unknown as { __GUGU_E2E_FIELD__: boolean }).__GUGU_E2E_FIELD__ = true;

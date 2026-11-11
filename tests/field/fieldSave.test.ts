@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { initialField } from '../../src/store/fieldData';
+import { initialField, mergeField, townStart } from '../../src/store/fieldData';
+import { parseMap } from '../../src/domain/field/movement';
+import { TOWN_EXITS, TOWN_ROWS, TOWN_SIGNS } from '../../src/field/world/maps/town';
+import fieldDataSource from '../../src/store/fieldData.ts?raw';
 import { createInitialSave, mergeSave } from '../../src/store/saveData';
 import { useGameStore } from '../../src/store/useGameStore';
 
@@ -25,17 +28,73 @@ describe('저장 데이터 field', () => {
     expect(merged.learning.facts['7x8'].box).toBe(4);
   });
 
-  it('기본 자리는 초원, 아래를 본다', () => {
+  it('기본 자리는 태초마을, 아래를 본다', () => {
     const f = initialField();
-    expect(f.position.map).toBe('meadow');
+    expect(f.position.map).toBe('town');
     expect(f.position.facing).toBe('down');
     expect(f.starterChosen).toBe(false);
     expect(f.companion).toBeNull();
   });
 
-  it('모르는 지도 이름 -> 초원 기본 자리', () => {
+  it('모르는 지도 이름 -> 마을 기본 자리', () => {
     const s = { ...oldSave(), field: { ...initialField(), position: { map: 'volcano', x: 3, y: 4, facing: 'up' } } };
     expect(mergeSave(createInitialSave(NOW), s).field.position).toEqual(initialField().position);
+  });
+
+  it('새로 시작하면 태초마을 @', () => {
+    expect(initialField().position).toEqual({ map: 'town', ...townStart(), facing: 'down' });
+  });
+
+  it('townStart는 마을 지도의 @ 칸', () => {
+    const town = parseMap('town', TOWN_ROWS, { exits: TOWN_EXITS, signTexts: TOWN_SIGNS });
+    expect(townStart()).toEqual(town.entrances.start);
+    expect(TOWN_ROWS[townStart().y][townStart().x]).toBe('@');
+  });
+
+  it('옛 저장의 초원 자리는 그대로', () => {
+    const pos = { map: 'meadow', x: 5, y: 8, facing: 'right' };
+    expect(mergeField(initialField(), { position: pos }).position).toEqual(pos);
+  });
+
+  it('town 자리도 받는다, 모르는 지도 이름은 마을 시작', () => {
+    expect(mergeField(initialField(), { position: { map: 'town', x: 3, y: 30, facing: 'up' } }).position.map).toBe('town');
+    expect(mergeField(initialField(), { position: { map: 'castle', x: 3, y: 3, facing: 'up' } }).position).toEqual(initialField().position);
+  });
+
+  it('음수·소수·숫자 아닌 좌표, 모르는 방향은 마을 시작', () => {
+    for (const bad of [
+      { map: 'meadow', x: -1, y: 3, facing: 'up' },
+      { map: 'meadow', x: 2.5, y: 3, facing: 'up' },
+      { map: 'town', x: '3', y: 3, facing: 'up' },
+      { map: 'town', x: 3, y: 3, facing: 'north' },
+      null,
+      'meadow',
+    ]) {
+      expect(mergeField(initialField(), { position: bad }).position).toEqual(initialField().position);
+    }
+  });
+
+  it('v1.35 옛 저장(초원 자리, 새 칸 없음)을 열면 자리·도감이 그대로', () => {
+    const entry = { level: 7, exp: 4, stage: 2, caught: 3, firstCaughtAt: NOW };
+    const v135 = {
+      starterChosen: true,
+      companion: 'horn',
+      species: { horn: entry },
+      seen: ['horn'],
+      position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
+      stats: { battles: 9, catches: 3, fled: 2 },
+    };
+    expect(mergeSave(createInitialSave(NOW), { ...oldSave(), field: v135 }).field).toEqual(v135);
+  });
+
+  it('fieldData.ts는 필드 지도·타일 그림을 가져오지 않는다 (마을 지도 글자만)', () => {
+    const src: string = fieldDataSource;
+    const imports = src.split(/\r?\n/).filter((l) => /^\s*(import|export)\b.*\bfrom\s/.test(l));
+    const mapImports = imports.filter((l) => l.includes('maps/'));
+    expect(mapImports.length).toBeGreaterThan(0);
+    for (const l of mapImports) expect(l).toMatch(/maps\/town['"]/);
+    expect(src).not.toMatch(/Tiles['"]/);
+    expect(src).not.toMatch(/maps\/(meadow|waterside|desert)/);
   });
 
   it('모르는 종 키는 버려진다', () => {

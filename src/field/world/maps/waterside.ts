@@ -24,4 +24,6 @@ export const WATERSIDE_ROWS: string[] = [
 
 export const WATERSIDE_SIGNS: string[] = ['연못 가까이는 조심! 물방울 친구들이 살아요', '→ 초원으로 가는 길'];
 
+export const WATERSIDE_EXITS = { '>': 'meadow', '^': 'town' } as const;
+
 export { WATERSIDE_TILES } from './watersideTiles';

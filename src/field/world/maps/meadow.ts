@@ -24,4 +24,6 @@ export const MEADOW_ROWS: string[] = [
 
 export const MEADOW_SIGNS: string[] = ['← 물가 · 사막 →', '풀숲에 구구몬이 살아요!'];
 
+export const MEADOW_EXITS = { '<': 'waterside', '>': 'desert', '^': 'town' } as const;
+
 export { MEADOW_TILES } from './meadowTiles';
