@@ -163,3 +163,23 @@
   image-rendering: pixelated;
   pointer-events: none;
 }
+/* 구구몬 말풍선: 머리 위에 뜬다(자리는 화면 코드가 매 프레임 정한다) */
+.roam-bubble {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  background: #fff;
+  border: 3px solid #000;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 #000;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.roam-bubble__name { font-size: 15px; }
+.roam-bubble__meta { font-size: 12px; color: #444; }

@@ -7,9 +7,11 @@ import { companionImage } from '../art/companionImage';
 import { creatureArt } from '../art/creatureArt';
 import { STAGE_SCALE } from '../art/creatureSprite';
 import { playFx, preloadFx, prefersReducedMotion } from '../fx/playFx';
-import type { MapId } from '../../domain/field/fields';
+import type { FieldId, MapId } from '../../domain/field/fields';
 import { stepOnTile } from '../../domain/field/encounter';
-import { ENCOUNTER_FLASH_MS, STEP_MS, TURN_TAP_MS } from '../../domain/field/tuning';
+import { ENCOUNTER_FLASH_MS, ROAM_BUBBLE_MS, STEP_MS, TURN_TAP_MS } from '../../domain/field/tuning';
+import { type Roamer, createRoamers, habitatOf, pokeRoamer, stepRoamer } from '../../domain/field/roam';
+import type { SpeciesId } from '../../domain/field/creatures';
 import { debugFlags } from '../debugFlags';
 import { useGameStore } from '../../store/useGameStore';
 import { Joystick } from './Joystick';
@@ -17,6 +19,7 @@ import { type Companion, drawField, viewScale } from './fieldRenderer';
 import { FieldLoading } from './FieldLoading';
 import { OFFLINE_MESSAGE, getLoadedField, loadField, travelTo } from './loadField';
 import { TILE_PX } from './padDirection';
+import { bubblePosition, buildSprites, roamerAt, tileAtScreen } from './roamerLayer';
 import { enterField, leaveBattleReturn, useFieldSession } from '../useFieldSession';
 import './field.css';
 
@@ -139,6 +142,11 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   const [menuOpen, setMenuOpen] = useState(false);
   const [signText, setSignText] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
+  /** 구구몬 말풍선(부딪히거나 탭한 구구몬) */
+  const [bubble, setBubble] = useState<SpeciesId | null>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const bubbleTimer = useRef(0);
+  useEffect(() => () => clearTimeout(bubbleTimer.current), []);
   /** 전투로 넘어가는 별 조리개 (동작 줄이기면 예전처럼 번쩍임만) */
   const [iris, setIris] = useState(false);
   const irisRef = useRef<HTMLCanvasElement>(null);
@@ -173,6 +181,12 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     cy: 0,
     /** 알림 창이 떠 있으면 걷지 않는다 */
     noticeOpen: false,
+    /** 마을에서 돌아다니는 구구몬 (마을이 아니면 비어 있다) */
+    roamers: [] as Roamer[],
+    /** 마지막으로 그린 카메라(화면 픽셀)·칸 크기 — 탭한 칸을 알아내는 데 쓴다 */
+    camX: 0,
+    camY: 0,
+    tile: TILE_PX,
   });
   const init = useRef(false);
   if (!init.current) {
@@ -186,6 +200,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   const notice0 = useSessionStore((s) => s.pendingFieldNotices[0] ?? null);
   st.current.noticeOpen = notice0 !== null;
   const noticeStage = useGameStore((s) => (notice0 ? s.field.species[notice0.species]?.stage ?? 1 : 1));
+  const bubbleStage = useGameStore((s) => (bubble ? s.field.species[bubble]?.stage ?? 1 : 1));
+  const bubbleLevel = useGameStore((s) => (bubble ? s.field.species[bubble]?.level ?? 1 : 1)); // 체력은 전투 개편(M3) 전까지 100으로 보인다
   const dismissNotice = useCallback(() => {
     const ss = useSessionStore.getState();
     ss.set({ pendingFieldNotices: ss.pendingFieldNotices.slice(1) });
@@ -198,8 +214,23 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     useGameStore.getState().setFieldPosition({ map: map.id, x: s.x, y: s.y, facing: s.facing });
   }, [map.id]);
 
-  /** 화면을 가볍게 탭: 알림이 떠 있으면 닫고, 표지판 글이 떠 있으면 닫는다 */
-  const onTap = useCallback((): boolean => {
+  /** 구구몬을 깨워 점프시키고 말풍선을 띄운다 */
+  const pokeAt = useCallback((p: { x: number; y: number }): boolean => {
+    const s = st.current;
+    const target = roamerAt(s.roamers, p);
+    if (!target) return false;
+    const now = performance.now();
+    s.roamers = s.roamers.map((r) => (r === target ? pokeRoamer(r, now) : r));
+    setBubble(target.species);
+    clearTimeout(bubbleTimer.current);
+    bubbleTimer.current = window.setTimeout(() => setBubble(null), ROAM_BUBBLE_MS);
+    return true;
+  }, []);
+  const pokeRef = useRef(pokeAt);
+  pokeRef.current = pokeAt;
+
+  /** 화면을 가볍게 탭: 알림이 떠 있으면 닫고, 표지판 글이 떠 있으면 닫고, 아니면 탭한 칸의 구구몬을 깨운다 */
+  const onTap = useCallback((clientX?: number, clientY?: number): boolean => {
     const s = st.current;
     if (s.noticeOpen) {
       dismissRef.current();
@@ -209,6 +240,11 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       s.signOpen = false;
       setSignText(null);
       return true;
+    }
+    const canvas = canvasRef.current;
+    if (canvas && clientX !== undefined && clientY !== undefined && s.roamers.length > 0) {
+      const p = tileAtScreen(clientX, clientY, canvas.getBoundingClientRect(), canvas.width, s.tile, s.camX, s.camY);
+      return pokeRef.current(p);
     }
     return false;
   }, []);
@@ -265,6 +301,32 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     resize();
     const ro = new ResizeObserver(resize);
     ro.observe(wrap);
+
+    // 마을에서만: 잡은 구구몬(동행 빼고)이 서식지를 돌아다닌다
+    if (map.id === 'town') {
+      const { species, companion } = useGameStore.getState().field;
+      const list = (Object.keys(species) as SpeciesId[]).filter((id) => id !== companion).map((id) => ({ species: id, fainted: false }));
+      // 주인공·동행이 서 있는 칸에는 세우지 않는다
+      const free = (f: FieldId) => (map.zones[f] ?? []).filter((z) => !(z.x === s.x && z.y === s.y) && !(z.x === s.cx && z.y === s.cy));
+      const zones = { meadow: free('meadow'), waterside: free('waterside'), desert: free('desert') };
+      s.roamers = createRoamers({ ...map, zones }, list, Math.random, performance.now());
+    }
+    const zoneSets = new Map<string, Set<string>>();
+    const inHabitat = (id: SpeciesId, p: { x: number; y: number }) => {
+      const f = habitatOf(id);
+      let set = zoneSets.get(f);
+      if (!set) {
+        set = new Set((map.zones[f] ?? []).map((z) => `${z.x},${z.y}`));
+        zoneSets.set(f, set);
+      }
+      return set.has(`${p.x},${p.y}`);
+    };
+    /** 주인공·동행(가는 칸 포함)이 서 있는 칸 */
+    const crowded = (p: { x: number; y: number }) => {
+      const at = (x: number, y: number) => x === p.x && y === p.y;
+      if (at(s.x, s.y) || at(s.cx, s.cy)) return true;
+      return !!s.move && (at(s.move.tx, s.move.ty) || at(s.move.fx, s.move.fy));
+    };
 
     const held = (): Dir | null => s.padDir ?? s.keys[s.keys.length - 1] ?? null;
     const clearInput = () => {
@@ -325,6 +387,12 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       raf = requestAnimationFrame(frame);
       if (paused) return;
       if (s.move && now - s.move.start >= STEP_MS) finishMove();
+      if (s.roamers.length > 0) {
+        s.roamers = s.roamers.map((r) =>
+          stepRoamer(r, now, Math.random, (p) => inHabitat(r.species, p) && !crowded(p) && !roamerAt(s.roamers.filter((o) => o !== r), p)),
+        );
+      }
+      const isRoamerAt = (p: { x: number; y: number }) => roamerAt(s.roamers, p) !== undefined;
       if (!s.move) {
         // 부딪힘은 방향을 떼거나 바꿔야 다시 반응한다
         if (s.lastBump && held() !== s.lastBump.dir) s.lastBump = null;
@@ -336,7 +404,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
           if (h) s.facing = h;
         }
         if (h && (!s.needTurn || now - s.heldSince >= TURN_TAP_MS)) {
-          const result = tryStep(map, { x: s.x, y: s.y }, h);
+          const result = tryStep(map, { x: s.x, y: s.y }, h, s.roamers.length > 0 ? isRoamerAt : undefined);
           if (result.moved) {
             s.lastBump = null;
             s.move = { fx: s.x, fy: s.y, tx: result.pos.x, ty: result.pos.y, start: now, result };
@@ -347,7 +415,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
               s.lastBump = { key, dir: h };
               const sign = map.signs.find((g) => g.pos.x === b.x && g.pos.y === b.y);
               const isDoor = map.doors.some((d) => d.x === b.x && d.y === b.y);
-              if (sign || isDoor) {
+              if (!sign && !isDoor) pokeRef.current(b);
+              else {
                 s.signOpen = true;
                 setSignText(sign ? sign.text : '상점은 곧 열려요!'); // 문 반응은 상점 팝업(M3·M4)이 바꾼다
               }
@@ -372,7 +441,23 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         comp = { x: fromX, y: fromY, img: companionImage(compId), scale: STAGE_SCALE[species[compId]?.stage ?? 1], fill: art.fill, foot: art.foot };
       }
       const stepT = s.move ? Math.min(1, (now - s.move.start) / STEP_MS) : null;
-      drawField(ctx, map, view, hx, hy, s.facing, comp, { now, step: stepT });
+      const sprites = s.roamers.length > 0 ? buildSprites(s.roamers, (r) => useGameStore.getState().field.species[r.species]?.stage ?? 1) : undefined;
+      const cam = drawField(ctx, map, view, hx, hy, s.facing, comp, { now, step: stepT }, sprites);
+      s.camX = cam.cx;
+      s.camY = cam.cy;
+      s.tile = view.tile;
+      if (s.roamers.length > 0) {
+        canvas.dataset.cam = `${cam.cx / view.tile},${cam.cy / view.tile},${view.tile}`; // 카메라 왼쪽 위(칸 단위)와 한 칸의 화면 픽셀 (E2E용)
+        canvas.dataset.roamers = s.roamers.map((r) => `${r.species}:${r.x},${r.y}`).join(';');
+        const el = bubbleRef.current;
+        const target = el && s.roamers.find((r) => r.species === el.dataset.species);
+        if (el && target) {
+          const rect = wrap.getBoundingClientRect();
+          const pos = bubblePosition(target, now, view.tile, cam.cx, cam.cy, rect.width / canvas.width);
+          el.style.left = `${pos.left}px`;
+          el.style.top = `${pos.top}px`;
+        }
+      }
       canvas.dataset.pos = `${s.x},${s.y}`;
       if (compId) canvas.dataset.companionPos = `${s.cx},${s.cy}`;
     };
@@ -447,8 +532,14 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
             <span className="fieldmode__growth-hint">탭하면 닫혀요</span>
           </button>
         )}
+        {bubble && (
+          <div className="roam-bubble" role="dialog" aria-label="구구몬 말풍선" data-species={bubble} ref={bubbleRef}>
+            <span className="roam-bubble__name">{displayName(bubble, bubbleStage)}</span>
+            <span className="roam-bubble__meta">Lv{bubbleLevel} · 체력 100</span>
+          </div>
+        )}
         {signText && (
-          <div className="fieldmode__text" role="dialog" aria-label="표지판" onClick={onTap}>
+          <div className="fieldmode__text" role="dialog" aria-label="표지판" onClick={() => onTap()}>
             {signText}
           </div>
         )}

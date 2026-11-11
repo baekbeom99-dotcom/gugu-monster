@@ -13,8 +13,9 @@ const cache = new Map<string, HTMLImageElement>();
  * 구운 이미지를 돌려준다. 아직 읽는 중이어도 이미지를 돌려주고, 다 읽기 전에는 그리지 않는 쪽이 알아서 건너뛴다.
  * 주의: React가 그리는 중(컴포넌트 본문·useEffect 안)에 부르면 몬스터 SVG를 굽지 못해 null — rAF·setTimeout 안에서 부른다.
  */
-export function companionImage(id: SpeciesId, size = 96): HTMLImageElement | null {
-  const key = `${id}:${size}`;
+/** mood: 'sleep'이면 눈 감은 얼굴로 구운 그림(이미지 그림 종은 mood 없이 같은 그림) */
+export function companionImage(id: SpeciesId, size = 96, mood: 'idle' | 'sleep' = 'idle'): HTMLImageElement | null {
+  const key = `${id}:${size}:${mood}`;
   const hit = cache.get(key);
   if (hit) return hit;
   try {
@@ -25,7 +26,7 @@ export function companionImage(id: SpeciesId, size = 96): HTMLImageElement | nul
       const host = document.createElement('div');
       const root = createRoot(host);
       flushSync(() => {
-        root.render(createElement(MonsterSprite, { kind: art.kind, color: speciesColor(id), golden: art.golden, mood: 'idle', size }));
+        root.render(createElement(MonsterSprite, { kind: art.kind, color: speciesColor(id), golden: art.golden, mood, size }));
       });
       const svg = host.innerHTML;
       root.unmount();

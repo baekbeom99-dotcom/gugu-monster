@@ -45,6 +45,13 @@ describe('필드 모험 운영 수치', () => {
       CAPSULE_SHAKE_MS: 400,
       MIN_LOADING_MS: 600,
       WATER_FRAME_MS: 500,
+      ROAM_IDLE_MIN_MS: 1500,
+      ROAM_IDLE_MAX_MS: 3000,
+      ROAM_MOVE_MS: 360,
+      ROAM_JUMP_MS: 600,
+      ROAM_SLEEP_MS: 5000,
+      ROAM_WEIGHTS: { move: 0.6, idle: 0.25, jump: 0.1, sleep: 0.05 },
+      ROAM_BUBBLE_MS: 2500,
     });
   });
 

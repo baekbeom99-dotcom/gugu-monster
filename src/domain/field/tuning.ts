@@ -89,3 +89,16 @@ export const CAPSULE_SHAKE_MS = 400;
 export const MIN_LOADING_MS = 600;
 /** 물결 그림이 바뀌는 시간 */
 export const WATER_FRAME_MS = 500;
+
+// ── 마을에서 돌아다니는 구구몬 ──
+/** 가만히 서 있는 시간 범위 */
+export const ROAM_IDLE_MIN_MS = 1500;
+export const ROAM_IDLE_MAX_MS = 3000;
+/** 한 칸 걷는 시간 / 점프 / 잠 */
+export const ROAM_MOVE_MS = 360;
+export const ROAM_JUMP_MS = 600;
+export const ROAM_SLEEP_MS = 5000;
+/** 다음 모션을 고르는 가중치 */
+export const ROAM_WEIGHTS = { move: 0.6, idle: 0.25, jump: 0.1, sleep: 0.05 };
+/** 말풍선이 떠 있는 시간 */
+export const ROAM_BUBBLE_MS = 2500;

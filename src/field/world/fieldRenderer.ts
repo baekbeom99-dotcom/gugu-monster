@@ -4,6 +4,7 @@ import { WATER_FRAME_MS } from '../../domain/field/tuning';
 import { TILE_PX, VIEW_TILES_W } from './padDirection';
 import { HERO_SPRITES, heroFrame } from '../art/hero';
 import { type TileSet, bakeTiles } from '../art/pixelArt';
+import { type RoamerSprite, drawRoamers } from './roamerLayer';
 
 
 // 타일 그림을 아직 못 불러왔을 때 쓰는 색 칸
@@ -83,7 +84,8 @@ export function drawField(
   facing: Dir,
   companion?: Companion,
   anim: Anim = { now: 0, step: null },
-) {
+  roamers: RoamerSprite[] = [],
+): { cx: number; cy: number } {
   const { tile, w, h } = view;
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = '#000';
@@ -108,6 +110,8 @@ export function drawField(
       }
     }
   }
+  // 마을에서 돌아다니는 구구몬: 동행·주인공 아래에 그린다
+  if (roamers.length > 0) drawRoamers(ctx, roamers, tile, cx, cy, anim.now, companionRect);
   // 동행: 주인공 뒤 칸 (구운 그림, 아직 못 읽었으면 색 동그라미). 주인공보다 먼저 그려 주인공을 가리지 않는다
   if (companion) {
     const left = Math.round(companion.x * tile) - cx;
@@ -127,4 +131,5 @@ export function drawField(
   const px = Math.round(hx * tile) - cx;
   const py = Math.round(hy * tile) - cy;
   ctx.drawImage(bakeTiles(HERO_SPRITES[facing][heroFrame(anim.step)]), px, py, tile, tile);
+  return { cx, cy };
 }

@@ -624,3 +624,77 @@ test('도망 확인창을 열어 둔 시간은 답하는 데 걸린 시간에 �
   const ms = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.learning.facts['13x10'].avgMs);
   expect(ms).toBeLessThan(1500);
 });
+
+// ── 마을에서 돌아다니는 구구몬 ──
+
+/** 젤리몬을 잡았고 동행은 구름몬인 저장본. Math.random은 pin이 켜져 있는 동안 0을 돌려줘 처음 자리를 정한다 */
+async function seedTownRoam(page: Page, hero: { x: number; y: number }, facing: string) {
+  await page.addInitScript(
+    ([position]) => {
+      if (!localStorage.getItem('gugu-monster:save')) {
+        const field = {
+          starterChosen: true,
+          companion: 'cloud',
+          species: {
+            cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1 },
+            jelly: { level: 4, exp: 0, stage: 1, caught: 1, firstCaughtAt: 2 },
+          },
+          seen: ['cloud', 'jelly'],
+          position,
+        };
+        localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
+      }
+      const w = window as unknown as { __pin: boolean };
+      w.__pin = true;
+      const real = Math.random;
+      Math.random = () => (w.__pin ? 0 : real());
+    },
+    [{ map: 'town', ...hero, facing }] as const,
+  );
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', `${hero.x},${hero.y}`);
+}
+
+test('마을에서는 잡은 구구몬(동행 빼고)이 자기 서식지에서 돌아다닌다', async ({ page }) => {
+  await seedTownRoam(page, { x: 10, y: 31 }, 'down');
+  const canvas = page.getByTestId('field-canvas');
+  await expect(canvas).toHaveAttribute('data-roamers', /^jelly:\d+,\d+$/);
+  await page.evaluate(() => ((window as unknown as { __pin: boolean }).__pin = false));
+  const seen = new Set<string>();
+  for (let i = 0; i < 12; i++) {
+    const [, x, y] = ((await canvas.getAttribute('data-roamers')) ?? '').match(/^jelly:(\d+),(\d+)$/)!.map(Number);
+    seen.add(`${x},${y}`);
+    // 물가 서식지: 연못(5~10, 8~9) 둘레 4~11 × 7~10
+    expect(x >= 4 && x <= 11 && y >= 7 && y <= 10).toBe(true);
+    expect(x >= 5 && x <= 10 && y >= 8 && y <= 9).toBe(false);
+    await page.waitForTimeout(500);
+  }
+});
+
+test('구구몬에게 부딪히면 말풍선이 뜬다 (이름·Lv·체력)', async ({ page }) => {
+  await seedTownRoam(page, { x: 4, y: 6 }, 'down');
+  const canvas = page.getByTestId('field-canvas');
+  await expect(canvas).toHaveAttribute('data-roamers', 'jelly:4,7'); // pin: 첫 서식지 칸
+  await page.evaluate(() => ((window as unknown as { __pin: boolean }).__pin = false));
+  await page.keyboard.down('ArrowDown'); // 이미 아래를 보고 있어 곧바로 부딪힌다
+  const bubble = page.getByRole('dialog', { name: '구구몬 말풍선' });
+  await expect(bubble).toContainText('젤리몬');
+  await expect(bubble).toContainText('Lv4');
+  await expect(bubble).toContainText('체력 100');
+  await page.keyboard.up('ArrowDown');
+  expect(await pos(page)).toEqual({ x: 4, y: 6 }); // 못 지나간다
+  await expect(bubble).toHaveCount(0, { timeout: 4000 }); // 잠시 뒤 사라진다
+});
+
+test('구구몬이 있는 칸을 탭해도 말풍선이 뜬다', async ({ page }) => {
+  await seedTownRoam(page, { x: 4, y: 12 }, 'down');
+  const canvas = page.getByTestId('field-canvas');
+  await expect(canvas).toHaveAttribute('data-roamers', 'jelly:4,7');
+  await page.evaluate(() => ((window as unknown as { __pin: boolean }).__pin = false));
+  const box = (await canvas.boundingBox())!;
+  const [camX, camY, tile] = ((await canvas.getAttribute('data-cam')) ?? '0,0,1').split(',').map(Number);
+  const cw = await canvas.evaluate((c) => (c as HTMLCanvasElement).width);
+  const css = (tile * box.width) / cw;
+  await page.mouse.click(box.x + (4.5 - camX) * css, box.y + (7.5 - camY) * css);
+  await expect(page.getByRole('dialog', { name: '구구몬 말풍선' })).toContainText('젤리몬');
+});
