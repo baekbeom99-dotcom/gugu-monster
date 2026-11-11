@@ -6,6 +6,7 @@ import { FIELDS } from '../domain/field/fields';
 import { displayName } from '../domain/field/growth';
 import { isFainted } from '../domain/field/wounds';
 import { useGameStore } from '../store/useGameStore';
+import { HpBar } from './HpBar';
 import { creatureSprite, speciesColor } from './art/creatureSprite';
 import './fieldDex.css';
 
@@ -53,12 +54,13 @@ export function FieldDexScreen() {
                     onClick={() => setPicked(picked === id ? null : id)}
                   >
                     {field.companion === id && <span className="fdex__tag">함께 다니는 중</span>}
+                    {isFainted(entry) && <span className="fdex__tag fdex__tag--down">쓰러짐</span>}
                     {creatureSprite(id, { view: 'front', stage: entry.stage, color: speciesColor(id), size: 64 })}
                     <span className="fdex__name">{displayName(id, entry.stage)}</span>
                     <span className="fdex__meta">
                       Lv{entry.level} · {entry.caught}번 잡음
                     </span>
-                    <span className={`fdex__hp ${isFainted(entry) ? 'fdex__hp--down' : ''}`}>{isFainted(entry) ? '쓰러짐' : `체력 ${entry.hp}`}</span>
+                    <HpBar hp={entry.hp} label={`체력 ${entry.hp}`} />
                   </button>
                 );
               }
@@ -90,7 +92,6 @@ export function FieldDexScreen() {
       {picked && field.species[picked] && (
         <div className="fdex__sheet" role="dialog" aria-label={`${speciesDef(picked).name} 정보`}>
           <div className="fdex__sheet-name">{displayName(picked, field.species[picked]!.stage)}</div>
-          {isFainted(field.species[picked]!) && <p className="fdex__sheet-note fdex__hp--down">쓰러짐 — 상점에서 회복시켜요</p>}
           {field.companion === picked ? (
             <p className="fdex__sheet-note">지금 함께 다니고 있어요!</p>
           ) : (
@@ -106,6 +107,7 @@ export function FieldDexScreen() {
               함께 다니기
             </button>
           )}
+          {isFainted(field.species[picked]!) && <p className="fdex__sheet-note fdex__sheet-note--down">상점에서 회복시켜요</p>}
           <button type="button" className="btn btn--ghost" onClick={() => setPicked(null)}>
             닫기
           </button>

@@ -74,6 +74,38 @@
   box-shadow: 2px 2px 0 #000;
 }
 
+/* 왼쪽 위 알약 — 조이스틱 층 위, 메뉴 버튼과 겹치지 않게 오른쪽 여백을 남긴다. 알림·글 창·상점은 DOM 뒤에 있어 위에 덮는다 */
+.fieldhud {
+  position: absolute;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 8px;
+  max-width: calc(100% - 96px);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 10px;
+  border: 2.5px solid rgba(0, 0, 0, 0.7);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+.fieldhud__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fieldhud__cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+.fieldhud__dex {
+  white-space: nowrap;
+}
+
 /* 풀숲에서 만났을 때 번쩍번쩍 */
 .fieldmode__flash {
   position: absolute;

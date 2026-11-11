@@ -1118,3 +1118,69 @@ test('구구몬이 있는 칸을 탭해도 말풍선이 뜬다', async ({ page }
   await page.mouse.click(box.x + (4.5 - camX) * css, box.y + (7.5 - camY) * css);
   await expect(page.getByRole('dialog', { name: '구구몬 말풍선' })).toContainText('젤리몬');
 });
+
+// ── 왼쪽 위 표시·태초마을로·도감 체력 ──
+
+test('HUD에 도감 1/11과 캡슐 3개씩, 동행 체력이 보인다', async ({ page }) => {
+  await seedStarter(page);
+  await page.goto('/#/field');
+  const hud = page.getByRole('group', { name: '필드 정보' });
+  await expect(hud).toBeVisible();
+  await expect(hud).toContainText('도감 1/11');
+  await expect(hud.getByLabel('초원 캡슐 3개')).toBeVisible();
+  await expect(hud.getByLabel('황금 캡슐 0개')).toBeVisible();
+  await expect(hud.getByLabel('동행 체력 100')).toBeVisible();
+  // 메뉴 버튼과 겹치지 않는다
+  const a = (await hud.boundingBox())!;
+  const b = (await page.getByRole('button', { name: '메뉴' }).boundingBox())!;
+  expect(a.x + a.width).toBeLessThanOrEqual(b.x);
+});
+
+test('초원에서 메뉴의 태초마을로를 누르면 마을 @에 서고 저장본도 마을', async ({ page }) => {
+  await standAt(page, 'meadow', 5, 8, 'right');
+  await page.getByRole('button', { name: '메뉴' }).click();
+  await page.getByRole('button', { name: '태초마을로' }).click();
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,31');
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position);
+  expect(saved).toEqual({ map: 'town', x: 10, y: 31, facing: 'down' });
+});
+
+test('마을에서는 메뉴에 태초마을로가 없다', async ({ page }) => {
+  await seedStarter(page);
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,31');
+  await page.getByRole('button', { name: '메뉴' }).click();
+  await expect(page.getByRole('button', { name: '구구몬 도감' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '태초마을로' })).toHaveCount(0);
+});
+
+test('도감에서 쓰러진 종은 쓰러짐 꼬리표와 빨간 막대, 함께 다니기가 꺼져 있다', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'gugu-monster:save',
+      JSON.stringify({
+        version: 1,
+        state: {
+          field: {
+            starterChosen: true,
+            companion: 'cloud',
+            species: {
+              cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1 },
+              jelly: { level: 3, exp: 0, stage: 1, caught: 1, firstCaughtAt: 2, hp: 0 },
+              horn: { level: 3, exp: 0, stage: 1, caught: 1, firstCaughtAt: 3, hp: 40 },
+            },
+            seen: ['cloud', 'jelly', 'horn'],
+          },
+        },
+      }),
+    );
+  });
+  await page.goto('/#/field/dex');
+  await expect(page.getByLabel('체력 0')).toHaveCount(1);
+  await expect(page.getByLabel('체력 40')).toHaveCount(1);
+  await expect(page.locator('.fdex__cell--caught').filter({ hasText: '쓰러짐' })).toHaveCount(1);
+  await page.locator('.fdex__cell--caught').filter({ hasText: '쓰러짐' }).click();
+  const btn = page.getByRole('button', { name: /함께 다니기/ });
+  await expect(btn).toBeDisabled();
+  await expect(page.getByRole('dialog')).toContainText('상점에서 회복시켜요');
+});

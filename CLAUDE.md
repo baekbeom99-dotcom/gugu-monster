@@ -15,8 +15,9 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 | `src/store/useGameStore.ts` | 저장되는 게임 상태와 액션(Zustand persist) |
 | `src/store/saveData.ts` | `SaveData` 형식, `createInitialSave`, `mergeSave`(예전 저장 채우기), `SAVE_KEY` |
 | `src/store/useSessionStore.ts` | 저장 안 되는 화면 상태(진화·레벨업 알림 대기 등) |
-| `src/domain/field/` | 필드 모험 순수 로직: **`tuning`(운영 수치 전부)**, `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남), `creatures`(종·기술 이름), `fieldQuestions`, `growth`(경험치·레벨·진화) |
-| `src/field/world/` | 필드 걷기: `FieldScreen`, `fieldRenderer`(캔버스), `TouchPad`, `loadField`, `maps/`(필드마다 지도·타일 그림) |
+| `src/domain/field/` | 필드 모험 순수 로직: **`tuning`(운영 수치 전부)**, `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남), `creatures`(종·기술 이름), `fieldQuestions`, `growth`(경험치·레벨·진화), `strength`(만남 강함 단계), `capsules`(캡슐 4종·개수), `wounds`(체력·상처), `shopQuiz`(상점 연습), `roam`(마을 구구몬 배회) |
+| `src/field/shop/` | 마을 상점 팝업: `ShopPopup`, `CapsuleTab`(한 단 연습으로 캡슐), `PotionTab`·`HealPractice`(회복 연습), `shopText`(글) |
+| `src/field/world/` | 필드 걷기: `FieldScreen`, `fieldRenderer`(캔버스), `Joystick`, `FieldHud`(왼쪽 위 캡슐·도감·체력), `loadField`, `maps/`(필드마다 지도·타일 그림) |
 | `src/field/battle/` | 야생 전투: `WildBattleScreen`, `useQuestionFeed`(문제 받기), `battleText`(화면 글) |
 | `src/field/art/` | 그림: `creatureArt`(구구몬 그림 등록표), `creatureSprite`, `companionImage`, `hero`(주인공), `pixelArt`(픽셀 그림 틀·표지판), `CapsuleBall` |
 | `src/field/fx/` | 효과: `effects`(효과 목록), `playFx`(틀기) |
@@ -71,9 +72,11 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 
 | 바꿀 것 | 고칠 곳 | 함께 할 일 |
 |---|---|---|
-| 확률·HP·도망 시간·캡슐·경험치·연출 시간 | `src/domain/field/tuning.ts` 한 곳 | `tests/field/tuning.test.ts` 고정값, `MVP_DESIGN.md` 이력 |
+| 확률·강함 단계·문제 시간·캡슐·경험치·연출 시간 | `src/domain/field/tuning.ts` 한 곳 | `tests/field/tuning.test.ts` 고정값, `MVP_DESIGN.md` 이력 |
 | 필드별 단·나오는 종 | `src/domain/field/fields.ts` | 설계서 4-6 |
 | 기술 이름·종 이름 | `src/domain/field/creatures.ts` (`MOVES`), 이름은 `src/domain/monsterNames.ts` | — |
+| 상점 글 | `src/field/shop/shopText.ts` | E2E가 글을 찾으면 `e2e/field.spec.ts`도 |
+| 캡슐·단 연습 수치 | `src/domain/field/tuning.ts` | `tests/field/tuning.test.ts` |
 | 전투 화면 글 | `src/field/battle/battleText.ts` | E2E가 글을 찾으면 `e2e/field.spec.ts`도 |
 | 구구몬 그림 교체 | 파일을 `src/field/art/creatures/`에 넣고 `src/field/art/creatureArt.ts`의 `IMAGE_ART`에 한 줄 | `#/dev/field`에서 앞·뒤·동행 크기 확인 (퀴즈 모험 몬스터 그림은 그대로) |
 | 주인공 그림 | `src/field/art/hero.ts` (32×32 글자 배열) | `tests/field/pixelArt.test.ts`가 크기 확인 |

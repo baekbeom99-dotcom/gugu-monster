@@ -8,6 +8,7 @@ import {
   clearFieldCache,
   loadField,
   travelTo,
+  warpPosition,
 } from '../../src/field/world/loadField';
 import { parseMap } from '../../src/domain/field/movement';
 
@@ -68,5 +69,15 @@ describe('필드 불러오기', () => {
     const back = await travelTo(town, 'meadow', 0, fake);
     expect(back).toMatchObject({ ok: true, position: { map: 'meadow', x: 2, y: 1, facing: 'up' } });
     clearFieldCache();
+  });
+
+  it('태초마을로 가기: 마을 시작 칸(@), 아래를 본다', async () => {
+    const town = await loadField('town');
+    expect(warpPosition(town)).toEqual({ map: 'town', ...town.entrances.start!, facing: 'down' });
+    expect(town.entrances.start).toBeDefined();
+  });
+  it('시작 칸이 없는 지도면 (1,1)', () => {
+    const m = parseMap('town', ['###', '#.#', '###'], { exits: {}, signTexts: [] });
+    expect(warpPosition(m)).toEqual({ map: 'town', x: 1, y: 1, facing: 'down' });
   });
 });

@@ -1,0 +1,21 @@
+.hpbar {
+  display: inline-block;
+  width: 44px;
+  height: 8px;
+  border: 2px solid #000;
+  border-radius: 5px;
+  background: #fff;
+  overflow: hidden;
+  vertical-align: middle;
+}
+.hpbar__fill {
+  display: block;
+  height: 100%;
+  background: #3fb950;
+}
+.hpbar--down {
+  background: #f3b3b8;
+}
+.hpbar--down .hpbar__fill {
+  background: #d3202f;
+}

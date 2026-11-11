@@ -87,6 +87,25 @@ export async function travelTo(
   }
 }
 
+/** 태초마을로 바로 가기: 어느 지도에서든 `dest`의 시작 칸(@)에 아래를 보고 선다 */
+export function warpPosition(dest: FieldMap): SavedPosition {
+  const p: Pos = dest.entrances.start ?? { x: 1, y: 1 };
+  return { map: dest.id, x: p.x, y: p.y, facing: 'down' };
+}
+
+export type WarpOutcome = { ok: true; map: FieldMap; position: SavedPosition } | { ok: false };
+
+/** `to` 지도의 시작 칸으로. travelTo와 같이 불러오기는 최소 `minMs`. 실패하면 제자리(저장 자리는 건드리지 않는다) */
+export async function warpTo(to: MapId, minMs: number = MIN_LOADING_MS, loaders: FieldLoaders = DEFAULT_LOADERS): Promise<WarpOutcome> {
+  try {
+    const [map] = await Promise.all([loadField(to, loaders), wait(minMs)]);
+    return { ok: true, map, position: warpPosition(map) };
+  } catch {
+    await wait(minMs);
+    return { ok: false };
+  }
+}
+
 /** 테스트용: 불러온 지도를 모두 잊는다 */
 export function clearFieldCache(): void {
   cache.clear();

@@ -22,7 +22,9 @@ import { ShopPopup } from '../shop/ShopPopup';
 import { Joystick } from './Joystick';
 import { type Companion, drawField, viewScale } from './fieldRenderer';
 import { FieldLoading } from './FieldLoading';
-import { OFFLINE_MESSAGE, getLoadedField, loadField, travelTo } from './loadField';
+import type { SavedPosition } from './loadField';
+import { OFFLINE_MESSAGE, getLoadedField, loadField, travelTo, warpTo } from './loadField';
+import { FieldHud } from './FieldHud';
 import { TILE_PX } from './padDirection';
 import { bubblePosition, buildSprites, roamerAt, tileAtScreen } from './roamerLayer';
 import { enterField, leaveBattleReturn, useFieldSession } from '../useFieldSession';
@@ -102,24 +104,29 @@ function FieldRoot(props: Props) {
     };
   }, []);
 
+  /** 다른 필드로 간다. 같은 때에 한 번만 (연타 방지). warp면 출구가 아니라 마을 시작 칸(@)으로 */
+  const travelling = useRef(false);
   const goTo = useCallback(
-    (to: MapId) => {
+    (to: MapId, warp = false) => {
       const from = map;
-      if (!from) return;
+      if (!from || travelling.current) return;
+      travelling.current = true;
       setNotice(null);
       setLoadingTo(to);
       setMap(null);
-      travelTo(from, to).then((r) => {
+      const done = (r: { ok: true; map: FieldMap; position: SavedPosition } | { ok: false; position?: SavedPosition }) => {
+        travelling.current = false;
         if (!alive.current) return;
-        // 필드 화면이 내려가며 저장한 출구 자리를 덮어쓴다
-        useGameStore.getState().setFieldPosition(r.position);
+        // 필드 화면이 내려가며 저장한 출구 자리를 덮어쓴다 (순간 이동 실패는 제자리 그대로)
+        if (r.position) useGameStore.getState().setFieldPosition(r.position);
         if (r.ok) setMap(r.map);
         else {
           setMap(from);
           setNotice(OFFLINE_MESSAGE);
         }
         setLoadingTo(null);
-      });
+      };
+      (warp ? warpTo(to) : travelTo(from, to)).then(done);
     },
     [map],
   );
@@ -140,7 +147,7 @@ function FieldRoot(props: Props) {
   return <FieldView key={map.id + attempt + (notice ?? '')} map={map} onExit={goTo} notice={notice} {...props} />;
 }
 
-function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onExit: (to: MapId) => void; notice: string | null }) {
+function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onExit: (to: MapId, warp?: boolean) => void; notice: string | null }) {
   const navigate = useNavigate();
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -522,6 +529,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       <div className="fieldmode__view" ref={wrapRef}>
         <canvas ref={canvasRef} className="fieldmode__canvas" data-testid="field-canvas" />
         <Joystick onDir={setPadDir} onTap={onTap} />
+        <FieldHud />
         <button type="button" className="btn btn--ghost fieldmode__menu-btn" onClick={() => setMenuOpen((v) => !v)}>
           메뉴
         </button>
@@ -547,6 +555,20 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
             >
               구구몬 도감
             </button>
+            {map.id !== 'town' && (
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => {
+                  setMenuOpen(false);
+                  leaveBattleReturn();
+                  st.current.frozen = true;
+                  onExitRef.current('town', true);
+                }}
+              >
+                태초마을로
+              </button>
+            )}
             <button type="button" className="btn btn--ghost" onClick={() => setMenuOpen(false)}>
               닫기
             </button>
