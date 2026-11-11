@@ -18,7 +18,7 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 | `src/domain/field/` | 필드 모험 순수 로직: **`tuning`(운영 수치 전부)**, `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남), `creatures`(종·기술 이름), `fieldQuestions`, `growth`(경험치·레벨·진화) |
 | `src/field/world/` | 필드 걷기: `FieldScreen`, `fieldRenderer`(캔버스), `TouchPad`, `loadField`, `maps/`(필드마다 지도·타일 그림) |
 | `src/field/battle/` | 야생 전투: `WildBattleScreen`, `useQuestionFeed`(문제 받기), `battleText`(화면 글) |
-| `src/field/art/` | 그림: `creatureArt`(구구몬 그림 등록표), `creatureSprite`, `companionImage`, `hero`(주인공), `pixelArt`(픽셀 그림 틀·표지판), `GachaCapsule` |
+| `src/field/art/` | 그림: `creatureArt`(구구몬 그림 등록표), `creatureSprite`, `companionImage`, `hero`(주인공), `pixelArt`(픽셀 그림 틀·표지판), `CapsuleBall` |
 | `src/field/fx/` | 효과: `effects`(효과 목록), `playFx`(틀기) |
 | `src/field/` | 그 밖: `StarterScreen`, `FieldDexScreen`, `useFieldSession`(저장 안 되는 만남 상태), `debugFlags`(디버그 스위치), `DevFieldGallery`(#/dev/field) |
 | `src/store/fieldData.ts` | 필드 모험 저장 데이터(`SaveData.field`) 형식·기본값·병합 |

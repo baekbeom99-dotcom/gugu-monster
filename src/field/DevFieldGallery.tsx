@@ -11,7 +11,8 @@ import { displayName } from '../domain/field/growth';
 import { companionImage } from './art/companionImage';
 import { creatureArt } from './art/creatureArt';
 import { creatureSprite, speciesColor } from './art/creatureSprite';
-import { GachaCapsule } from './art/GachaCapsule';
+import { CapsuleBall } from './art/CapsuleBall';
+import { CAPSULE_NAMES, CAPSULE_TYPES } from '../domain/field/capsules';
 import { HERO_DIRS, HERO_SPRITES } from './art/hero';
 import { PixelSprite } from './art/PixelSprite';
 import { debugFlags, setDebugFlag } from './debugFlags';
@@ -111,10 +112,12 @@ export function DevFieldGallery() {
               </figure>
             )),
           )}
-          <figure style={{ ...box, margin: 0, textAlign: 'center' }}>
-            <GachaCapsule size={64} />
-            <figcaption>캡슐</figcaption>
-          </figure>
+          {CAPSULE_TYPES.map((t) => (
+            <figure key={t} style={{ ...box, margin: 0, textAlign: 'center' }}>
+              <CapsuleBall type={t} size={64} />
+              <figcaption>{CAPSULE_NAMES[t]}</figcaption>
+            </figure>
+          ))}
         </div>
       </section>
 

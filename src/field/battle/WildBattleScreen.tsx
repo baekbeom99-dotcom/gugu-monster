@@ -40,7 +40,7 @@ import type { Rng } from '../../domain/random';
 import { useGameStore, type WildEnd } from '../../store/useGameStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { creatureSprite } from '../art/creatureSprite';
-import { GachaCapsule } from '../art/GachaCapsule';
+import { CapsuleBall } from '../art/CapsuleBall';
 import { pickCompanion } from '../companion';
 import { debugFlags } from '../debugFlags';
 import { type FxName, playFx, preloadFx } from '../fx/playFx';
@@ -445,7 +445,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
             </div>
             {throwing && (
               <div className="wild__capsule-ball" aria-hidden style={{ animationDuration: `${CAPSULE_SHAKE_MS}ms`, animationIterationCount: CAPSULE_SHAKES }}>
-                <GachaCapsule size={64} />
+                <CapsuleBall type={capsuleType} size={64} />
               </div>
             )}
             <div key={`a${hitCount}-${struckCount}`} className={`wild__ally ${wild.phase === 'hit' ? 'wild__ally--attack' : ''} ${struck ? 'wild__ally--struck' : ''}`}>
@@ -474,7 +474,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           </button>
         ) : dizzy ? (
           <button type="button" className="btn btn--primary wild__capsule" aria-label="캡슐 던지기" disabled={throwing} onClick={onCapsule}>
-            <GachaCapsule size={28} /> {battleText.throwButton(capsulesLeft)}
+            <CapsuleBall type={capsuleType} size={28} /> {battleText.throwButton(capsulesLeft)}
           </button>
         ) : ending ? null : (
           <>
