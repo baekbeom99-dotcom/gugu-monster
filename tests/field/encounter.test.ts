@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   ENCOUNTER_CHANCE,
   ENCOUNTER_GRACE_STEPS,
@@ -11,7 +11,7 @@ import {
   SPECIES,
   speciesDef,
 } from '../../src/domain/field/creatures';
-import { e2eFlags, rollEncounter, stepIntoGrass } from '../../src/domain/field/encounter';
+import { rollEncounter, stepIntoGrass } from '../../src/domain/field/encounter';
 import { LEGEND_DAN } from '../../src/domain/field/fields';
 import { seededRng, type Rng } from '../../src/domain/random';
 
@@ -136,20 +136,6 @@ describe('rollEncounter', () => {
   });
   it('안전 걸음은 force 만남도 막는다', () => {
     expect(rollEncounter(scripted(0), { ...base, stepsSinceBattle: 1, force: { encounter: true } })).toBeNull();
-  });
-});
-
-describe('e2eFlags', () => {
-  const g = globalThis as Record<string, unknown>;
-  afterEach(() => {
-    delete g.__GUGU_E2E_FIELD__;
-    delete g.__GUGU_E2E_LEGEND__;
-  });
-  it('기본은 꺼짐', () => expect(e2eFlags()).toEqual({ field: false, legend: false }));
-  it('globalThis에서 읽음', () => {
-    g.__GUGU_E2E_FIELD__ = true;
-    g.__GUGU_E2E_LEGEND__ = true;
-    expect(e2eFlags()).toEqual({ field: true, legend: true });
   });
 });
 

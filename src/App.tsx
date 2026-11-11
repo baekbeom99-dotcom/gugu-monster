@@ -4,11 +4,12 @@ import { TabBar } from './components/TabBar';
 import { TopBar } from './components/TopBar';
 import { BattleScreen } from './screens/BattleScreen';
 import { DevGallery } from './screens/DevGallery';
+import { DevFieldGallery } from './field/DevFieldGallery';
 import { DexScreen } from './screens/DexScreen';
-import { FieldScreen } from './field/FieldScreen';
+import { FieldScreen } from './field/world/FieldScreen';
 import { FieldDexScreen } from './field/FieldDexScreen';
 import { StarterScreen } from './field/StarterScreen';
-import { WildBattleScreen } from './field/WildBattleScreen';
+import { WildBattleScreen } from './field/battle/WildBattleScreen';
 import { TitleScreen } from './screens/TitleScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
 import { HatchScreen } from './screens/HatchScreen';
@@ -81,6 +82,7 @@ export function App() {
         <Route path="/practice" element={fullScreen(<PracticeScreen />)} />
         <Route path="/stairs" element={fullScreen(<StairsScreen />)} />
         {import.meta.env.DEV && <Route path="/dev/gallery" element={<DevGallery />} />}
+        {import.meta.env.DEV && <Route path="/dev/field" element={<DevFieldGallery />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>

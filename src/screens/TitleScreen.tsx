@@ -2,8 +2,8 @@
 import { useNavigate } from 'react-router-dom';
 import { DAN_COLORS } from '../art/colors';
 import { MonsterSprite } from '../art/MonsterSprite';
-import { PixelSprite } from '../field/PixelSprite';
-import { HERO_SPRITES } from '../field/pixelArt';
+import { PixelSprite } from '../field/art/PixelSprite';
+import { HERO_SPRITES } from '../field/art/hero';
 import './title.css';
 
 export function TitleScreen() {

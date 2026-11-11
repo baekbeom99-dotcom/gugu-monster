@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { Dir } from '../domain/field/movement';
+import type { Dir } from '../../domain/field/movement';
 import { padDirection } from './padDirection';
 
 interface Props {

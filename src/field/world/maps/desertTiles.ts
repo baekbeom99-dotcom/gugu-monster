@@ -1,5 +1,5 @@
 // 사막 타일 그림 — 사막 지도와 같은 묶음으로, 이 필드를 불러올 때만 내려받는다
-import { SHARED_ARTS, exitArrow, onBorder, type PixelArt, type TileSet, tileHash } from '../pixelArt';
+import { SHARED_ARTS, exitArrow, onBorder, type PixelArt, type TileSet, tileHash } from '../../art/pixelArt';
 
 const SAND = { a: '#f6d78e', A: '#e8bf68', H: '#fbe8b8' };
 

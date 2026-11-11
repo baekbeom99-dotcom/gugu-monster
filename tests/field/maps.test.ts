@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadField } from '../../src/field/loadField';
+import { loadField } from '../../src/field/world/loadField';
 import { DIR_DELTA, type Dir, type FieldMap, type Pos, tryStep } from '../../src/domain/field/movement';
 import type { FieldId } from '../../src/domain/field/fields';
 

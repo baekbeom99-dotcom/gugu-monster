@@ -5,7 +5,7 @@ import { SPECIES, speciesDef, type SpeciesId } from '../domain/field/creatures';
 import { FIELDS } from '../domain/field/fields';
 import { displayName } from '../domain/field/growth';
 import { useGameStore } from '../store/useGameStore';
-import { creatureSprite, speciesColor } from './creatureSprite';
+import { creatureSprite, speciesColor } from './art/creatureSprite';
 import './fieldDex.css';
 
 const GROUPS: { title: string; ids: SpeciesId[] }[] = [

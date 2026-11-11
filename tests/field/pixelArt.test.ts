@@ -1,22 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ART_SIZE,
-  COMPANION_FILL,
-  HERO_DIRS,
-  HERO_FRAMES,
-  HERO_SIZE,
-  HERO_SPRITES,
-  SHARED_ARTS,
-  TRANSPARENT,
-  heroFrame,
-  type PixelArt,
-} from '../../src/field/pixelArt';
-import { MEADOW_TILES } from '../../src/field/maps/meadow';
-import { WATERSIDE_TILES } from '../../src/field/maps/waterside';
-import { DESERT_TILES } from '../../src/field/maps/desert';
-import { loadField } from '../../src/field/loadField';
+import { ART_SIZE, SHARED_ARTS, TRANSPARENT, type PixelArt } from '../../src/field/art/pixelArt';
+import { MONSTER_FILL } from '../../src/field/art/creatureArt';
+import { HERO_DIRS, HERO_FRAMES, HERO_SIZE, HERO_SPRITES, heroFrame } from '../../src/field/art/hero';
+import { MEADOW_TILES } from '../../src/field/world/maps/meadow';
+import { WATERSIDE_TILES } from '../../src/field/world/maps/waterside';
+import { DESERT_TILES } from '../../src/field/world/maps/desert';
+import { loadField } from '../../src/field/world/loadField';
 import type { FieldId } from '../../src/domain/field/fields';
-import { FX_NAMES } from '../../src/field/fx';
+import { FX_NAMES } from '../../src/field/fx/playFx';
 
 const TILE_SETS = { meadow: MEADOW_TILES, waterside: WATERSIDE_TILES, desert: DESERT_TILES };
 
@@ -76,7 +67,7 @@ describe('픽셀 그림', () => {
   });
 
   it('동행은 한 칸쯤 채우게 그림 여백만큼 키운다', () => {
-    expect(COMPANION_FILL).toBe(1.45);
+    expect(MONSTER_FILL).toBe(1.45);
   });
 
   it('효과 이름: 전투 들어가기·명중·잡기', () => {

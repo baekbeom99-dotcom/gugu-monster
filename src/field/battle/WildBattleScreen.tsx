@@ -1,15 +1,15 @@
 /** 야생 전투 화면 — 설계서 5-1~5-4. 문제가 떠 있는 동안에만 시간이 흐른다 */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { DAN_COLORS } from '../art/colors';
-import type { MonsterMood } from '../art/MonsterSprite';
-import { HintPanel } from '../components/HintPanel';
-import { QuestionView } from '../components/QuestionView';
-import { STARTERS, speciesDef, type SpeciesId } from '../domain/field/creatures';
-import { createAnswerTimer, elapsedMs, pauseTimer, resumeTimer, startTimer } from '../domain/field/answerTimer';
-import { displayName } from '../domain/field/growth';
-import { e2eFlags, e2eQuestion, type Encounter } from '../domain/field/encounter';
-import { FIELD_CHOICES, planFieldQuestions, planLegendQuestions, restrictToFieldType } from '../domain/field/fieldQuestions';
+import { DAN_COLORS } from '../../art/colors';
+import type { MonsterMood } from '../../art/MonsterSprite';
+import { HintPanel } from '../../components/HintPanel';
+import { QuestionView } from '../../components/QuestionView';
+import { STARTERS, speciesDef, type SpeciesId } from '../../domain/field/creatures';
+import { createAnswerTimer, elapsedMs, pauseTimer, resumeTimer, startTimer } from '../../domain/field/answerTimer';
+import { displayName } from '../../domain/field/growth';
+import type { Encounter } from '../../domain/field/encounter';
+import { CAPSULE_SHAKE_MS, CAPSULE_SHAKES, WILD_END_MS, WILD_HIT_ANIM_MS, WILD_INTRO_MS } from '../../domain/field/tuning';
 import {
   answerWild,
   createWild,
@@ -19,32 +19,23 @@ import {
   tick,
   WILD_MAX_HP,
   type WildState,
-} from '../domain/field/wildBattle';
-import { type FactId, getFact } from '../domain/facts';
-import { josa } from '../domain/korean';
-import { fastThresholdMs } from '../domain/mastery';
-import { generateQuestion, type QuestionType } from '../domain/questionGen';
-import type { Rng } from '../domain/random';
-import { insertRetry, type LearnerSnapshot, type PlannedItem } from '../domain/scheduler';
-import { useGameStore } from '../store/useGameStore';
-import { useSessionStore } from '../store/useSessionStore';
-import { creatureSprite } from './creatureSprite';
-import { type FxName, playFx, preloadFx } from './fx';
-import { GachaCapsule } from './GachaCapsule';
-import { endWildBattle, useFieldSession } from './useFieldSession';
-import '../screens/battle.css';
+} from '../../domain/field/wildBattle';
+import type { FactId } from '../../domain/facts';
+import { fastThresholdMs } from '../../domain/mastery';
+import type { Rng } from '../../domain/random';
+import { useGameStore } from '../../store/useGameStore';
+import { useSessionStore } from '../../store/useSessionStore';
+import { creatureSprite } from '../art/creatureSprite';
+import { GachaCapsule } from '../art/GachaCapsule';
+import { debugFlags } from '../debugFlags';
+import { type FxName, playFx, preloadFx } from '../fx/playFx';
+import { endWildBattle, useFieldSession } from '../useFieldSession';
+import { battleText } from './battleText';
+import { useQuestionFeed } from './useQuestionFeed';
+import '../../screens/battle.css';
 import './wildBattle.css';
 
 const rng: Rng = Math.random;
-/** "나타났다!" 글이 떠 있는 시간 (탭하면 바로 넘김) */
-export const WILD_INTRO_MS = 1200;
-/** 정답 기술 연출 시간 (이동안 시간은 멈춘다) */
-export const WILD_HIT_ANIM_MS = 600;
-/** 도망갔다·잡았다 글을 보여 주고 필드로 돌아가기까지 */
-export const WILD_END_MS = 1500;
-/** 캡슐이 흔들리는 횟수와 한 번의 시간 */
-export const CAPSULE_SHAKES = 3;
-export const CAPSULE_SHAKE_MS = 400;
 /** 동행이 없거나 잡지 않은 종일 때(옛 저장 등): 처음 잡은 종, 그것도 없으면 첫 후보 */
 function pickCompanion(s: { field: { companion: SpeciesId | null; species: Record<string, unknown> } }): SpeciesId {
   const c = s.field.companion;
@@ -60,57 +51,6 @@ export function WildBattleScreen() {
   return <WildBattle encounter={encounter} />;
 }
 
-function snapshot(): LearnerSnapshot {
-  const { learning } = useGameStore.getState();
-  return {
-    facts: learning.facts,
-    danRecent: learning.danRecent,
-    challengeUnlocked: learning.challengeUnlocked,
-    boosted: learning.boosted,
-  };
-}
-
-function planFor(encounter: Encounter): PlannedItem[] {
-  const forced = e2eQuestion();
-  if (forced)
-    return Array.from({ length: 5 }, () => ({ factId: forced.factId as FactId, type: forced.type as QuestionType, isRetry: false, isConfidence: false }));
-  const learner = snapshot();
-  if (encounter.legend) return planLegendQuestions(learner, Date.now(), rng);
-  return planFieldQuestions(learner, useGameStore.getState().field.position.map, Date.now(), rng);
-}
-
-/** 문제 받기: 목록을 다 쓰면 새로 받아 이어 붙이고, 틀린 사실은 필드 모양으로 다시 넣는다 */
-function useQuestionFeed(encounter: Encounter) {
-  const [feed, setFeed] = useState(() => ({ plan: planFor(encounter), index: 0 }));
-  const item = feed.plan[feed.index];
-  const fact = getFact(item.factId);
-  const key = `${feed.index}:${item.factId}:${item.type}:${item.isRetry}`;
-  const question = useMemo(() => generateQuestion(rng, fact, item.type, FIELD_CHOICES), [key]);
-
-  const next = useCallback(
-    (retryWrong: boolean) =>
-      setFeed((f) => {
-        let plan = f.plan;
-        if (retryWrong) {
-          const before = plan;
-          plan = insertRetry(before, f.index, rng);
-          // 새로 끼워 넣은 문제를 찾아 모양을 필드 것으로 (틀린 직후 상자는 1)
-          const at = plan.findIndex((it, i) => it !== before[i]);
-          if (plan.length > before.length && at >= 0) {
-            const r = plan[at];
-            plan = plan.map((it, i) => (i === at ? { ...r, type: restrictToFieldType(rng, getFact(r.factId), 1, r.type) } : it));
-          }
-        }
-        const index = f.index + 1;
-        if (index >= plan.length) plan = [...plan, ...planFor(encounter)];
-        return { plan, index };
-      }),
-    [encounter],
-  );
-
-  return { item, fact, question, key, next };
-}
-
 type Ending = 'fled' | 'caught' | 'quit';
 
 function WildBattle({ encounter }: { encounter: Encounter }) {
@@ -121,7 +61,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const wildDef = speciesDef(encounter.species);
   const moves = speciesDef(companion).moves;
 
-  const { item, fact, question, key, next } = useQuestionFeed(encounter);
+  const { item, fact, question, key, next } = useQuestionFeed(encounter, rng);
 
   const wildRef = useRef<WildState>(createWild());
   const [wild, setWildState] = useState<WildState>(wildRef.current);
@@ -135,9 +75,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const [intro, setIntro] = useState(true);
   const [confirmQuit, setConfirmQuit] = useState(false);
   const [quit, setQuit] = useState(false);
-  const [message, setMessage] = useState(
-    `${wildDef.legend ? '전설의' : '야생'} ${josa(wildDef.name, '이', '가')} 나타났다!`,
-  );
+  const [message, setMessage] = useState(battleText.appear(wildDef.name, wildDef.legend));
   const [hitCount, setHitCount] = useState(0);
   /** 캡슐이 흔들리는 중: 결과가 나올 때까지 아무것도 흐르지 않는다 */
   const [throwing, setThrowing] = useState(false);
@@ -182,7 +120,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   // 시작 글: 1.2초 뒤 자동으로 넘어간다
   useEffect(() => {
     if (!intro) {
-      setMessage('어떤 기술을 쓸까?');
+      setMessage(battleText.choose);
       return;
     }
     const t = window.setTimeout(() => setIntro(false), WILD_INTRO_MS);
@@ -244,11 +182,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       }
     }
     setMessage(
-      ending === 'fled'
-        ? `${josa(wildDef.name, '이', '가')} 도망갔다…`
-        : ending === 'quit'
-          ? '무사히 도망쳤다!'
-          : `${josa(wildDef.name, '을', '를')} 잡았다!${newSpecies ? ' 새로 만났어!' : ''}`,
+      ending === 'fled' ? battleText.fled(wildDef.name) : ending === 'quit' ? battleText.quit : battleText.caught(wildDef.name, newSpecies),
     );
     const t = window.setTimeout(endWildBattle, WILD_END_MS);
     return () => clearTimeout(t);
@@ -291,9 +225,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       correctRef.current += 1;
       setHitCount((n) => n + 1);
       fxAtFoe('hit');
-      setMessage(`${moves[moveIndex]}! ${fast ? '빠르다! 크게 ' : ''}명중!`);
+      setMessage(battleText.hit(moves[moveIndex], fast));
     } else {
-      setMessage(`${moves[moveIndex]}! …빗나갔다. 힌트를 보자!`);
+      setMessage(battleText.miss(moves[moveIndex]));
     }
     if (after.phase === 'anim') {
       later(() => {
@@ -301,7 +235,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         next(false);
       }, WILD_HIT_ANIM_MS);
     } else if (after.phase === 'dizzy') {
-      setMessage(after.asleep ? `${josa(wildDef.name, '이', '가')} 지쳐서 잠들었다! 지금이야!` : `${josa(wildDef.name, '이', '가')} 어지러워한다! 지금이야!`);
+      setMessage(battleText.dizzy(wildDef.name, after.asleep));
       next(false);
     }
   };
@@ -309,7 +243,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const onHintPick = () => {
     if (wildRef.current.phase !== 'hint') return;
     setWild(resumeWild(wildRef.current));
-    setMessage('좋아, 다시 해 보자!');
+    setMessage(battleText.retry);
     next(true);
   };
 
@@ -317,14 +251,14 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     const w = wildRef.current;
     if (w.phase !== 'dizzy' || throwing) return;
     // 결과는 던지는 순간 정해 두고, 흔들림이 끝난 뒤에 보여 준다 (E2E에서는 언제나 잡힌다)
-    const after = throwCapsule(w, e2eFlags().field ? () => 0 : rng);
+    const after = throwCapsule(w, debugFlags().encounter ? () => 0 : rng);
     setThrowing(true);
-    setMessage('캡슐을 던졌다!');
+    setMessage(battleText.throwCapsule);
     later(() => {
       setThrowing(false);
       setWild(after);
       if (after.phase === 'caught') fxAtFoe('catch');
-      setMessage(after.phase === 'caught' ? `${josa(wildDef.name, '을', '를')} 잡았다!` : '앗, 빠져나왔다!');
+      setMessage(after.phase === 'caught' ? battleText.caught(wildDef.name) : battleText.brokeFree);
     }, CAPSULE_SHAKES * CAPSULE_SHAKE_MS);
   };
 

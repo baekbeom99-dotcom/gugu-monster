@@ -2,7 +2,7 @@
 import { Navigate, useNavigate } from 'react-router-dom';
 import { STARTERS, speciesDef } from '../domain/field/creatures';
 import { useGameStore } from '../store/useGameStore';
-import { creatureSprite, speciesColor } from './creatureSprite';
+import { creatureSprite, speciesColor } from './art/creatureSprite';
 import './fieldDex.css';
 
 export function StarterScreen() {

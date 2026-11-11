@@ -9,8 +9,8 @@ import { type FieldId, LEGEND_DAN, fieldDans } from './fields';
 export { FIELD_MAX_BOX };
 /** 필드 문제 모양: 답 구하기, 앞 수 찾기, 뒤 수 찾기 (뛰어 세기·바꿔 곱하기 없음) */
 export const FIELD_TYPES: readonly QuestionType[] = ['product', 'missingFirst', 'missingSecond'];
-/** 필드 보기 개수 */
-export const FIELD_CHOICES = 3;
+/** 필드 보기 개수 (tuning.ts에서 정함) */
+export { FIELD_CHOICES } from './tuning';
 export { LEGEND_DAN };
 
 /**

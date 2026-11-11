@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { viewScale } from '../../src/field/fieldRenderer';
+import { viewScale } from '../../src/field/world/fieldRenderer';
 
 describe('필드 화면 배율', () => {
   it('지도(20×20칸)가 화면 전체를 덮도록 배율을 키운다 — 검은 띠가 생기지 않게', () => {

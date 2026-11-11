@@ -1,9 +1,10 @@
-import type { FieldId } from '../domain/field/fields';
-import { type Dir, type FieldMap, type Pos, parseMap } from '../domain/field/movement';
+import type { FieldId } from '../../domain/field/fields';
+import { type Dir, type FieldMap, type Pos, parseMap } from '../../domain/field/movement';
 import { registerTileSet } from './fieldRenderer';
 
-/** 불러오기 화면을 적어도 이만큼은 보여준다 (ms) */
-export const MIN_LOADING_MS = 600;
+import { MIN_LOADING_MS } from '../../domain/field/tuning';
+
+export { MIN_LOADING_MS };
 export const OFFLINE_MESSAGE = '인터넷에 연결되면 갈 수 있어요';
 
 export type FieldLoaders = Record<FieldId, () => Promise<FieldMap>>;

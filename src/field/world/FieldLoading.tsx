@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { fieldDans, FIELDS, type FieldId } from '../domain/field/fields';
-import { useGameStore } from '../store/useGameStore';
+import { fieldDans, FIELDS, type FieldId } from '../../domain/field/fields';
+import { useGameStore } from '../../store/useGameStore';
 import './field.css';
 
 /** 필드 사이를 오갈 때 보이는 화면: 필드 이름 · 단 + 곱셈 한 줄 */

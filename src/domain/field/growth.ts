@@ -1,20 +1,14 @@
 /** 구구몬 경험치·레벨·진화 규칙 — 설계서 6-2. 순수 계산(React 없음) */
 import type { SpeciesEntry } from '../../store/fieldData';
 import { speciesDef, type SpeciesId } from './creatures';
+import { EVOLVE_LEVELS, EXP_BASE, EXP_PER_LEVEL, MAX_LEVEL } from './tuning';
 
-export const MAX_LEVEL = 30;
-/** 같은 종을 또 잡았을 때 */
-export const DUPLICATE_EXP = 40;
-/** 전투에 나간 동행이 받는 기본 경험치 */
-export const PARTICIPATION_EXP = 10;
-/** 그 전투에서 맞힌 문제마다 */
-export const CORRECT_EXP = 2;
-/** 진화하는 레벨: 2단계 Lv8, 3단계 Lv18 */
-export const EVOLVE_LEVELS = { 2: 8, 3: 18 } as const;
+// 수치는 tuning.ts에서 정한다 (예전 import 자리 유지용으로 다시 내보냄)
+export { CORRECT_EXP, DUPLICATE_EXP, EVOLVE_LEVELS, MAX_LEVEL, PARTICIPATION_EXP } from './tuning';
 
 /** 다음 레벨까지 필요한 경험치 */
 export function expToNext(level: number): number {
-  return 20 + level * 10;
+  return EXP_BASE + level * EXP_PER_LEVEL;
 }
 
 function stageForLevel(level: number): 1 | 2 | 3 {

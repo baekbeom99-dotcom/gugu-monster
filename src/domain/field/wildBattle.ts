@@ -4,14 +4,25 @@ import type { Box } from '../mastery';
 import type { QuestionType } from '../questionGen';
 import type { Rng } from '../random';
 
-export const WILD_MAX_HP = 100;
-export const HIT_DAMAGE = 40;
-export const FAST_HIT_BONUS = 10;
-export const REGEN_PER_SEC = 3;
-export const CATCH_CHANCE = 0.3;
-export const CATCH_STEP = 0.15;
-export const ESCAPE_HP = 40;
-export const WILD_MAX_QUESTIONS = 12;
+import {
+  CATCH_CHANCE,
+  CATCH_STEP,
+  ESCAPE_HP,
+  FAST_HIT_BONUS,
+  FLEE_BASE_HIGH_MS,
+  FLEE_BASE_LOW_MS,
+  FLEE_BASE_MID_MS,
+  FLEE_LOW_BOX_BONUS_MS,
+  FLEE_MISSING_BONUS_MS,
+  HIT_DAMAGE,
+  REGEN_PER_SEC,
+  WILD_MAX_HP,
+  WILD_MAX_QUESTIONS,
+} from './tuning';
+
+// 수치는 tuning.ts에서 정한다 (예전 import 자리 유지용으로 다시 내보냄)
+export { CATCH_CHANCE, CATCH_STEP, ESCAPE_HP, FAST_HIT_BONUS, HIT_DAMAGE, REGEN_PER_SEC, WILD_MAX_HP, WILD_MAX_QUESTIONS };
+/** 한 번에 흐르는 시간의 상한 (탭이 오래 멈췄다 돌아와도 한꺼번에 도망가지 않게). 운영 수치가 아니라 안전장치 */
 export const MAX_TICK_MS = 250;
 
 export type WildPhase = 'question' | 'anim' | 'hint' | 'dizzy' | 'caught' | 'fled';
@@ -88,12 +99,6 @@ export function throwCapsule(s: WildState, rng: Rng): WildState {
     phase: 'question',
   };
 }
-
-const FLEE_BASE_LOW_MS = 7000;
-const FLEE_BASE_MID_MS = 9000;
-const FLEE_BASE_HIGH_MS = 12000;
-const FLEE_LOW_BOX_BONUS_MS = 3000;
-const FLEE_MISSING_BONUS_MS = 2000;
 
 /** 도망가기까지 기다려 주는 시간(ms). 어려운 문제일수록 길다. */
 export function fleeTimeMs(fact: Fact, box: Box, type: QuestionType, scale: number): number {

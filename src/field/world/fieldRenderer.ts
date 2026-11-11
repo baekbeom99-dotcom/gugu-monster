@@ -1,15 +1,10 @@
-import type { FieldId } from '../domain/field/fields';
-import type { Dir, FieldMap, Tile } from '../domain/field/movement';
+import type { FieldId } from '../../domain/field/fields';
+import type { Dir, FieldMap, Tile } from '../../domain/field/movement';
+import { WATER_FRAME_MS } from '../../domain/field/tuning';
 import { TILE_PX, VIEW_TILES_W } from './padDirection';
-import { COMPANION_FILL, HERO_SPRITES, type TileSet, bakeTiles, heroFrame } from './pixelArt';
+import { HERO_SPRITES, heroFrame } from '../art/hero';
+import { type TileSet, bakeTiles } from '../art/pixelArt';
 
-/** 물결 그림이 바뀌는 시간 (ms) */
-export const WATER_FRAME_MS = 500;
-/**
- * MonsterSprite 그림에서 몸 아래쪽이 이미지 높이의 어디쯤인지 (viewBox -24~200 중 발끝 ≈ 195).
- * 동행의 발이 칸 바닥에 닿게 맞춘다.
- */
-export const COMPANION_FOOT = 0.98;
 
 // 타일 그림을 아직 못 불러왔을 때 쓰는 색 칸
 const TILE_COLOR: Record<Tile, string> = {
@@ -42,6 +37,9 @@ export interface Companion {
   img: HTMLImageElement | null;
   /** 진화 단계 크기 (1·1.15·1.3) */
   scale: number;
+  /** 그림 둘레 여백만큼 키우는 배율, 발끝 높이(0~1) — creatureArt 등록표 값 */
+  fill: number;
+  foot: number;
 }
 
 export interface Anim {
@@ -67,9 +65,9 @@ function cam(center: number, viewPx: number, mapPx: number): number {
 }
 
 /** 동행 그림의 그릴 자리 (칸 가운데 아래에 발을 맞추고, 여백만큼 키운다) */
-export function companionRect(left: number, top: number, tile: number, scale: number) {
-  const size = Math.round(tile * COMPANION_FILL * scale);
-  return { x: Math.round(left + tile / 2 - size / 2), y: Math.round(top + tile - size * COMPANION_FOOT), size };
+export function companionRect(left: number, top: number, tile: number, c: Pick<Companion, 'scale' | 'fill' | 'foot'>) {
+  const size = Math.round(tile * c.fill * c.scale);
+  return { x: Math.round(left + tile / 2 - size / 2), y: Math.round(top + tile - size * c.foot), size };
 }
 
 /** hx, hy: 주인공의 칸 좌표(소수 가능, 걷는 중 보간) */
@@ -113,7 +111,7 @@ export function drawField(
     const top = Math.round(companion.y * tile) - cy;
     const img = companion.img;
     if (img && img.complete && img.naturalWidth > 0) {
-      const r = companionRect(left, top, tile, companion.scale);
+      const r = companionRect(left, top, tile, companion);
       ctx.drawImage(img, r.x, r.y, r.size, r.size);
     } else {
       ctx.fillStyle = '#42a5f5';

@@ -1,24 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { companionStart, DIR_DELTA, type Dir, type FieldMap, type StepResult, safeStartPosition, tryStep } from '../domain/field/movement';
-import { displayName } from '../domain/field/growth';
-import { useSessionStore } from '../store/useSessionStore';
-import { companionImage } from './companionImage';
-import { STAGE_SCALE } from './creatureSprite';
-import { playFx, preloadFx, prefersReducedMotion } from './fx';
-import type { FieldId } from '../domain/field/fields';
-import { e2eFlags, stepIntoGrass } from '../domain/field/encounter';
-import { useGameStore } from '../store/useGameStore';
+import { companionStart, DIR_DELTA, type Dir, type FieldMap, type StepResult, safeStartPosition, tryStep } from '../../domain/field/movement';
+import { displayName } from '../../domain/field/growth';
+import { useSessionStore } from '../../store/useSessionStore';
+import { companionImage } from '../art/companionImage';
+import { creatureArt } from '../art/creatureArt';
+import { STAGE_SCALE } from '../art/creatureSprite';
+import { playFx, preloadFx, prefersReducedMotion } from '../fx/playFx';
+import type { FieldId } from '../../domain/field/fields';
+import { stepIntoGrass } from '../../domain/field/encounter';
+import { ENCOUNTER_FLASH_MS, STEP_MS, TURN_TAP_MS } from '../../domain/field/tuning';
+import { debugFlags } from '../debugFlags';
+import { useGameStore } from '../../store/useGameStore';
 import { TouchPad } from './TouchPad';
 import { type Companion, drawField, viewScale } from './fieldRenderer';
 import { FieldLoading } from './FieldLoading';
 import { OFFLINE_MESSAGE, getLoadedField, loadField, travelTo } from './loadField';
-import { STEP_MS, TILE_PX, TURN_TAP_MS } from './padDirection';
-import { enterField, leaveBattleReturn, useFieldSession } from './useFieldSession';
+import { TILE_PX } from './padDirection';
+import { enterField, leaveBattleReturn, useFieldSession } from '../useFieldSession';
 import './field.css';
-
-/** 만남 → 전투 화면으로 넘어가기 전 번쩍이는 시간 */
-export const ENCOUNTER_FLASH_MS = 800;
 
 const KEY_DIR: Record<string, Dir> = {
   ArrowUp: 'up',
@@ -224,13 +224,13 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     if (!result.enteredGrass) return;
     const session = useFieldSession.getState();
     const { field, learning } = useGameStore.getState();
-    const flags = e2eFlags();
+    const flags = debugFlags();
     const r = stepIntoGrass(Math.random, {
       field: map.id,
       stepsSinceBattle: session.stepsSinceBattle,
       challengeUnlocked: learning.challengeUnlocked,
       seen: field.seen,
-      force: { encounter: flags.field, legend: flags.legend },
+      force: { encounter: flags.encounter, legend: flags.legend },
     });
     session.set({ stepsSinceBattle: r.stepsSinceBattle, encounter: r.encounter });
     if (!r.encounter) return;
@@ -350,7 +350,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         const t = s.move ? Math.min(1, (now - s.move.start) / STEP_MS) : 0;
         const fromX = s.move ? s.cx + (s.move.fx - s.cx) * t : s.cx;
         const fromY = s.move ? s.cy + (s.move.fy - s.cy) * t : s.cy;
-        comp = { x: fromX, y: fromY, img: companionImage(compId), scale: STAGE_SCALE[species[compId]?.stage ?? 1] };
+        const art = creatureArt(compId);
+        comp = { x: fromX, y: fromY, img: companionImage(compId), scale: STAGE_SCALE[species[compId]?.stage ?? 1], fill: art.fill, foot: art.foot };
       }
       const stepT = s.move ? Math.min(1, (now - s.move.start) / STEP_MS) : null;
       drawField(ctx, map, view, hx, hy, s.facing, comp, { now, step: stepT });

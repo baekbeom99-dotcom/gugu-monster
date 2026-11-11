@@ -1,6 +1,6 @@
 // 초원 타일 그림 — 초원 지도와 같은 묶음으로, 이 필드를 불러올 때만 내려받는다
-import type { FieldMap } from '../../domain/field/movement';
-import { SHARED_ARTS, exitArrow, onBorder, type PixelArt, recolor, type TileSet } from '../pixelArt';
+import type { FieldMap } from '../../../domain/field/movement';
+import { SHARED_ARTS, exitArrow, onBorder, type PixelArt, recolor, type TileSet } from '../../art/pixelArt';
 
 const G = { g: '#a5e07f', G: '#8fd06a', H: '#c2ef9c' };
 

@@ -1,6 +1,6 @@
 /** 필드 모험의 저장 안 되는 상태: 지금 만난 야생 구구몬, 전투 뒤 풀숲 걸음 수 */
 import { create } from 'zustand';
-import { ENCOUNTER_GRACE_STEPS } from '../domain/field/creatures';
+import { ENCOUNTER_GRACE_STEPS } from '../domain/field/tuning';
 import type { Encounter } from '../domain/field/encounter';
 
 interface FieldSessionState {

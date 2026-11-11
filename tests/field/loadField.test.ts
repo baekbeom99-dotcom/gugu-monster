@@ -8,7 +8,7 @@ import {
   clearFieldCache,
   loadField,
   travelTo,
-} from '../../src/field/loadField';
+} from '../../src/field/world/loadField';
 
 describe('필드 불러오기', () => {
   it('최소 로딩 시간은 600ms', () => {

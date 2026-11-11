@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { padDirection } from '../../src/field/padDirection';
+import { padDirection } from '../../src/field/world/padDirection';
 import { parseMap, safeStartPosition } from '../../src/domain/field/movement';
-import { MEADOW_ROWS, MEADOW_SIGNS } from '../../src/field/maps/meadow';
+import { MEADOW_ROWS, MEADOW_SIGNS } from '../../src/field/world/maps/meadow';
 
 describe('padDirection', () => {
   it('가장 가까운 4방향', () => {

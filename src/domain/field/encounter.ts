@@ -1,17 +1,16 @@
 /** 풀숲 만남 주사위 — 풀숲에 들어선 걸음에서만 부른다 */
 import type { Dan } from '../facts';
 import { pickOne, randomInt, type Rng, weightedPick } from '../random';
+import { LEGEND_SPECIES, type SpeciesId } from './creatures';
 import {
   ENCOUNTER_CHANCE,
   ENCOUNTER_GRACE_STEPS,
   LEGEND_CHANCE,
   LEGEND_LEVEL,
-  LEGEND_SPECIES,
-  type SpeciesId,
   UNSEEN_WEIGHT,
   WILD_LEVEL_MAX,
   WILD_LEVEL_MIN,
-} from './creatures';
+} from './tuning';
 import { type FieldId, FIELDS, LEGEND_DAN, fieldDans } from './fields';
 
 export interface Encounter {
@@ -26,20 +25,8 @@ export interface EncounterContext {
   stepsSinceBattle: number;
   challengeUnlocked: boolean;
   seen: readonly SpeciesId[];
-  /** E2E용 강제 스위치(화면이 e2eFlags()로 채운다) */
+  /** 강제 스위치(화면이 src/field/debugFlags.ts의 debugFlags()로 채운다) */
   force?: { encounter?: boolean; legend?: boolean };
-}
-
-/** E2E 스위치: 만남·캡슐 100% / 만남이 레전드. 기존 __GUGU_E2E_CALM__ 와 같은 방식 */
-export function e2eFlags(): { field: boolean; legend: boolean } {
-  const g = globalThis as { __GUGU_E2E_FIELD__?: boolean; __GUGU_E2E_LEGEND__?: boolean };
-  return { field: !!g.__GUGU_E2E_FIELD__, legend: !!g.__GUGU_E2E_LEGEND__ };
-}
-
-/** E2E 스위치: 전투 문제를 이 사실·모양으로 고정한다 (375px 배치 확인용). 평소에는 null */
-export function e2eQuestion(): { factId: string; type: string } | null {
-  const g = globalThis as { __GUGU_E2E_QUESTION__?: { factId: string; type: string } };
-  return g.__GUGU_E2E_QUESTION__ ?? null;
 }
 
 /**

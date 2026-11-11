@@ -2,7 +2,7 @@
 import { MONSTER_KINDS } from '../domain/battle';
 import type { FieldId } from '../domain/field/fields';
 import { type Dir, parseMap } from '../domain/field/movement';
-import { MEADOW_ROWS, MEADOW_SIGNS } from '../field/maps/meadow';
+import { MEADOW_ROWS, MEADOW_SIGNS } from '../field/world/maps/meadow';
 import { LEGEND_SPECIES, type SpeciesId } from '../domain/field/creatures';
 
 export { LEGEND_SPECIES };
