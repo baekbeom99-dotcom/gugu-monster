@@ -1,0 +1,294 @@
+/* 상점 팝업 — 필드 위 겹층. 조이스틱 층(.joystick)보다 뒤에 그려져 위에 놓이고, 화면 전체를 덮어 아래 조이스틱이 안 열린다 */
+.fshop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(10px + env(safe-area-inset-top)) 12px calc(10px + env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.5);
+  touch-action: auto;
+}
+
+.fshop__card {
+  width: min(100%, 380px);
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: var(--border);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.fshop__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fshop__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+}
+
+.fshop-btn {
+  min-height: 48px;
+  font-size: 18px;
+}
+
+.fshop-btn--small {
+  min-height: 44px;
+  padding: 6px 14px;
+  font-size: 16px;
+}
+
+.fshop__tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.fshop__tab {
+  min-height: 48px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--grey);
+  font: inherit;
+  font-size: 17px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.fshop__tab--on {
+  background: var(--yellow);
+  box-shadow: var(--shadow-sm);
+}
+
+.fshop__tab--soon {
+  opacity: 0.6;
+}
+
+.fshop-note {
+  margin: 0;
+  font-size: 17px;
+  text-align: center;
+}
+
+.fshop-note--small {
+  font-size: 14px;
+  opacity: 0.75;
+}
+
+.fshop-note--good {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.fshop-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fshop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fshop-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 6px 10px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  font: inherit;
+  font-size: 18px;
+  color: var(--ink);
+  text-align: left;
+}
+
+.fshop-row--btn {
+  cursor: pointer;
+}
+
+.fshop-row__name {
+  flex: 1;
+  min-width: 0;
+}
+
+.fshop-row__count {
+  min-width: 2.2em;
+  font-family: var(--font-display);
+  font-size: 24px;
+  text-align: right;
+}
+
+.fshop-row__state {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.fshop-row__state--down {
+  color: #c0182a;
+  font-weight: 800;
+}
+
+.fshop-hp {
+  display: block;
+  height: 10px;
+  margin-top: 4px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--grey);
+  overflow: hidden;
+}
+
+.fshop-hp__fill {
+  display: block;
+  height: 100%;
+  background: var(--lime);
+}
+
+.fshop-dans {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.fshop-dan {
+  min-height: 56px;
+  font-size: 20px;
+}
+
+.fshop-dan:disabled {
+  opacity: 0.5;
+}
+
+/* 연습 문제 */
+.practice-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.practice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.practice-head__title {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.practice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.practice__q {
+  padding: 10px 6px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.practice__q .question {
+  font-size: 36px;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.practice__q .blank {
+  min-width: 0;
+  width: 1.5em;
+  padding: 2px 0;
+  border-width: 3px;
+}
+
+.practice__hint {
+  max-height: 260px;
+  overflow: auto;
+  padding: 6px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.practice .hint-instruction {
+  margin: 0;
+  font-size: 16px;
+}
+
+.practice__choices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.fshop-choice {
+  min-height: 64px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-display);
+  font-size: 28px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.fshop-choice:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.fshop-choice:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.fshop-choice--glow,
+.fshop-choice--glow:disabled {
+  opacity: 1;
+  background: var(--yellow);
+  outline: 4px dashed var(--ink);
+  outline-offset: 3px;
+  animation: glow 0.8s steps(2) infinite;
+}
+
+.practice-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.practice-result__text {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+}

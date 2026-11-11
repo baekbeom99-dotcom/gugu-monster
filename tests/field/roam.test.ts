@@ -7,6 +7,7 @@ import {
   createRoamers,
   habitatOf,
   pokeRoamer,
+  reviveRoamers,
   stepRoamer,
   stepRoamers,
 } from '../../src/domain/field/roam';
@@ -144,5 +145,28 @@ describe('돌아다니는 구구몬', () => {
       rs = stepRoamers(rs, now, rng, canStandFor);
       expect(new Set(rs.map((r) => `${r.x},${r.y}`)).size).toBe(rs.length);
     }
+  });
+});
+
+describe('reviveRoamers (상점 회복 뒤 일어나기)', () => {
+  const list = [
+    { species: 'cloud' as const, fainted: true },
+    { species: 'legend-fluff' as const, fainted: true },
+    { species: 'legend-ghost' as const, fainted: false },
+  ];
+  it('체력이 생긴 쓰러진 구구몬만 일어나 idle로, 자리는 그대로', () => {
+    const rs = createRoamers(map, list, seededRng(5), 0);
+    const hp: Record<string, number> = { cloud: 100, 'legend-fluff': 0, 'legend-ghost': 100 };
+    const out = reviveRoamers(rs, (id) => hp[id], 1000, seededRng(6));
+    const cloud = out.find((r) => r.species === 'cloud')!;
+    expect(cloud.fainted).toBe(false);
+    expect(cloud.motion).toBe('idle');
+    expect([cloud.x, cloud.y]).toEqual([rs[0].x, rs[0].y]);
+    expect(out.find((r) => r.species === 'legend-fluff')).toBe(rs[1]);
+    expect(out.find((r) => r.species === 'legend-ghost')).toBe(rs[2]);
+  });
+  it('체력 정보가 없으면 그대로', () => {
+    const rs = createRoamers(map, list, seededRng(5), 0);
+    expect(reviveRoamers(rs, () => undefined, 10, seededRng(6))[0]).toBe(rs[0]);
   });
 });

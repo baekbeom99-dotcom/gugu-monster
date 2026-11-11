@@ -28,6 +28,4 @@ export const battleText = {
   quit: '무사히 도망쳤다!',
   /** 필드: 동행이 쓰러져 있을 때 */
   faintedField: '구구몬이 쓰러졌어요. 상점에서 회복시켜요',
-  /** 마을 상점 문: 모두 회복 (M3 임시, Task 17이 상점 팝업으로) */
-  healedAll: '구구몬들이 기운을 되찾았어요!',
 } as const;

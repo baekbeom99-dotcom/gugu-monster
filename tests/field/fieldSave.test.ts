@@ -221,6 +221,10 @@ describe('저장 데이터 field', () => {
     expect(mergeField(initialField(), { capsules: { meadow: 0, waterside: 12, desert: '5', legend: 4 } }).capsules).toEqual({ meadow: 0, waterside: 12, desert: 3, legend: 4 });
   });
 
+  it('정수이지만 상한(999)을 넘는 캡슐 수는 상한으로 자른다', () => {
+    expect(mergeField(initialField(), { capsules: { meadow: 1000, waterside: 1e21, desert: 999, legend: 998 } }).capsules).toEqual({ meadow: 999, waterside: 999, desert: 999, legend: 998 });
+  });
+
   it('capsules가 객체가 아니면 전부 기본값, 모르는 키는 버린다', () => {
     for (const bad of [null, 5, 'x', [1, 2, 3, 4]]) {
       expect(mergeField(initialField(), { capsules: bad }).capsules).toEqual({ meadow: 3, waterside: 3, desert: 3, legend: 0 });

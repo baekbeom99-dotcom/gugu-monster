@@ -635,7 +635,188 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 고르면 태초마을
   expect(saved).toEqual({ map: 'town', x: 10, y: 31, facing: 'down' });
 });
 
-test('마을 상점 문에 부딪히면 구구몬들이 기운을 되찾는다 (임시 회복)', async ({ page }) => {
+// ── 상점 팝업 ──
+
+/** 마을 상점 문(8,24) 바로 아래 (8,25)에서 위를 보고 선 저장본. extra로 필드 저장을 덧붙인다 */
+async function standAtShopDoor(page: Page, extra: { species?: Record<string, unknown>; field?: Record<string, unknown> } = {}) {
+  await seedStarter(page);
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
+  await page.evaluate(
+    ([starter, ex]) => {
+      localStorage.clear();
+      const s = starter as typeof STARTER_FIELD;
+      const e = ex as { species?: Record<string, unknown>; field?: Record<string, unknown> };
+      const field = { ...s, species: e.species ?? s.species, position: { map: 'town', x: 8, y: 25, facing: 'up' }, ...(e.field ?? {}) };
+      localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
+    },
+    [STARTER_FIELD, extra] as const,
+  );
+  await page.reload();
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,25');
+}
+
+async function openShop(page: Page) {
+  await page.keyboard.down('ArrowUp'); // 문(8,24)
+  await expect(page.getByRole('dialog', { name: '상점' })).toBeVisible();
+  await page.keyboard.up('ArrowUp');
+}
+
+async function savedField(page: Page) {
+  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+}
+
+/** 연습 문제의 답 (a × b = ?) */
+async function practiceAnswer(page: Page): Promise<number> {
+  const q = page.getByRole('dialog', { name: '상점' }).locator('.practice__q .question');
+  await expect(q).toBeVisible();
+  const parts = (await q.locator('> *').allTextContents()).map((t) => t.trim());
+  const [a, , b, , r] = parts;
+  if (r === '?') return Number(a) * Number(b);
+  if (a === '?') return Number(r) / Number(b);
+  return Number(r) / Number(a);
+}
+
+/** 연습 보기: 숫자로 찾는다 (보기는 눌릴 때까지 자동으로 기다린다) */
+function choice(page: Page, n: number) {
+  return page.getByRole('dialog', { name: '상점' }).locator('.fshop-choice').filter({ hasText: new RegExp(`^${n}$`) });
+}
+
+async function wrongChoice(page: Page, answer: number) {
+  const texts = await page.getByRole('dialog', { name: '상점' }).locator('.fshop-choice').allTextContents();
+  return Number(texts.find((t) => Number(t) !== answer));
+}
+
+async function solveShop(page: Page) {
+  const answer = await practiceAnswer(page);
+  await choice(page, answer).click();
+}
+
+test('마을 문에 부딪히면 상점 팝업이 뜨고, 캡슐 탭에 네 줄이 있다 (황금 캡슐의 13단은 잠김)', async ({ page }) => {
+  await standAtShopDoor(page);
+  await openShop(page);
+  const shop = page.getByRole('dialog', { name: '상점' });
+  await expect(shop.getByText('초원 캡슐')).toBeVisible();
+  await expect(shop.getByText('물가 캡슐')).toBeVisible();
+  await expect(shop.getByText('사막 캡슐')).toBeVisible();
+  await expect(shop.getByText('황금 캡슐')).toBeVisible();
+  await shop.getByRole('button', { name: '황금 캡슐 얻기' }).click();
+  await expect(shop.getByRole('button', { name: /13단/ })).toBeDisabled();
+  await shop.getByRole('button', { name: '← 뒤로' }).click();
+  await expect(shop.getByText('초원 캡슐')).toBeVisible();
+});
+
+test('상점이 열려 있는 동안은 걷지 않고, 닫기·Escape로 닫으면 문 앞 칸 그대로', async ({ page }) => {
+  await standAtShopDoor(page);
+  await openShop(page);
+  await page.keyboard.down('ArrowLeft');
+  await page.waitForTimeout(400);
+  await page.keyboard.up('ArrowLeft');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,25');
+  await page.getByRole('dialog', { name: '상점' }).getByRole('button', { name: '닫기' }).click();
+  await expect(page.getByRole('dialog', { name: '상점' })).toHaveCount(0);
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,25');
+  // 방향을 떼었다 다시 누르면 다시 열리고, Escape로도 닫힌다
+  await openShop(page);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: '상점' })).toHaveCount(0);
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,25');
+});
+
+test('초원 캡슐 얻기: 2단 9문제 (첫 문제는 틀려 힌트 → 같은 문제), 캡슐 3개와 학습 기록', async ({ page }) => {
+  await standAtShopDoor(page);
+  await openShop(page);
+  const shop = page.getByRole('dialog', { name: '상점' });
+  const before = await totalAttempts(page);
+  await shop.getByRole('button', { name: '초원 캡슐 얻기' }).click();
+  await shop.getByRole('button', { name: '2단' }).click();
+  // 첫 문제 2 × 1: 일부러 틀린다
+  const answer = await practiceAnswer(page);
+  expect(answer).toBe(2);
+  const boardBefore = await shop.locator('.fshop-choice').allTextContents();
+  await choice(page, await wrongChoice(page, answer)).click();
+  await expect(shop.locator('.fshop-choice--glow')).toHaveCount(1);
+  await expect(shop.locator('.practice__hint')).toBeVisible();
+  await shop.locator('.fshop-choice--glow').click();
+  // 같은 문제, 같은 보기
+  await expect(shop.locator('.practice__hint')).toHaveCount(0);
+  expect(await practiceAnswer(page)).toBe(2);
+  expect(await shop.locator('.fshop-choice').allTextContents()).toEqual(boardBefore);
+  await solveShop(page);
+  for (let i = 2; i <= 9; i++) {
+    expect(await practiceAnswer(page)).toBe(2 * i);
+    await solveShop(page);
+  }
+  await expect(shop.getByText('초원 캡슐 3개를 받았어요!')).toBeVisible();
+  expect((await savedField(page)).capsules.meadow).toBe(6);
+  expect(await totalAttempts(page)).toBe(before + 10);
+  await shop.getByRole('button', { name: '확인' }).click();
+  await expect(shop.getByLabel('초원 캡슐 6개')).toBeVisible();
+  expect((await savedField(page)).capsules.meadow).toBe(6);
+});
+
+test('연습 도중에 나가면 캡슐은 그대로 (그만하기·Escape)', async ({ page }) => {
+  await standAtShopDoor(page);
+  await openShop(page);
+  const shop = page.getByRole('dialog', { name: '상점' });
+  await shop.getByRole('button', { name: '초원 캡슐 얻기' }).click();
+  await shop.getByRole('button', { name: '4단' }).click();
+  await solveShop(page);
+  await solveShop(page);
+  await shop.getByRole('button', { name: '그만하기' }).click();
+  await expect(shop.getByText('초원 캡슐')).toBeVisible();
+  expect((await savedField(page)).capsules.meadow).toBe(3);
+  // Escape는 연습만 그만두고 상점은 그대로
+  await shop.getByRole('button', { name: '초원 캡슐 얻기' }).click();
+  await shop.getByRole('button', { name: '8단' }).click();
+  await solveShop(page);
+  await page.keyboard.press('Escape');
+  await expect(shop).toBeVisible();
+  await expect(shop.getByText('초원 캡슐')).toBeVisible();
+  expect((await savedField(page)).capsules.meadow).toBe(3);
+});
+
+test('회복약: 쓰러진 구구몬을 상처 문제 3바퀴로 회복한다', async ({ page }) => {
+  await standAtShopDoor(page, {
+    species: { cloud: { ...STARTER_FIELD.species.cloud, hp: 0, wounds: [{ factId: '7x8', type: 'product' }] } },
+  });
+  await openShop(page);
+  const shop = page.getByRole('dialog', { name: '상점' });
+  await shop.getByRole('tab', { name: '회복약' }).click();
+  await expect(shop.getByText('쓰러짐')).toBeVisible();
+  await shop.getByRole('button', { name: /고치기/ }).click();
+  for (let i = 0; i < 3; i++) {
+    expect(await practiceAnswer(page)).toBe(56);
+    await solveShop(page);
+  }
+  await expect(shop.getByText(/다 나았어요/)).toBeVisible();
+  const cloud = await savedCloud(page);
+  expect(cloud.hp).toBe(100);
+  expect(cloud.wounds).toEqual([]);
+  await shop.getByRole('button', { name: '확인' }).click();
+  await expect(shop.getByText('모두 건강해요!')).toBeVisible();
+  await shop.getByRole('button', { name: '닫기' }).click();
+  await expect(page.getByRole('dialog', { name: '상점' })).toHaveCount(0);
+});
+
+test('회복약: 틀리면 힌트 뒤 같은 문제, 틀린 답도 학습 기록에 남는다', async ({ page }) => {
+  await standAtShopDoor(page, {
+    species: { cloud: { ...STARTER_FIELD.species.cloud, hp: 40, wounds: [{ factId: '7x8', type: 'product' }] } },
+  });
+  await openShop(page);
+  const shop = page.getByRole('dialog', { name: '상점' });
+  await shop.getByRole('tab', { name: '회복약' }).click();
+  await shop.getByRole('button', { name: /고치기/ }).click();
+  const before = await totalAttempts(page);
+  await choice(page, await wrongChoice(page, 56)).click();
+  await expect(shop.locator('.fshop-choice--glow')).toHaveCount(1);
+  await shop.locator('.fshop-choice--glow').click();
+  await solveShop(page);
+  expect(await totalAttempts(page)).toBe(before + 2);
+  expect((await savedCloud(page)).hp).toBe(40); // 아직 안 나음 (3번 맞혀야)
+});
+
+test('회복약: 쓰러진 마을 구구몬은 회복하고 상점을 닫으면 일어난다', async ({ page }) => {
   await seedStarter(page);
   await page.goto('/#/field');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
@@ -643,19 +824,31 @@ test('마을 상점 문에 부딪히면 구구몬들이 기운을 되찾는다 (
     localStorage.clear();
     const field = {
       ...starter,
-      species: { cloud: { ...starter.species.cloud, hp: 0, wounds: [{ factId: '7x8', type: 'product' }] } },
+      species: { ...starter.species, jelly: { level: 3, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1, hp: 0, wounds: [] } },
+      seen: ['cloud', 'jelly'],
       position: { map: 'town', x: 8, y: 25, facing: 'up' },
     };
     localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
   }, STARTER_FIELD);
   await page.reload();
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,25');
-  await page.keyboard.down('ArrowUp'); // 문(8,24)
-  await expect(page.getByRole('dialog', { name: '표지판' })).toContainText('기운을 되찾았어요');
-  await page.keyboard.up('ArrowUp');
-  const cloud = await savedCloud(page);
-  expect(cloud.hp).toBe(100);
-  expect(cloud.wounds).toEqual([]);
+  const canvas = page.getByTestId('field-canvas');
+  await expect(canvas).toHaveAttribute('data-sleeping', 'jelly');
+  await openShop(page);
+  const shop = page.getByRole('dialog', { name: '상점' });
+  await shop.getByRole('tab', { name: '회복약' }).click();
+  await shop.getByRole('button', { name: /고치기/ }).click(); // 상처가 없으면 바로 회복
+  await expect(shop.getByText(/다 나았어요/)).toBeVisible();
+  await shop.getByRole('button', { name: '닫기' }).click();
+  await expect(canvas).toHaveAttribute('data-sleeping', '');
+});
+
+test('준비 중 탭은 안내만 나온다', async ({ page }) => {
+  await standAtShopDoor(page);
+  await openShop(page);
+  const shop = page.getByRole('dialog', { name: '상점' });
+  await shop.getByRole('tab', { name: '준비 중' }).click();
+  await expect(shop.getByText('추후 업데이트로 열려요')).toBeVisible();
+  await expect(shop.getByText('초원 캡슐')).toBeVisible(); // 탭은 그대로
 });
 
 test('초원 위 출구로 나가면 태초마을 아래 출구 위 칸, 마을 아래 출구로 나가면 초원 위 출구 아래 칸', async ({ page }) => {

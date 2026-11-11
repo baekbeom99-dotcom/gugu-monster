@@ -30,4 +30,9 @@ describe('캡슐 4종', () => {
     expect(addCapsules(SOME, 'meadow', 0)).toEqual(SOME);
     for (const bad of [-1, 1.5, Number.NaN, Infinity]) expect(addCapsules(SOME, 'meadow', bad)).toBe(SOME);
   });
+
+  it('addCapsules: 999에서 멈춘다', () => {
+    expect(addCapsules({ ...SOME, meadow: 998 }, 'meadow', 3).meadow).toBe(999);
+    expect(addCapsules({ ...SOME, meadow: 999 }, 'meadow', 3).meadow).toBe(999);
+  });
 });

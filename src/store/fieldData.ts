@@ -2,7 +2,7 @@
 import { MONSTER_KINDS } from '../domain/battle';
 import { FACTS } from '../domain/facts';
 import { FIELD_TYPES } from '../domain/field/fieldQuestions';
-import { CAPSULE_START, COMPANION_MAX_HP } from '../domain/field/tuning';
+import { CAPSULE_MAX, CAPSULE_START, COMPANION_MAX_HP } from '../domain/field/tuning';
 import { CAPSULE_TYPES, type Capsules, isCapsuleCount } from '../domain/field/capsules';
 import { addWound, type Wound } from '../domain/field/wounds';
 import { MAP_IDS, type MapId } from '../domain/field/fields';
@@ -148,7 +148,7 @@ export function mergeField(initial: FieldData, persisted: unknown): FieldData {
   const capsules = { ...initial.capsules };
   for (const t of CAPSULE_TYPES) {
     const v = Object.prototype.hasOwnProperty.call(cp, t) ? cp[t] : undefined;
-    if (isCapsuleCount(v)) capsules[t] = v;
+    if (isCapsuleCount(v)) capsules[t] = Math.min(CAPSULE_MAX, v); // 정수이지만 상한을 넘으면 상한으로
   }
 
   return {

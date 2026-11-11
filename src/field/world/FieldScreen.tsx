@@ -14,10 +14,11 @@ import { isFainted } from '../../domain/field/wounds';
 import { battleText } from '../battle/battleText';
 import { pickCompanion } from '../companion';
 import { COMPANION_MAX_HP, ENCOUNTER_FLASH_MS, ROAM_BUBBLE_MS, STEP_MS, TURN_TAP_MS } from '../../domain/field/tuning';
-import { type Roamer, createRoamers, habitatOf, pokeRoamer, stepRoamers } from '../../domain/field/roam';
+import { type Roamer, createRoamers, habitatOf, pokeRoamer, reviveRoamers, stepRoamers } from '../../domain/field/roam';
 import type { SpeciesId } from '../../domain/field/creatures';
 import { debugFlags } from '../debugFlags';
 import { useGameStore } from '../../store/useGameStore';
+import { ShopPopup } from '../shop/ShopPopup';
 import { Joystick } from './Joystick';
 import { type Companion, drawField, viewScale } from './fieldRenderer';
 import { FieldLoading } from './FieldLoading';
@@ -145,6 +146,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [signText, setSignText] = useState<string | null>(null);
+  const [shopOpen, setShopOpen] = useState(false);
   const [flash, setFlash] = useState(false);
   /** 구구몬 말풍선(부딪히거나 탭한 구구몬) */
   const [bubble, setBubble] = useState<SpeciesId | null>(null);
@@ -185,6 +187,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     cy: 0,
     /** 알림 창이 떠 있으면 걷지 않는다 */
     noticeOpen: false,
+    /** 상점 팝업이 떠 있으면 걷지 않는다 */
+    shopOpen: false,
     /** 마을에서 돌아다니는 구구몬 (마을이 아니면 비어 있다) */
     roamers: [] as Roamer[],
     /** 마지막으로 그린 카메라(화면 픽셀)·칸 크기 — 탭한 칸을 알아내는 데 쓴다 */
@@ -218,6 +222,17 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   }, []);
   const dismissRef = useRef(dismissNotice);
   dismissRef.current = dismissNotice;
+
+  /** 상점을 닫는다: 문 앞 칸 그대로. 회복으로 체력이 생긴 마을 구구몬은 일어난다 */
+  const closeShop = useCallback(() => {
+    const s = st.current;
+    s.shopOpen = false;
+    setShopOpen(false);
+    if (s.roamers.length > 0) {
+      const sp = useGameStore.getState().field.species;
+      s.roamers = reviveRoamers(s.roamers, (id) => sp[id]?.hp, performance.now(), Math.random);
+    }
+  }, []);
 
   const save = useCallback(() => {
     const s = st.current;
@@ -414,7 +429,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       if (!s.move) {
         // 부딪힘은 방향을 떼거나 바꿔야 다시 반응한다
         if (s.lastBump && held() !== s.lastBump.dir) s.lastBump = null;
-        const h = s.signOpen || s.frozen || s.noticeOpen ? null : held();
+        const h = s.signOpen || s.frozen || s.noticeOpen || s.shopOpen ? null : held();
         if (h !== s.lastHeld) {
           s.lastHeld = h;
           s.heldSince = now;
@@ -434,14 +449,13 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
               const sign = map.signs.find((g) => g.pos.x === b.x && g.pos.y === b.y);
               const isDoor = map.doors.some((d) => d.x === b.x && d.y === b.y);
               if (!sign && !isDoor) pokeRef.current(b);
-              else {
-                if (!sign) {
-                  // 상점 문(M3 임시 회복, R16): 잡은 구구몬 모두 회복. Task 17이 상점 팝업으로 바꾼다
-                  const g = useGameStore.getState();
-                  for (const id of Object.keys(g.field.species) as SpeciesId[]) g.healSpecies(id);
-                }
+              else if (!sign) {
+                // 상점 문: 팝업이 뜬다 (걷기는 멈춘다)
+                s.shopOpen = true;
+                setShopOpen(true);
+              } else {
                 s.signOpen = true;
-                setSignText(sign ? sign.text : battleText.healedAll);
+                setSignText(sign.text);
               }
             }
           }
@@ -472,6 +486,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       if (s.roamers.length > 0) {
         canvas.dataset.cam = `${cam.cx / view.tile},${cam.cy / view.tile},${view.tile}`; // 카메라 왼쪽 위(칸 단위)와 한 칸의 화면 픽셀 (E2E용)
         canvas.dataset.roamers = s.roamers.map((r) => `${r.species}:${r.x},${r.y}`).join(';');
+        canvas.dataset.sleeping = s.roamers.filter((r) => r.fainted).map((r) => r.species).join(','); // 쓰러져 자는 구구몬 (E2E용)
         const el = bubbleRef.current;
         const target = el && s.roamers.find((r) => r.species === el.dataset.species);
         if (el && target) {
@@ -578,6 +593,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
             </span>
           </div>
         )}
+        {shopOpen && <ShopPopup onClose={closeShop} />}
         {signText && (
           <div className="fieldmode__text" role="dialog" aria-label="표지판" onClick={() => onTap()}>
             {signText}

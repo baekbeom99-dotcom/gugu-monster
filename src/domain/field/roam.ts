@@ -92,3 +92,11 @@ export function stepRoamers(
   }
   return next;
 }
+
+/** 상점에서 회복해 체력이 생긴 구구몬을 깨운다: 자던 자리에서 바로 일어나 가만히 선다. hpOf가 0 아래(없음 포함)면 그대로 */
+export function reviveRoamers(roamers: Roamer[], hpOf: (id: SpeciesId) => number | undefined, now: number, rng: Rng): Roamer[] {
+  return roamers.map((r) => {
+    if (!r.fainted || !((hpOf(r.species) ?? 0) > 0)) return r;
+    return make(r.species, { x: r.x, y: r.y }, 'idle', now, now + idleMs(rng), false, r.facing);
+  });
+}

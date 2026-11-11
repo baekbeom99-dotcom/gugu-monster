@@ -1,6 +1,7 @@
 /** 캡슐 4종 — 설계서 4절. 종마다 맞는 캡슐이 있고, 던질 때마다 1개씩 준다 (0 아래로는 안 간다) */
 import { speciesDef, type SpeciesId } from './creatures';
 import type { FieldId } from './fields';
+import { CAPSULE_MAX } from './tuning';
 
 export type CapsuleType = FieldId | 'legend';
 export const CAPSULE_TYPES: readonly CapsuleType[] = ['meadow', 'waterside', 'desert', 'legend'];
@@ -13,7 +14,7 @@ export const CAPSULE_NAMES: Record<CapsuleType, string> = {
 
 export type Capsules = Record<CapsuleType, number>;
 
-/** 0 이상 정수인가 (캡슐 개수·더할 수) */
+/** 0 이상 정수인가 (캡슐 개수·더할 수). 상한은 쓰는 쪽에서 자른다 */
 export function isCapsuleCount(v: unknown): v is number {
   return typeof v === 'number' && Number.isInteger(v) && v >= 0;
 }
@@ -23,10 +24,10 @@ export function capsuleFor(id: SpeciesId): CapsuleType {
   return speciesDef(id).field;
 }
 
-/** n개 더하기. n이 0 이상 정수가 아니면 그대로 */
+/** n개 더하기 (CAPSULE_MAX에서 멈춘다). n이 0 이상 정수가 아니면 그대로 */
 export function addCapsules(c: Capsules, t: CapsuleType, n: number): Capsules {
   if (!isCapsuleCount(n) || n === 0) return c;
-  return { ...c, [t]: c[t] + n };
+  return { ...c, [t]: Math.min(CAPSULE_MAX, c[t] + n) };
 }
 
 /** 1개 꺼내기. 없으면 null */
