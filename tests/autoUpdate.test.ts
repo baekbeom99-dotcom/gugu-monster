@@ -1,6 +1,6 @@
 /** 새 버전 자동 적용: 문제를 푸는 화면에서는 새로고침하지 않는다 (v1.31) */
 import { describe, expect, it } from 'vitest';
-import { isBusyRoute, UPDATE_CHECK_MS } from '../src/pwa/autoUpdate';
+import { isBusyRoute, isUpdateBlocked, setUpdateBusy, UPDATE_CHECK_MS } from '../src/pwa/autoUpdate';
 
 describe('자동 새로고침', () => {
   it('전투·셈 연습·무한의 계단·부화·처음 시작·관리자 화면은 기다린다', () => {
@@ -18,5 +18,14 @@ describe('자동 새로고침', () => {
 
   it('30분마다 확인한다', () => {
     expect(UPDATE_CHECK_MS).toBe(30 * 60 * 1000);
+  });
+
+  it('상점 연습 중(바쁨 표시)에는 필드에서도 기다리고, 끄면 다시 새로고침한다', () => {
+    expect(isUpdateBlocked('#/field')).toBe(false);
+    setUpdateBusy(true);
+    expect(isUpdateBlocked('#/field')).toBe(true);
+    setUpdateBusy(false);
+    expect(isUpdateBlocked('#/field')).toBe(false);
+    expect(isUpdateBlocked('#/battle')).toBe(true);
   });
 });

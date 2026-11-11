@@ -28,6 +28,8 @@ export function PracticeCard({ factId, type, qkey, hint, onAnswer, onHintPick }:
   /** 연습을 시작한 시각, 이 연습에서 이미 푼 사실 (오답 극복 판정에 쓴다) */
   const startedAt = useRef(Date.now());
   const seen = useRef(new Set<FactId>());
+  /** 이 연습에서 한 번이라도 틀린 사실 — 이후의 답은 재출제 답(isRetry)으로 기록해 오답 복습에 남게 한다 */
+  const missed = useRef(new Set<FactId>());
   const shownAt = useRef(Date.now());
   /** 이 문제(또는 힌트)에 이미 답했다 — 한 번만 기록하려고 */
   const used = useRef(false);
@@ -55,13 +57,14 @@ export function PracticeCard({ factId, type, qkey, hint, onAnswer, onHintPick }:
       correct,
       ms: Date.now() - shownAt.current,
       inputMode: 'choice',
-      isRetry: false,
+      isRetry: missed.current.has(factId),
       firstAttemptInBattle: !seen.current.has(factId),
       battleStartedAt: startedAt.current,
       now: Date.now(),
       source: 'field',
     });
     seen.current.add(factId);
+    if (!correct) missed.current.add(factId);
     onAnswer(correct);
   };
 

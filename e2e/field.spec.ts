@@ -662,6 +662,10 @@ async function openShop(page: Page) {
   await page.keyboard.up('ArrowUp');
 }
 
+async function savedFact(page: Page, id: string): Promise<{ box: number; dueAt: number | null }> {
+  return page.evaluate((f) => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.learning.facts[f], id);
+}
+
 async function savedField(page: Page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
 }
@@ -750,6 +754,12 @@ test('초원 캡슐 얻기: 2단 9문제 (첫 문제는 틀려 힌트 → 같은
   await expect(shop.getByText('초원 캡슐 3개를 받았어요!')).toBeVisible();
   expect((await savedField(page)).capsules.meadow).toBe(6);
   expect(await totalAttempts(page)).toBe(before + 10);
+  // 틀린 적 없는 사실을 맞히면 지금처럼 상자가 오른다 (다음 복습은 미래)
+  const ok = await savedFact(page, '2x5');
+  expect(ok.box).toBe(1);
+  expect(ok.dueAt!).toBeGreaterThan(Date.now());
+  // 틀렸다가 힌트 뒤 맞힌 사실(2x1)은 지금 복습 대상
+  expect((await savedFact(page, '2x1')).dueAt!).toBeLessThanOrEqual(Date.now());
   await shop.getByRole('button', { name: '확인' }).click();
   await expect(shop.getByLabel('초원 캡슐 6개')).toBeVisible();
   expect((await savedField(page)).capsules.meadow).toBe(6);
@@ -813,6 +823,10 @@ test('회복약: 틀리면 힌트 뒤 같은 문제, 틀린 답도 학습 기록
   await shop.locator('.fshop-choice--glow').click();
   await solveShop(page);
   expect(await totalAttempts(page)).toBe(before + 2);
+  // 틀린 뒤 힌트로 맞혀도 오답 복습에 남는다: 상자 1, 지금 바로 복습 대상 (재출제 답으로 기록)
+  const f = await savedFact(page, '7x8');
+  expect(f.box).toBe(1);
+  expect(f.dueAt!).toBeLessThanOrEqual(Date.now());
   expect((await savedCloud(page)).hp).toBe(40); // 아직 안 나음 (3번 맞혀야)
 });
 

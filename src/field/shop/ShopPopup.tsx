@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import type { Dan } from '../../domain/facts';
 import type { CapsuleType } from '../../domain/field/capsules';
+import { setUpdateBusy } from '../../pwa/autoUpdate';
 import type { SpeciesId } from '../../store/fieldData';
 import { CapsuleTab } from './CapsuleTab';
 import { DanPractice } from './DanPractice';
@@ -26,6 +27,12 @@ export function ShopPopup({ onClose }: { onClose(): void }) {
   const [soonShown, setSoonShown] = useState(false);
   const toTabs = () => setView({ kind: 'tabs' });
   const practicing = view.kind !== 'tabs';
+
+  // 열려 있는 동안 자동 새로고침을 막는다 (닫히거나 사라질 때 반드시 풀기)
+  useEffect(() => {
+    setUpdateBusy(true);
+    return () => setUpdateBusy(false);
+  }, []);
 
   // Escape: 연습 중이면 연습만 그만두고 탭 화면으로, 아니면 상점을 닫는다
   useEffect(() => {
