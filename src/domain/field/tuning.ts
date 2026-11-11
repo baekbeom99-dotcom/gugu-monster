@@ -102,3 +102,28 @@ export const ROAM_SLEEP_MS = 5000;
 export const ROAM_WEIGHTS = { move: 0.6, idle: 0.25, jump: 0.1, sleep: 0.05 };
 /** 말풍선이 떠 있는 시간 */
 export const ROAM_BUBBLE_MS = 2500;
+
+// ── 야생 강함 4단계 (설계서 6-1) ──
+/** 만났을 때 단계 확률(합 1) */
+export const TIER_CHANCE = { weak: 0.15, normal: 0.65, strong: 0.15, mighty: 0.05 } as const;
+/**
+ * 단계별 규칙. levels는 동행 레벨에 더하는 값 범위(legend는 레벨 고정이라 null),
+ * timeMs 문제 시간, hitsToDizzy 어지러워지는 정답 수, damage 우리 몬스터가 받는 피해,
+ * expScale 경험치 배율, ultimateCatch 끝내 잡을 확률.
+ */
+export const TIER_RULES = {
+  weak: { levels: [-5, -3], timeMs: 7000, hitsToDizzy: 3, damage: 20, expScale: 0.6, ultimateCatch: 0.3 },
+  normal: { levels: [-1, 1], timeMs: 7000, hitsToDizzy: 4, damage: 25, expScale: 1, ultimateCatch: 0.25 },
+  strong: { levels: [3, 5], timeMs: 5000, hitsToDizzy: 4, damage: 34, expScale: 1.6, ultimateCatch: 0.15 },
+  mighty: { levels: [6, 9], timeMs: 5000, hitsToDizzy: 6, damage: 50, expScale: 3, ultimateCatch: 0.1 },
+  legend: { levels: null, timeMs: 7000, hitsToDizzy: 4, damage: 34, expScale: 3, ultimateCatch: 0.1 },
+} as const;
+/** 캡슐을 던질 때 한 번에 빠져나올 확률 / 화낼 확률 */
+export const THROW_ESCAPE = 0.21;
+export const THROW_ANGRY = 0.03;
+/** 동행 몬스터 체력 */
+export const COMPANION_MAX_HP = 100;
+/** 문제 시간이 이만큼 남으면 빨갛게 */
+export const TIMER_WARN_MS = 2000;
+/** 야생 몬스터가 공격하는 연출 시간 */
+export const WILD_FOE_ATTACK_MS = 700;

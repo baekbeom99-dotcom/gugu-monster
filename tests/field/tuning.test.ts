@@ -52,6 +52,19 @@ describe('필드 모험 운영 수치', () => {
       ROAM_SLEEP_MS: 5000,
       ROAM_WEIGHTS: { move: 0.6, idle: 0.25, jump: 0.1, sleep: 0.05 },
       ROAM_BUBBLE_MS: 2500,
+      TIER_CHANCE: { weak: 0.15, normal: 0.65, strong: 0.15, mighty: 0.05 },
+      TIER_RULES: {
+        weak: { levels: [-5, -3], timeMs: 7000, hitsToDizzy: 3, damage: 20, expScale: 0.6, ultimateCatch: 0.3 },
+        normal: { levels: [-1, 1], timeMs: 7000, hitsToDizzy: 4, damage: 25, expScale: 1, ultimateCatch: 0.25 },
+        strong: { levels: [3, 5], timeMs: 5000, hitsToDizzy: 4, damage: 34, expScale: 1.6, ultimateCatch: 0.15 },
+        mighty: { levels: [6, 9], timeMs: 5000, hitsToDizzy: 6, damage: 50, expScale: 3, ultimateCatch: 0.1 },
+        legend: { levels: null, timeMs: 7000, hitsToDizzy: 4, damage: 34, expScale: 3, ultimateCatch: 0.1 },
+      },
+      THROW_ESCAPE: 0.21,
+      THROW_ANGRY: 0.03,
+      COMPANION_MAX_HP: 100,
+      TIMER_WARN_MS: 2000,
+      WILD_FOE_ATTACK_MS: 700,
     });
   });
 
