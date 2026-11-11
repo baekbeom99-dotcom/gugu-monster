@@ -71,8 +71,17 @@ describe('픽셀 그림', () => {
     expect(MONSTER_FILL).toBe(1.45);
   });
 
-  it('효과 이름: 전투 들어가기·명중·잡기', () => {
-    expect(FX_NAMES).toEqual(['enter', 'hit', 'catch']);
+  it('효과 이름: 전투 들어가기·명중·잡기 + 속성별 기술 21개', () => {
+    expect(FX_NAMES).toEqual([
+      'enter', 'hit', 'catch',
+      'vine-whip', 'thorns', 'leaf-storm',
+      'acid-splash', 'spore-burst', 'poison-cloud',
+      'feather-burst', 'smite', 'sunburst',
+      'splash', 'water-jet', 'wave-crash',
+      'zap-hit', 'chain-lightning', 'lightning-strike',
+      'earth-spike', 'boulder', 'quake',
+      'fireball', 'fire-breath', 'flame-pillar',
+    ]);
   });
 });
 
