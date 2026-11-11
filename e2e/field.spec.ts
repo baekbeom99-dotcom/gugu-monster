@@ -218,23 +218,50 @@ test('메뉴의 처음 화면으로 돌아간다', async ({ page }) => {
 
 // ── 야생 전투 ──
 
+interface GrassOptions {
+  /** 문제 시간이 흐르게 둔다 (기본은 __GUGU_E2E_NO_TIMER__로 멈춤) */
+  timer?: boolean;
+  /** 구름몬 기록에 덧붙일 값 (예: { hp: 20 }) */
+  cloud?: Record<string, unknown>;
+  /** 야생 강함 단계 고정 (__GUGU_E2E_TIER__) */
+  tier?: string;
+}
+
 /** 풀숲(6,8) 바로 왼쪽 (5,8)에 오른쪽을 보고 선 저장본 + 만남 100% 스위치 */
-async function standBesideGrass(page: Page) {
-  await page.addInitScript(() => {
-    (window as unknown as { __GUGU_E2E_FIELD__: boolean }).__GUGU_E2E_FIELD__ = true;
-  });
+async function standBesideGrass(page: Page, opts: GrassOptions = {}) {
+  await page.addInitScript(
+    ([timer, tier]) => {
+      const w = window as unknown as Record<string, unknown>;
+      w.__GUGU_E2E_FIELD__ = true;
+      if (!timer) w.__GUGU_E2E_NO_TIMER__ = true;
+      if (tier) w.__GUGU_E2E_TIER__ = tier;
+    },
+    [!!opts.timer, opts.tier ?? ''] as const,
+  );
   await seedStarter(page);
   await page.goto('/#/field');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
-  await page.evaluate((starter) => {
-    localStorage.clear();
-    localStorage.setItem(
-      'gugu-monster:save',
-      JSON.stringify({ version: 1, state: { field: { ...starter, position: { map: 'meadow', x: 5, y: 8, facing: 'right' } } } }),
-    );
-  }, STARTER_FIELD);
+  await page.evaluate(
+    ([starter, cloud]) => {
+      localStorage.clear();
+      const s = starter as typeof STARTER_FIELD;
+      const field = { ...s, species: { cloud: { ...s.species.cloud, ...(cloud as object) } }, position: { map: 'meadow', x: 5, y: 8, facing: 'right' } };
+      localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
+    },
+    [STARTER_FIELD, opts.cloud ?? {}] as const,
+  );
   await page.reload();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,8');
+}
+
+/** 저장본의 구름몬 기록 */
+async function savedCloud(page: Page): Promise<{ hp: number; wounds: { factId: string; type: string }[] }> {
+  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.species.cloud);
+}
+
+/** 정답이 아닌 기술 버튼 하나 */
+function wrongMoveButton(page: Page, answer: number) {
+  return page.locator('.wild-move').filter({ hasNot: page.locator(`.wild-move__num:text-is("${answer}")`) }).first();
 }
 
 async function stepIntoGrass(page: Page) {
@@ -278,7 +305,7 @@ test('풀숲에서 만나 정답으로 HP를 0으로 만들면 캡슐 던지기 
   await standBesideGrass(page);
   await stepIntoGrass(page);
   await expect(page.getByText(/나타났다/)).toBeVisible();
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 6; i++) {
     if (await page.getByRole('button', { name: '캡슐 던지기' }).isVisible()) break;
     const answer = await solveWild(page);
     const buttons = page.locator('.wild-move');
@@ -312,6 +339,106 @@ test('정답 버튼을 빠르게 두 번 눌러도 한 번만 기록된다', asy
   expect(await totalAttempts(page)).toBe(before + 1);
 });
 
+test('오답이면 적이 공격해 내 체력이 줄고, 힌트의 빛나는 기술을 누르면 다시 문제', async ({ page }) => {
+  await standBesideGrass(page);
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await expect(page.getByLabel('내 체력 100')).toBeVisible();
+  const answer = await solveWild(page);
+  await wrongMoveButton(page, answer).click();
+  const ally = page.getByLabel(/^내 체력 (80|75|66|50)$/);
+  await expect(ally).toBeVisible();
+  await expect(page.getByRole('status')).toContainText(/의 .+!/); // "○○의 기술!"
+  const shown = Number(((await ally.getAttribute('aria-label')) ?? '').replace(/\D/g, ''));
+  const glow = page.locator('.wild-move--glow');
+  await expect(glow).toHaveCount(1);
+  await glow.click();
+  await expect(glow).toHaveCount(0);
+  await expect(page.locator('.wild__hint')).toHaveCount(0);
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  await expect(page.locator('.wild-move:enabled')).toHaveCount(3);
+  const cloud = await savedCloud(page);
+  expect(cloud.hp).toBe(shown);
+  expect(cloud.wounds).toHaveLength(1);
+});
+
+test('시간이 다 되면 적이 공격하고, 쓰러지면 태초마을로 돌아가 "쓰러졌어…" 알림', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { __GUGU_E2E_QUESTION__: unknown }).__GUGU_E2E_QUESTION__ = { factId: '7x8', type: 'product' };
+  });
+  await standBesideGrass(page, { timer: true, cloud: { hp: 20 } });
+  await stepIntoGrass(page);
+  await expect(page.locator('.wild__bubble')).toHaveAttribute('data-fact', '7x8');
+  await expect(page.getByRole('timer')).toBeVisible();
+  // 필드로 돌아갈 때의 불러오기 화면은 아주 잠깐이라 화면 바뀜을 지켜 기록해 둔다
+  await page.evaluate(() => {
+    const w = window as unknown as { __loadingSeen: string[] };
+    w.__loadingSeen = [];
+    new MutationObserver(() => {
+      const el = document.querySelector('[aria-label="불러오는 중"]');
+      if (el) w.__loadingSeen.push(el.textContent ?? '');
+    }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  });
+  await page.waitForTimeout(8000);
+  await expect(page.getByRole('status').filter({ hasText: '쓰러졌다' })).toBeVisible();
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,31'); // 태초마을 시작 칸
+  const seen = await page.evaluate(() => (window as unknown as { __loadingSeen: string[] }).__loadingSeen);
+  expect(seen.some((t) => t.includes('태초마을'))).toBe(true);
+  await expect(page.getByRole('dialog', { name: '쓰러짐 알림' })).toContainText('쓰러졌어…');
+  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  expect(field.position.map).toBe('town');
+  expect(field.species.cloud.hp).toBe(0);
+  expect(field.species.cloud.wounds[0]).toEqual({ factId: '7x8', type: 'product' });
+});
+
+test('쓰러진 동행이면 풀숲에서 만나지 않고 "구구몬이 쓰러졌어요" 알림이 보인다', async ({ page }) => {
+  await standBesideGrass(page, { cloud: { hp: 0 } });
+  await expect(page.getByRole('status').filter({ hasText: '구구몬이 쓰러졌어요' })).toBeVisible();
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(120);
+  await page.keyboard.up('ArrowRight');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '6,8');
+  await page.waitForTimeout(1200);
+  await expect(page).toHaveURL(/#\/field$/);
+  await expect(page.getByText('구구몬이 쓰러졌어요. 상점에서 회복시켜요')).toBeVisible();
+});
+
+test('전투 중 맞고 새로고침하면 필드로 돌아오고, 체력은 줄어 있다', async ({ page }) => {
+  await standBesideGrass(page);
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  const answer = await solveWild(page);
+  await wrongMoveButton(page, answer).click();
+  await expect(page.getByLabel(/^내 체력 (80|75|66|50)$/)).toBeVisible();
+  await page.reload();
+  await expect(page).toHaveURL(/#\/field$/);
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
+  expect((await savedCloud(page)).hp).toBeLessThan(100);
+});
+
+test('도망 확인창을 6초 열어 둬도 시간이 흐르지 않아 맞지 않는다', async ({ page }) => {
+  await standBesideGrass(page, { timer: true });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: '도망치기' })).toBeVisible();
+  await page.waitForTimeout(6000);
+  await page.getByRole('button', { name: '계속 싸우기' }).click();
+  const label = (await page.getByRole('timer').getAttribute('aria-label')) ?? '';
+  expect(Number(label.replace(/\D/g, ''))).toBeGreaterThanOrEqual(3);
+  await expect(page.getByLabel('내 체력 100')).toBeVisible();
+  await expect(page.getByRole('status')).not.toContainText(/시간이 지났어|의 .+!/);
+});
+
+test('강력한 야생은 이름 앞에 단계 말이 붙고 이름 카드에 색 테두리', async ({ page }) => {
+  await standBesideGrass(page, { tier: 'mighty' });
+  await stepIntoGrass(page);
+  await expect(page.locator('.wild__card')).toHaveClass(/wild__card--mighty/);
+  await expect(page.locator('.wild__name')).toHaveText(/^강력한 \S+ Lv\d+$/);
+});
+
 test('도망치기로 끝내고 돌아오면 바로 다음 풀숲 걸음에는 만나지 않는다', async ({ page }) => {
   await standBesideGrass(page);
   await stepIntoGrass(page);
@@ -331,7 +458,9 @@ test('도망치기로 끝내고 돌아오면 바로 다음 풀숲 걸음에는 �
 
 test('처음 필드는 첫 구구몬 고르기로 가고, 젤리몬을 골라 풀숲에서 잡으면 도감에 색으로 남는다', async ({ page }) => {
   await page.addInitScript(() => {
-    (window as unknown as { __GUGU_E2E_FIELD__: boolean }).__GUGU_E2E_FIELD__ = true;
+    const w = window as unknown as { __GUGU_E2E_FIELD__: boolean; __GUGU_E2E_NO_TIMER__: boolean };
+    w.__GUGU_E2E_FIELD__ = true;
+    w.__GUGU_E2E_NO_TIMER__ = true;
   });
   await page.goto('/#/field');
   await expect(page).toHaveURL(/#\/field\/starter$/);
@@ -348,9 +477,13 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 젤리몬을 골라 �
   await page.reload();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,8');
   await stepIntoGrass(page);
-  const wildName = ((await page.locator('.wild__name').textContent()) ?? '').replace(/\s*Lv\d+\s*$/, '').trim();
+  // "약한 ○○ Lv3"처럼 단계 말이 앞에 붙는다
+  const wildName = ((await page.locator('.wild__name').textContent()) ?? '')
+    .replace(/\s*Lv\d+\s*$/, '')
+    .replace(/^(약한|강한|강력한)\s+/, '')
+    .trim();
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 6; i++) {
     if (await page.getByRole('button', { name: '캡슐 던지기' }).isVisible()) break;
     const answer = await solveWild(page);
     await moveButton(page, answer).click();
@@ -432,6 +565,29 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 고르면 태초마을
   expect(saved).toEqual({ map: 'town', x: 10, y: 31, facing: 'down' });
 });
 
+test('마을 상점 문에 부딪히면 구구몬들이 기운을 되찾는다 (임시 회복)', async ({ page }) => {
+  await seedStarter(page);
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
+  await page.evaluate((starter) => {
+    localStorage.clear();
+    const field = {
+      ...starter,
+      species: { cloud: { ...starter.species.cloud, hp: 0, wounds: [{ factId: '7x8', type: 'product' }] } },
+      position: { map: 'town', x: 8, y: 25, facing: 'up' },
+    };
+    localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
+  }, STARTER_FIELD);
+  await page.reload();
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,25');
+  await page.keyboard.down('ArrowUp'); // 문(8,24)
+  await expect(page.getByRole('dialog', { name: '표지판' })).toContainText('기운을 되찾았어요');
+  await page.keyboard.up('ArrowUp');
+  const cloud = await savedCloud(page);
+  expect(cloud.hp).toBe(100);
+  expect(cloud.wounds).toEqual([]);
+});
+
 test('초원 위 출구로 나가면 태초마을 아래 출구 위 칸, 마을 아래 출구로 나가면 초원 위 출구 아래 칸', async ({ page }) => {
   await standAt(page, 'meadow', 7, 1, 'up');
   await tap(page, 'ArrowUp');
@@ -463,9 +619,10 @@ test('물가 풀숲에서 만난 구구몬은 젤리몬·안테나몬·뿔뿔몬
 /** 12·13단이 열린 저장본으로 풀숲 바로 옆에 서서(만남 100%, 레전드 강제) 한 걸음 */
 async function standBesideGrassWith(page: Page, unlocked: boolean) {
   await page.addInitScript(() => {
-    const w = window as unknown as { __GUGU_E2E_FIELD__: boolean; __GUGU_E2E_LEGEND__: boolean };
+    const w = window as unknown as { __GUGU_E2E_FIELD__: boolean; __GUGU_E2E_LEGEND__: boolean; __GUGU_E2E_NO_TIMER__: boolean };
     w.__GUGU_E2E_FIELD__ = true;
     w.__GUGU_E2E_LEGEND__ = true;
+    w.__GUGU_E2E_NO_TIMER__ = true;
   });
   await seedStarter(page);
   await page.goto('/#/field');

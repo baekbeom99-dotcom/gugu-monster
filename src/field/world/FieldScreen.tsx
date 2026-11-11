@@ -9,6 +9,10 @@ import { STAGE_SCALE } from '../art/creatureSprite';
 import { playFx, preloadFx, prefersReducedMotion } from '../fx/playFx';
 import type { FieldId, MapId } from '../../domain/field/fields';
 import { stepOnTile } from '../../domain/field/encounter';
+import { rollTierLevel } from '../../domain/field/strength';
+import { isFainted } from '../../domain/field/wounds';
+import { battleText } from '../battle/battleText';
+import { pickCompanion } from '../companion';
 import { COMPANION_MAX_HP, ENCOUNTER_FLASH_MS, ROAM_BUBBLE_MS, STEP_MS, TURN_TAP_MS } from '../../domain/field/tuning';
 import { type Roamer, createRoamers, habitatOf, pokeRoamer, stepRoamers } from '../../domain/field/roam';
 import type { SpeciesId } from '../../domain/field/creatures';
@@ -201,7 +205,13 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   st.current.noticeOpen = notice0 !== null;
   const noticeStage = useGameStore((s) => (notice0 ? s.field.species[notice0.species]?.stage ?? 1 : 1));
   const bubbleStage = useGameStore((s) => (bubble ? s.field.species[bubble]?.stage ?? 1 : 1));
-  const bubbleLevel = useGameStore((s) => (bubble ? s.field.species[bubble]?.level ?? 1 : 1)); // 체력은 전투 개편(M3) 전까지 100으로 보인다
+  const bubbleLevel = useGameStore((s) => (bubble ? s.field.species[bubble]?.level ?? 1 : 1));
+  const bubbleHp = useGameStore((s) => (bubble ? s.field.species[bubble]?.hp ?? COMPANION_MAX_HP : COMPANION_MAX_HP));
+  /** 동행이 쓰러져 있으면 만남이 없고 필드 위에 늘 알려 준다 (마을에서는 안 보임) */
+  const companionDown = useGameStore((s) => {
+    const e = s.field.species[pickCompanion(s)];
+    return !!e && isFainted(e);
+  });
   const dismissNotice = useCallback(() => {
     const ss = useSessionStore.getState();
     ss.set({ pendingFieldNotices: ss.pendingFieldNotices.slice(1) });
@@ -259,9 +269,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     const session = useFieldSession.getState();
     const { field, learning } = useGameStore.getState();
     const flags = debugFlags();
-    // 동행(없으면 처음 잡은 종)의 레벨·체력: 쓰러져 있으면 만남이 없다 (안내 글은 Task 11)
-    const compId = field.companion && field.species[field.companion] ? field.companion : (Object.keys(field.species)[0] as SpeciesId | undefined);
-    const comp = compId ? field.species[compId] : undefined;
+    // 동행(없으면 처음 잡은 종)의 레벨·체력: 쓰러져 있으면 만남이 없다. 전투 화면도 같은 헬퍼로 같은 종과 싸운다
+    const comp = field.species[pickCompanion({ field })];
     const r = stepOnTile(Math.random, {
       companion: { level: comp?.level ?? 1, hp: comp?.hp ?? COMPANION_MAX_HP },
       tile: result.tile,
@@ -271,8 +280,13 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       seen: field.seen,
       force: { grass: flags.encounter, path: flags.path, legend: flags.legend, noWild: flags.noWild },
     });
-    session.set({ stepsSinceBattle: r.stepsSinceBattle, encounter: r.encounter });
-    if (!r.encounter) return;
+    let encounter = r.encounter;
+    // E2E 스위치: 강함 단계 고정 (레전드 만남은 그대로)
+    if (encounter && flags.tier && !encounter.legend) {
+      encounter = { ...encounter, tier: flags.tier, level: rollTierLevel(Math.random, flags.tier, comp?.level ?? 1) };
+    }
+    session.set({ stepsSinceBattle: r.stepsSinceBattle, encounter });
+    if (!encounter) return;
     st.current.frozen = true;
     if (prefersReducedMotion()) setFlash(true);
     else setIris(true);
@@ -309,7 +323,9 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     // 마을에서만: 잡은 구구몬(동행 빼고)이 서식지를 돌아다닌다
     if (map.id === 'town') {
       const { species, companion } = useGameStore.getState().field;
-      const list = (Object.keys(species) as SpeciesId[]).filter((id) => id !== companion).map((id) => ({ species: id, fainted: false }));
+      const list = (Object.keys(species) as SpeciesId[])
+        .filter((id) => id !== companion && species[id])
+        .map((id) => ({ species: id, fainted: isFainted(species[id]!) }));
       // 주인공·동행이 서 있는 칸에는 세우지 않는다
       const free = (f: FieldId) => (map.zones[f] ?? []).filter((z) => !(z.x === s.x && z.y === s.y) && !(z.x === s.cx && z.y === s.cy));
       const zones = { meadow: free('meadow'), waterside: free('waterside'), desert: free('desert') };
@@ -419,8 +435,13 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
               const isDoor = map.doors.some((d) => d.x === b.x && d.y === b.y);
               if (!sign && !isDoor) pokeRef.current(b);
               else {
+                if (!sign) {
+                  // 상점 문(M3 임시 회복, R16): 잡은 구구몬 모두 회복. Task 17이 상점 팝업으로 바꾼다
+                  const g = useGameStore.getState();
+                  for (const id of Object.keys(g.field.species) as SpeciesId[]) g.healSpecies(id);
+                }
                 s.signOpen = true;
-                setSignText(sign ? sign.text : '상점은 곧 열려요!'); // 문 반응은 상점 팝업(M3·M4)이 바꾼다
+                setSignText(sign ? sign.text : battleText.healedAll);
               }
             }
           }
@@ -521,10 +542,21 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
             {notice}
           </div>
         )}
+        {!notice && companionDown && map.id !== 'town' && (
+          <div className="fieldmode__notice fieldmode__notice--down" role="status">
+            {battleText.faintedField}
+          </div>
+        )}
         {flash && <div className="fieldmode__flash" aria-hidden />}
         {iris && <canvas ref={irisRef} className="fieldmode__iris" aria-hidden />}
         {notice0 && (
-          <button type="button" className="fieldmode__growth" role="dialog" aria-label="성장 알림" onClick={dismissNotice}>
+          <button
+            type="button"
+            className="fieldmode__growth"
+            role="dialog"
+            aria-label={notice0.kind === 'fainted' ? '쓰러짐 알림' : '성장 알림'}
+            onClick={dismissNotice}
+          >
             <span className="fieldmode__growth-title">
               {notice0.kind === 'levelUp' ? '레벨이 올랐어!' : notice0.kind === 'evolve' ? '진화했어!' : '쓰러졌어…'}
             </span>
@@ -533,7 +565,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
                 ? `${displayName(notice0.species, noticeStage)} Lv${notice0.level}`
                 : notice0.kind === 'evolve'
                   ? displayName(notice0.species, notice0.stage)
-                  : displayName(notice0.species, noticeStage)}
+                  : `${displayName(notice0.species, noticeStage)} — ${battleText.faintedField}`}
             </span>
             <span className="fieldmode__growth-hint">탭하면 닫혀요</span>
           </button>
@@ -541,7 +573,9 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         {bubble && (
           <div className="roam-bubble" role="dialog" aria-label="구구몬 말풍선" data-species={bubble} ref={bubbleRef}>
             <span className="roam-bubble__name">{displayName(bubble, bubbleStage)}</span>
-            <span className="roam-bubble__meta">Lv{bubbleLevel} · 체력 100</span>
+            <span className="roam-bubble__meta">
+              Lv{bubbleLevel} · {bubbleHp <= 0 ? '쓰러짐' : `체력 ${bubbleHp}`}
+            </span>
           </div>
         )}
         {signText && (

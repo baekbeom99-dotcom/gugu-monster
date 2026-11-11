@@ -10,9 +10,10 @@ describe('필드 디버그 스위치', () => {
     delete g.__GUGU_E2E_NO_WILD__;
     delete g.__GUGU_E2E_NO_TIMER__;
     delete g.__GUGU_E2E_QUESTION__;
+    delete g.__GUGU_E2E_TIER__;
   });
 
-  it('기본은 모두 꺼짐', () => expect(debugFlags()).toEqual({ encounter: false, path: false, noWild: false, noTimer: false, legend: false, question: null }));
+  it('기본은 모두 꺼짐', () => expect(debugFlags()).toEqual({ encounter: false, path: false, noWild: false, noTimer: false, tier: null, legend: false, question: null }));
 
   it('E2E가 쓰는 window 이름에서 읽는다', () => {
     g.__GUGU_E2E_FIELD__ = true;
@@ -21,7 +22,19 @@ describe('필드 디버그 스위치', () => {
     g.__GUGU_E2E_NO_WILD__ = true;
     g.__GUGU_E2E_NO_TIMER__ = true;
     g.__GUGU_E2E_QUESTION__ = { factId: '7x8', type: 'product' };
-    expect(debugFlags()).toEqual({ encounter: true, path: true, noWild: true, noTimer: true, legend: true, question: { factId: '7x8', type: 'product' } });
+    g.__GUGU_E2E_TIER__ = 'mighty';
+    expect(debugFlags()).toEqual({ encounter: true, path: true, noWild: true, noTimer: true, tier: 'mighty', legend: true, question: { factId: '7x8', type: 'product' } });
+  });
+
+  it('강함 단계 스위치는 아는 이름만 (레전드·이상한 값은 무시)', () => {
+    for (const t of ['weak', 'normal', 'strong', 'mighty']) {
+      g.__GUGU_E2E_TIER__ = t;
+      expect(debugFlags().tier).toBe(t);
+    }
+    for (const t of ['legend', 'constructor', 'toString', 3]) {
+      g.__GUGU_E2E_TIER__ = t;
+      expect(debugFlags().tier).toBeNull();
+    }
   });
 
   it('개발 화면에서 켜고 끈다', () => {

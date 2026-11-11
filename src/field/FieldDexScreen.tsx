@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { SPECIES, speciesDef, type SpeciesId } from '../domain/field/creatures';
 import { FIELDS } from '../domain/field/fields';
 import { displayName } from '../domain/field/growth';
+import { isFainted } from '../domain/field/wounds';
 import { useGameStore } from '../store/useGameStore';
 import { creatureSprite, speciesColor } from './art/creatureSprite';
 import './fieldDex.css';
@@ -57,6 +58,7 @@ export function FieldDexScreen() {
                     <span className="fdex__meta">
                       Lv{entry.level} · {entry.caught}번 잡음
                     </span>
+                    <span className={`fdex__hp ${isFainted(entry) ? 'fdex__hp--down' : ''}`}>{isFainted(entry) ? '쓰러짐' : `체력 ${entry.hp}`}</span>
                   </button>
                 );
               }
@@ -88,15 +90,17 @@ export function FieldDexScreen() {
       {picked && field.species[picked] && (
         <div className="fdex__sheet" role="dialog" aria-label={`${speciesDef(picked).name} 정보`}>
           <div className="fdex__sheet-name">{displayName(picked, field.species[picked]!.stage)}</div>
+          {isFainted(field.species[picked]!) && <p className="fdex__sheet-note fdex__hp--down">쓰러짐 — 상점에서 회복시켜요</p>}
           {field.companion === picked ? (
             <p className="fdex__sheet-note">지금 함께 다니고 있어요!</p>
           ) : (
             <button
               type="button"
               className="btn btn--primary fdex__sheet-btn"
+              // 쓰러진 종은 함께 다닐 수 없다 (setCompanion도 false)
+              disabled={isFainted(field.species[picked]!)}
               onClick={() => {
-                useGameStore.getState().setCompanion(picked);
-                setPicked(null);
+                if (useGameStore.getState().setCompanion(picked)) setPicked(null);
               }}
             >
               함께 다니기

@@ -45,7 +45,7 @@ E2E_PORT=5181 npx playwright test   # E2E (다른 앱이 5181 등을 쓰면 5191
 npm run build                # 배포용 빌드 (tsc -b && vite build)
 ```
 
-- E2E 스위치(`window`에 설정): `__GUGU_E2E_CALM__`(똥·병 끔), `__GUGU_E2E_FIELD__`(필드 만남·캡슐 100%), `__GUGU_E2E_PATH__`(길 걸음도 만남 100%), `__GUGU_E2E_NO_WILD__`(강제 안 한 야생 만남 끔, e2e 기본), `__GUGU_E2E_NO_TIMER__`(도망 시간 멈춤), `__GUGU_E2E_LEGEND__`(만남이 레전드), `__GUGU_E2E_QUESTION__`(전투 문제 고정). 필드 스위치는 `src/field/debugFlags.ts` 한 곳에서 읽는다.
+- E2E 스위치(`window`에 설정): `__GUGU_E2E_CALM__`(똥·병 끔), `__GUGU_E2E_FIELD__`(필드 만남·캡슐 100%), `__GUGU_E2E_PATH__`(길 걸음도 만남 100%), `__GUGU_E2E_NO_WILD__`(강제 안 한 야생 만남 끔, e2e 기본), `__GUGU_E2E_NO_TIMER__`(전투 문제 시간 멈춤), `__GUGU_E2E_TIER__`(야생 강함 단계 고정, `'weak'`·`'normal'`·`'strong'`·`'mighty'`), `__GUGU_E2E_LEGEND__`(만남이 레전드), `__GUGU_E2E_QUESTION__`(전투 문제 고정). 필드 스위치는 `src/field/debugFlags.ts` 한 곳에서 읽는다.
 - E2E 하나가 가끔 시간 문제로 실패할 수 있다(`dex.spec` 놀이 장면). 따로 다시 돌려 확인. 파이프로 줄일 때는 `set -o pipefail`로 실패를 놓치지 않기.
 - Windows Git Bash에서 `BASE_PATH=/gugu-monster/`처럼 `/`로 시작하는 값은 경로로 바뀐다 → 로컬 빌드 확인 때 `MSYS_NO_PATHCONV=1`.
 

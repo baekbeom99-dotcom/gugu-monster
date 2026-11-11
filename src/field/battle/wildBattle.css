@@ -57,38 +57,78 @@
   background: var(--lime);
 }
 
-/* 꽉 차면 테두리가 깜빡인다: 곧 도망가요 */
-.wild__hp--full {
-  animation: wild-blink 0.6s steps(2) infinite;
+/* 체력이 한 번 더 맞으면 쓰러질 만큼 남으면 빨갛게 */
+.wild__hp--low .wild__hp-fill {
+  background: var(--red);
 }
 
-@keyframes wild-blink {
-  50% {
-    border-color: var(--red);
-  }
+/* 강함·강력: 이름 카드에 색 테두리 (같은 그림, 더 센 구구몬) */
+.wild__card--strong {
+  border-color: #e07a00;
+  box-shadow: 0 0 0 3px #ffb44a, var(--shadow-sm);
 }
 
-.wild__hourglass {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  font-size: 14px;
+.wild__card--mighty {
+  border-color: #c0182a;
+  box-shadow: 0 0 0 3px #ff6b7a, var(--shadow-sm);
 }
 
-.wild__hourglass-bar {
-  flex: 1;
-  height: 8px;
-  border: 2px solid var(--ink);
-  border-radius: 4px;
+.wild__card--strong .wild__name,
+.wild__card--mighty .wild__name {
+  color: #b0101e;
+}
+
+.wild__card--strong .wild__name {
+  color: #a85400;
+}
+
+/* 내 구구몬 이름·Lv·체력 (무대 아래) */
+.wild__ally-card {
+  padding: 6px 10px;
+  border: var(--border);
+  border-radius: var(--radius);
   background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+.wild__ally-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+.wild__ally-name small {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.wild__ally-card .wild__hp {
+  margin-top: 4px;
+  height: 14px;
+}
+
+/* 문제 시간 막대 (말풍선 맨 위). 마지막 TIMER_WARN_MS는 빨강 */
+.wild__timer {
+  height: 10px;
+  margin: 0 2px 4px;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  background: var(--grey);
   overflow: hidden;
 }
 
-.wild__hourglass-bar span {
+.wild__timer-fill {
   display: block;
   height: 100%;
   background: var(--orange);
+}
+
+.wild__timer--warn {
+  border-color: var(--red);
+}
+
+.wild__timer--warn .wild__timer-fill {
+  background: var(--red);
 }
 
 .wild__stage {
@@ -227,6 +267,28 @@
   position: absolute;
   bottom: 0;
   left: 0;
+}
+
+/* 적이 공격: 야생은 앞으로 뛰고 내 구구몬은 흔들리며 깜빡인다 */
+.wild__foe--attack {
+  animation: wild-foe-lunge 0.6s steps(4);
+}
+
+@keyframes wild-foe-lunge {
+  50% {
+    transform: translate(-40px, 24px);
+  }
+}
+
+.wild__ally--struck {
+  animation: wild-shake 0.3s steps(3) 2, wild-flicker 0.6s steps(4);
+}
+
+@keyframes wild-flicker {
+  25%,
+  75% {
+    opacity: 0.3;
+  }
 }
 
 .wild__ally--attack {
