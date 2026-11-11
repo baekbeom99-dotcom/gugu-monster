@@ -6,7 +6,9 @@ import type { FieldId } from '../../src/domain/field/fields';
 const DIRS = Object.keys(DIR_DELTA) as Dir[];
 const IDS: FieldId[] = ['meadow', 'waterside', 'desert'];
 const key = (p: Pos) => `${p.x},${p.y}`;
-const MIN_GRASS: Record<FieldId, number> = { meadow: 176, waterside: 140, desert: 120 };
+// 설계서: 풀숲은 약 두 배 (원래 초원 68, 물가 50, 사막 40의 2.0~2.3배)
+const MIN_GRASS: Record<FieldId, number> = { meadow: 136, waterside: 100, desert: 80 };
+const MAX_GRASS: Record<FieldId, number> = { meadow: 156, waterside: 115, desert: 92 };
 
 /** tryStep으로 걸어서 닿는 칸들 (출구 칸에 서면 거기서 멈춘다) */
 function reach(map: FieldMap, from: Pos): Set<string> {
@@ -33,7 +35,9 @@ describe.each(IDS)('%s 지도', (id) => {
     expect(map.width).toBe(20);
     expect(map.height).toBe(20);
     expect(map.entrances.start).toBeDefined();
-    expect(map.tiles.flat().filter((t) => t === 'grass').length).toBeGreaterThanOrEqual(MIN_GRASS[id]);
+    const grass = map.tiles.flat().filter((t) => t === 'grass').length;
+    expect(grass).toBeGreaterThanOrEqual(MIN_GRASS[id]);
+    expect(grass).toBeLessThanOrEqual(MAX_GRASS[id]);
     expect(map.signs.length).toBeGreaterThan(0);
   });
 
