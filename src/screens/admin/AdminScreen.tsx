@@ -15,7 +15,7 @@ const MENUS: { key: Menu; icon: string; title: string; desc: string }[] = [
   { key: 'pet', icon: '🐾', title: '펫 관리', desc: '지금 펫·칭호 미리보기, 새 펫 시작하기' },
   { key: 'items', icon: '🛒', title: '상점 아이템 관리', desc: '가격·효과 바꾸기, 새 아이템, 판매 중지' },
   { key: 'share', icon: '🔗', title: '상점 설정 공유', desc: '다른 기기로 보내기·불러오기' },
-  { key: 'learning', icon: '📚', title: '학습 설정', desc: '답 입력 방식, 구구몬 도망 빠르기, 12·13단 도전 모드' },
+  { key: 'learning', icon: '📚', title: '학습 설정', desc: '답 입력 방식, 12·13단 도전 모드' },
   { key: 'sound', icon: '🔊', title: '소리 설정', desc: '효과음 켜기·끄기, 음량' },
   { key: 'data', icon: '💾', title: '데이터 관리', desc: '백업·불러오기, 전체 초기화' },
   { key: 'security', icon: '🔐', title: '보안', desc: 'PIN 바꾸기, 복구 코드' },

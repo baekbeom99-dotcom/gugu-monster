@@ -4,8 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { SPECIES, speciesDef, type SpeciesId } from '../domain/field/creatures';
 import { FIELDS } from '../domain/field/fields';
 import { displayName } from '../domain/field/growth';
+import { isFainted } from '../domain/field/wounds';
 import { useGameStore } from '../store/useGameStore';
-import { creatureSprite, speciesColor } from './creatureSprite';
+import { HpBar } from './HpBar';
+import { creatureSprite, speciesColor } from './art/creatureSprite';
 import './fieldDex.css';
 
 const GROUPS: { title: string; ids: SpeciesId[] }[] = [
@@ -52,11 +54,13 @@ export function FieldDexScreen() {
                     onClick={() => setPicked(picked === id ? null : id)}
                   >
                     {field.companion === id && <span className="fdex__tag">함께 다니는 중</span>}
+                    {isFainted(entry) && <span className="fdex__tag fdex__tag--down">쓰러짐</span>}
                     {creatureSprite(id, { view: 'front', stage: entry.stage, color: speciesColor(id), size: 64 })}
                     <span className="fdex__name">{displayName(id, entry.stage)}</span>
                     <span className="fdex__meta">
                       Lv{entry.level} · {entry.caught}번 잡음
                     </span>
+                    <HpBar hp={entry.hp} label={`체력 ${entry.hp}`} />
                   </button>
                 );
               }
@@ -94,14 +98,16 @@ export function FieldDexScreen() {
             <button
               type="button"
               className="btn btn--primary fdex__sheet-btn"
+              // 쓰러진 종은 함께 다닐 수 없다 (setCompanion도 false)
+              disabled={isFainted(field.species[picked]!)}
               onClick={() => {
-                useGameStore.getState().setCompanion(picked);
-                setPicked(null);
+                if (useGameStore.getState().setCompanion(picked)) setPicked(null);
               }}
             >
               함께 다니기
             </button>
           )}
+          {isFainted(field.species[picked]!) && <p className="fdex__sheet-note fdex__sheet-note--down">상점에서 회복시켜요</p>}
           <button type="button" className="btn btn--ghost" onClick={() => setPicked(null)}>
             닫기
           </button>

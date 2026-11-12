@@ -18,18 +18,17 @@ export interface SpeciesDef {
 
 export const STARTERS: SpeciesId[] = ['cloud', 'jelly', 'pebble'];
 
-/** 풀숲 한 걸음에 만날 확률 */
-export const ENCOUNTER_CHANCE = 0.12;
-/** 전투가 끝난 뒤 이 걸음 수 안에는 만나지 않음 */
-export const ENCOUNTER_GRACE_STEPS = 3;
-/** 만났을 때 레전드일 확률(12단 열린 뒤에만) */
-export const LEGEND_CHANCE = 0.02;
-/** 아직 못 본 종이 뽑힐 가중치(본 종은 1) */
-export const UNSEEN_WEIGHT = 2;
-export const WILD_LEVEL_MIN = 3;
-export const WILD_LEVEL_MAX = 6;
-export const LEGEND_LEVEL = 20;
+// 만남 수치는 tuning.ts에서 정한다 (예전 import 자리 유지용으로 다시 내보냄)
+export {
+  ENCOUNTER_CHANCE_GRASS,
+  ENCOUNTER_CHANCE_PATH,
+  ENCOUNTER_GRACE_STEPS,
+  LEGEND_CHANCE,
+  LEGEND_LEVEL,
+  UNSEEN_WEIGHT,
+} from './tuning';
 
+/** 기술 이름 3개 (버튼 순서대로). 기술 이름을 바꿀 때는 여기만 */
 const MOVES: Record<MonsterKind, [string, string, string]> = {
   cloud: ['잎사귀 톡', '새싹 휙', '꽃잎 바람'],
   mushroom: ['방울 딸랑', '데굴데굴', '무 박치기'],

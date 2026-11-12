@@ -1,0 +1,454 @@
+/* 야생 전투 화면 (휴대폰 375px 세로 기준) */
+.wild {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(#bfe9ff 0 45%, #9fdc7a 45% 100%);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.wild__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.wild__run {
+  flex: none;
+  padding: 8px 12px;
+}
+
+.wild__card {
+  flex: 1;
+  padding: 8px 10px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+.wild__name {
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+
+.wild__name small {
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.wild__hp {
+  position: relative;
+  height: 16px;
+  margin-top: 6px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: var(--grey);
+  overflow: hidden;
+}
+
+.wild__hp-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--lime);
+}
+
+/* 체력이 한 번 더 맞으면 쓰러질 만큼 남으면 빨갛게 */
+.wild__hp--low .wild__hp-fill {
+  background: var(--red);
+}
+
+/* 강함·강력: 이름 카드에 색 테두리 (같은 그림, 더 센 구구몬) */
+.wild__card--strong {
+  border-color: #e07a00;
+  box-shadow: 0 0 0 3px #ffb44a, var(--shadow-sm);
+}
+
+.wild__card--mighty {
+  border-color: #c0182a;
+  box-shadow: 0 0 0 3px #ff6b7a, var(--shadow-sm);
+}
+
+.wild__card--strong .wild__name,
+.wild__card--mighty .wild__name {
+  color: #b0101e;
+}
+
+.wild__card--strong .wild__name {
+  color: #a85400;
+}
+
+/* 내 구구몬 이름·Lv·체력 (무대 아래) */
+.wild__ally-card {
+  padding: 6px 10px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+.wild__ally-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+.wild__ally-name small {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.wild__ally-card .wild__hp {
+  margin-top: 4px;
+  height: 14px;
+}
+
+/* 문제 시간 막대 (말풍선 맨 위). 마지막 TIMER_WARN_MS는 빨강 */
+.wild__timer {
+  height: 10px;
+  margin: 0 2px 4px;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  background: var(--grey);
+  overflow: hidden;
+}
+
+.wild__timer-fill {
+  display: block;
+  height: 100%;
+  background: var(--orange);
+}
+
+.wild__timer--warn {
+  border-color: var(--red);
+}
+
+.wild__timer--warn .wild__timer-fill {
+  background: var(--red);
+}
+
+.wild__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.wild__stage--legend {
+  background: radial-gradient(circle at 70% 35%, rgba(255, 207, 58, 0.55), transparent 60%);
+}
+
+/* 필드에서 넘어올 때 번쩍 */
+.wild__stage--intro::after {
+  content: '';
+  position: absolute;
+  inset: -200px -12px 0;
+  background: #fff;
+  pointer-events: none;
+  animation: wild-flash 0.8s steps(4) forwards;
+}
+
+@keyframes wild-flash {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  25%,
+  75% {
+    opacity: 0.2;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 말풍선은 야생 구구몬(150px) + 꼬리(12px) + 틈(2px) 왼쪽까지만. 가장 긴 문제 "13 × ? = 130"도 375px에서 한 줄 */
+.wild__bubble {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  right: 164px;
+  padding: 6px 8px;
+  border: var(--border);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+.wild__bubble::after {
+  content: '';
+  position: absolute;
+  right: -12px;
+  top: 18px;
+  border: 8px solid transparent;
+  border-left: 10px solid var(--ink);
+}
+
+.wild__bubble .question {
+  font-size: 23px;
+  gap: 4px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.wild__bubble .question > * {
+  flex: none;
+}
+
+.wild__bubble .blank {
+  min-width: 0;
+  width: 1.5em;
+  padding: 2px 0;
+  border-width: 3px;
+}
+
+/* 좁은 화면(360px·320px)에서도 가장 긴 문제가 한 줄에 들어가게 글자와 틈을 줄인다 */
+@media (max-width: 374px) {
+  .wild__bubble {
+    padding: 6px 6px;
+  }
+  .wild__bubble .question {
+    font-size: 20px;
+    gap: 3px;
+  }
+}
+
+@media (max-width: 340px) {
+  .wild__bubble {
+    padding: 5px 4px;
+  }
+  .wild__bubble .question {
+    font-size: 17px;
+    gap: 2px;
+  }
+  .wild__bubble .blank {
+    border-width: 2px;
+  }
+}
+
+/* 넓은 화면에서는 글자를 조금 더 크게 */
+@media (min-width: 420px) {
+  .wild__bubble .question {
+    font-size: 28px;
+    gap: 6px;
+  }
+}
+
+.wild__foe {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.wild__foe--hit {
+  animation: wild-shake 0.3s steps(3) 2;
+}
+
+.wild__foe--gone {
+  transition: opacity 0.6s, transform 0.6s;
+  opacity: 0;
+  transform: translateX(60px);
+}
+
+@keyframes wild-shake {
+  33% {
+    transform: translateX(-8px);
+  }
+  66% {
+    transform: translateX(8px);
+  }
+}
+
+.wild__ally {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+}
+
+/* 적이 공격: 야생은 앞으로 뛰고 내 구구몬은 흔들리며 깜빡인다 */
+.wild__foe--attack {
+  animation: wild-foe-lunge 0.6s steps(4);
+}
+
+@keyframes wild-foe-lunge {
+  50% {
+    transform: translate(-40px, 24px);
+  }
+}
+
+.wild__ally--struck {
+  animation: wild-shake 0.3s steps(3) 2, wild-flicker 0.6s steps(4);
+}
+
+@keyframes wild-flicker {
+  25%,
+  75% {
+    opacity: 0.3;
+  }
+}
+
+.wild__ally--attack {
+  animation: wild-lunge 0.6s steps(4);
+}
+
+@keyframes wild-lunge {
+  50% {
+    transform: translate(40px, -24px);
+  }
+}
+
+.wild__hint {
+  position: absolute;
+  inset: 70px 0 0;
+  overflow: auto;
+  padding: 8px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+.wild__message {
+  margin: 0;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  font-size: 18px;
+}
+
+.wild__actions {
+  display: grid;
+  gap: 8px;
+}
+
+.wild-move {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 6px 16px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  font: inherit;
+  font-size: 18px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.wild-move:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.wild-move:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.wild-move__num {
+  font-family: var(--font-display);
+  font-size: 28px;
+}
+
+.wild-move--glow,
+.wild-move--glow:disabled {
+  opacity: 1;
+  background: var(--yellow);
+  outline: 4px dashed var(--ink);
+  outline-offset: 3px;
+  animation: glow 0.8s steps(2) infinite;
+}
+
+.wild__capsule,
+.wild__next {
+  min-height: 64px;
+  font-size: 22px;
+}
+
+/* 캡슐이 흔들린다 (3번) */
+.wild__capsule-ball {
+  position: absolute;
+  top: 40px;
+  right: 56px;
+  z-index: 2;
+  line-height: 0;
+  animation-name: wild-capsule-shake;
+  animation-timing-function: ease-in-out;
+}
+
+@keyframes wild-capsule-shake {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-24deg);
+  }
+  75% {
+    transform: rotate(24deg);
+  }
+}
+
+.wild__foe--capsule {
+  visibility: hidden;
+}
+
+/* 레전드: 황금 테두리 */
+.wild--legend .wild__card {
+  border-color: #e0a800;
+  box-shadow: 0 0 0 3px #ffd84a, var(--shadow-sm);
+}
+
+.wild--legend .wild__stage {
+  box-shadow: inset 0 0 0 3px #ffd84a;
+  border-radius: var(--radius);
+}
+
+.wild--legend .wild__bubble {
+  border-color: #e0a800;
+}
+
+/* 레전드가 나타날 때: 금빛 반짝임이 한 번 퍼진다 (1초 안) */
+.wild__stage--sparkle::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, #fff7b0 0 3px, transparent 4px) 0 0 / 48px 48px,
+    radial-gradient(circle, #ffd84a 0 2px, transparent 3px) 24px 24px / 48px 48px;
+  animation: wild-sparkle 1s steps(5) forwards;
+}
+
+@keyframes wild-sparkle {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
+/* 명중·잡기 효과 (pixelfx). 그림 1픽셀 = 3px */
+.wild__fx {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}

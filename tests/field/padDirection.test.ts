@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { padDirection } from '../../src/field/padDirection';
+import { padDirection } from '../../src/field/world/padDirection';
 import { parseMap, safeStartPosition } from '../../src/domain/field/movement';
-import { MEADOW_ROWS, MEADOW_SIGNS } from '../../src/field/maps/meadow';
+import { MEADOW_EXITS, MEADOW_ROWS, MEADOW_SIGNS } from '../../src/field/world/maps/meadow';
 
 describe('padDirection', () => {
   it('가장 가까운 4방향', () => {
@@ -17,7 +17,7 @@ describe('padDirection', () => {
 });
 
 describe('safeStartPosition', () => {
-  const map = parseMap('meadow', MEADOW_ROWS, { exits: { '<': 'waterside', '>': 'desert' }, signTexts: MEADOW_SIGNS });
+  const map = parseMap('meadow', MEADOW_ROWS, { exits: MEADOW_EXITS, signTexts: MEADOW_SIGNS });
   const start = map.entrances.start!;
   it('걸을 수 있는 저장 자리는 그대로', () => {
     expect(safeStartPosition(map, { map: 'meadow', x: 3, y: 3, facing: 'left' })).toEqual({ x: 3, y: 3, facing: 'left' });

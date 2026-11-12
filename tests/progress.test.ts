@@ -187,3 +187,45 @@ describe('12·13단 도전 모드 열기', () => {
     expect(repairChallengeUnlock(initialLearning()).challengeUnlocked).toBe(false);
   });
 });
+
+describe('상점 연습(shop)은 별과 성장 점수를 주지 않는다', () => {
+  it('정답이어도 별·극복 보너스·성장 점수 0, 학습 기록은 field와 같다', () => {
+    // 지난 탐험에서 틀린 사실 → 극복 조건을 채운 상태
+    const yesterday = NOW - DAY_MS;
+    const wrong = recordAnswer(initialLearning(), initialEconomy(), input({ correct: false, now: yesterday, battleStartedAt: yesterday - 1000 }));
+    const shop = recordAnswer(wrong.learning, wrong.economy, input({ source: 'shop' }));
+    const field = recordAnswer(wrong.learning, wrong.economy, input({ source: 'field' }));
+    expect(shop.stars).toBe(0);
+    expect(shop.baseStars).toBe(0);
+    expect(shop.xp).toBe(0);
+    expect(shop.economy.stars).toBe(wrong.economy.stars);
+    expect(shop.learning).toEqual(field.learning);
+  });
+
+  it('상자는 field처럼 3까지만 오르고 오답도 같은 방식으로 기록한다', () => {
+    let learning = initialLearning();
+    let economy = initialEconomy();
+    for (let i = 0; i < 8; i++) {
+      const r = recordAnswer(learning, economy, input({ source: 'shop', now: NOW + i * DAY_MS }));
+      learning = r.learning;
+      economy = r.economy;
+    }
+    expect(learning.facts['7x8'].box).toBeLessThanOrEqual(3);
+    expect(economy.stars).toBe(0);
+    const w = recordAnswer(learning, economy, input({ source: 'shop', correct: false }));
+    const f = recordAnswer(learning, economy, input({ source: 'field', correct: false }));
+    expect(w.learning).toEqual(f.learning);
+    expect(w.xp).toBe(0);
+  });
+
+  it('회귀: field는 빠르기 별 없이 정답 별 1·xp 2, normal 빠르기 별, trial 그대로', () => {
+    const f = recordAnswer(initialLearning(), initialEconomy(), input({ source: 'field', speedBonus: true, ms: 500 }));
+    expect(f.stars).toBe(1);
+    expect(f.xp).toBe(2);
+    const n = recordAnswer(initialLearning(), initialEconomy(), input({ source: 'normal' }));
+    expect(n.stars).toBe(1);
+    expect(n.xp).toBe(2);
+    const t = recordAnswer(initialLearning(), initialEconomy(), input({ source: 'trial', correct: false }));
+    expect(t.learning.boosted['7x8']).toBe(BOOST_COUNT);
+  });
+});

@@ -46,7 +46,13 @@ import {
 import { applyItem, buy, type CatalogData, canWearHat, findItem, grantMasterHats, type ItemCategory, type ItemDef, type ItemId } from '../domain/shop';
 import { speciesDef } from '../domain/field/creatures';
 import { addExp, CORRECT_EXP, DUPLICATE_EXP, PARTICIPATION_EXP } from '../domain/field/growth';
-import type { FieldData, FieldNotice, SpeciesId } from './fieldData';
+import { type Tier, tierExp } from '../domain/field/strength';
+import { COMPANION_MAX_HP } from '../domain/field/tuning';
+import { addCapsules, type CapsuleType, takeCapsule } from '../domain/field/capsules';
+import { addWound, applyDamage, isFainted, type Wound } from '../domain/field/wounds';
+import { pickReplacement } from '../domain/field/companion';
+import { pickCompanion } from '../field/companion';
+import { type FieldData, type FieldNotice, newSpeciesEntry, SPECIES_IDS, type SpeciesEntry, type SpeciesId, townStart } from './fieldData';
 import { createInitialSave, mergeSave, migrateSave, SAVE_KEY, type SaveData, SCHEMA_VERSION, type Settings } from './saveData';
 
 export interface PetChange {
@@ -66,13 +72,24 @@ export interface WildResult extends PetChange {
   notices: FieldNotice[];
 }
 
+/** 전투가 끝난 모양: 잡음 · 도망감 · 돌려보냄 · 우리 구구몬이 쓰러짐 · 그만하기 */
+export type WildEnd = 'caught' | 'escaped' | 'released' | 'fainted' | 'quit';
+
 export interface WildBattleEnd {
   species: SpeciesId;
+  /** 싸운 우리 구구몬 (전투를 시작할 때 고른 종 — 저장의 동행이 비어 있어도 이 종으로 정산한다) */
+  companion: SpeciesId;
   level: number;
-  caught: boolean;
-  fled: boolean;
+  /** 끝났을 때의 야생 강함 단계 (경험치 배율) */
+  tier: Tier;
+  end: WildEnd;
   correct: number;
   now: number;
+}
+
+/** 저장된 종 기록 (모르는 종 id면 없음 — `constructor` 같은 이름이 끼어들지 않게) */
+function speciesEntry(field: FieldData, id: SpeciesId): SpeciesEntry | undefined {
+  return SPECIES_IDS.includes(id) ? field.species[id] : undefined;
 }
 
 /** 밥·먹이를 먹고 5% 확률로 식중독에 걸렸는가 */
@@ -145,8 +162,19 @@ interface GameActions {
   markSeen: (id: SpeciesId) => void;
   /** 필드 모험: 첫 구구몬 고르기 */
   chooseStarter: (id: SpeciesId, now: number) => void;
-  /** 필드 모험: 함께 다닐 구구몬 (잡은 종만) */
+  /** 필드 모험: 함께 다닐 구구몬 (잡은 종, 쓰러지지 않은 종만) */
   setCompanion: (id: SpeciesId) => boolean;
+  /**
+   * 필드 모험: 전투에서 맞은 순간 체력·상처를 저장. 체력 0이면 같은 저장에서 태초마을 시작 칸으로 옮기고,
+   * 함께 다니던 종이면 도감의 다른 건강한 종으로 동행을 바꾼다(replacedBy). 이미 쓰러진 종은 아무것도 안 바뀐다
+   */
+  damageCompanion: (id: SpeciesId, dmg: number, wound: Wound) => { hp: number; fainted: boolean; replacedBy: SpeciesId | null };
+  /** 필드 모험: 체력 가득, 상처 비움 */
+  healSpecies: (id: SpeciesId) => void;
+  /** 필드 모험: 캡슐 n개 받기 (n은 0 이상 정수만) */
+  grantCapsules: (t: CapsuleType, n: number) => void;
+  /** 필드 모험: 캡슐 1개 쓰기 — 던지는 순간 바로 저장. 없으면 false, 아무것도 안 바꾼다 */
+  spendCapsule: (t: CapsuleType) => boolean;
   /** 필드 모험: 야생 전투 끝 — 잡기·기록·펫 친밀도 */
   finishWildBattle: (r: WildBattleEnd) => WildResult;
   /** 전체 초기화 */
@@ -300,51 +328,121 @@ export const useGameStore = create<GameStore>()(
               companion: id,
               species: s.field.species[id]
                 ? s.field.species
-                : { ...s.field.species, [id]: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: now } },
+                : { ...s.field.species, [id]: newSpeciesEntry(5, now) },
               seen: s.field.seen.includes(id) ? s.field.seen : [...s.field.seen, id],
             },
           };
         }),
       setCompanion: (id) => {
-        if (!get().field.species[id]) return false;
-        set((s) => ({ field: { ...s.field, companion: id } }));
-        return true;
+        let ok = false;
+        set((s) => {
+          const e = speciesEntry(s.field, id);
+          // 못 잡은 종이나 쓰러진 종은 동행이 될 수 없다
+          if (!e || isFainted(e)) return {};
+          ok = true;
+          return { field: { ...s.field, companion: id } };
+        });
+        return ok;
+      },
+      damageCompanion: (id, dmg, wound) => {
+        let result: { hp: number; fainted: boolean; replacedBy: SpeciesId | null } = { hp: 0, fainted: false, replacedBy: null };
+        set((s) => {
+          const e = speciesEntry(s.field, id);
+          if (!e) return {};
+          // 이미 쓰러진 종은 더 맞지 않는다 (위치·상처·동행 모두 그대로)
+          if (isFainted(e)) {
+            result = { hp: 0, fainted: true, replacedBy: null };
+            return {};
+          }
+          const hp = applyDamage(e.hp, dmg);
+          const fainted = isFainted({ hp });
+          const species = { ...s.field.species, [id]: { ...e, hp, wounds: addWound(e.wounds, wound) } };
+          // 함께 다니던 구구몬(동행이 비었으면 화면이 고른 종)이 쓰러지면 도감의 다른 건강한 구구몬이 대신 함께 다닌다
+          const replacedBy = fainted && pickCompanion(s) === id ? pickReplacement(species, id) : null;
+          result = { hp, fainted, replacedBy };
+          // 쓰러지면 자리 옮기기·동행 바꾸기도 같은 저장에서 (전투 끝 글을 보다 앱을 닫아도 다시 열면 마을, 새 동행)
+          return {
+            field: {
+              ...s.field,
+              species,
+              companion: replacedBy ?? s.field.companion,
+              position: fainted ? { map: 'town', ...townStart(), facing: 'down' } : s.field.position,
+            },
+          };
+        });
+        return result;
+      },
+      healSpecies: (id) =>
+        set((s) => {
+          const e = speciesEntry(s.field, id);
+          if (!e) return {};
+          return { field: { ...s.field, species: { ...s.field.species, [id]: { ...e, hp: COMPANION_MAX_HP, wounds: [] } } } };
+        }),
+      grantCapsules: (t, n) =>
+        set((s) => {
+          const capsules = addCapsules(s.field.capsules, t, n);
+          return capsules === s.field.capsules ? {} : { field: { ...s.field, capsules } };
+        }),
+      spendCapsule: (t) => {
+        let ok = false;
+        set((s) => {
+          const capsules = takeCapsule(s.field.capsules, t);
+          if (!capsules) return {};
+          ok = true;
+          return { field: { ...s.field, capsules } };
+        });
+        return ok;
       },
       finishWildBattle: (r) => {
-        const s = get();
-        const known = s.field.species[r.species];
-        const newSpecies = r.caught && !known;
-        let species = s.field.species;
-        if (newSpecies) {
-          species = { ...species, [r.species]: { level: r.level, exp: 0, stage: 1, caught: 1, firstCaughtAt: r.now } };
-        } else if (r.caught && known) {
-          species = { ...species, [r.species]: { ...known, caught: known.caught + 1 } };
-        }
-        // 경험치: 이미 있는 종을 또 잡으면 +40, 동행은 전투 참여 +10 (+맞힌 문제마다 +2). 같은 종이면 한 번에 합친다
-        const gains: [SpeciesId, number][] = [];
-        if (r.caught && known) gains.push([r.species, DUPLICATE_EXP]);
-        const companion = s.field.companion;
-        if (companion && species[companion]) gains.push([companion, PARTICIPATION_EXP + Math.max(0, r.correct) * CORRECT_EXP]);
-        const total = new Map<SpeciesId, number>();
-        for (const [id, exp] of gains) total.set(id, (total.get(id) ?? 0) + exp);
-        const notices: FieldNotice[] = [];
-        for (const [id, exp] of total) {
-          const grown = addExp(species[id]!, exp, speciesDef(id).legend);
-          species = { ...species, [id]: grown.entry };
-          if (grown.levelsGained > 0) notices.push({ kind: 'levelUp', species: id, level: grown.entry.level });
-          if (grown.evolvedTo) notices.push({ kind: 'evolve', species: id, stage: grown.evolvedTo });
-        }
-        const stats = {
-          battles: s.field.stats.battles + 1,
-          catches: s.field.stats.catches + (r.caught ? 1 : 0),
-          fled: s.field.stats.fled + (r.fled ? 1 : 0),
-        };
-        const seen = s.field.seen.includes(r.species) ? s.field.seen : [...s.field.seen, r.species];
-        // 펫 친밀도: 맞힌 문제마다 (알이면 없음)
-        const affection = s.pet.stage !== 'egg' && s.pet.species ? Math.max(0, r.correct) * ANSWER_AFFECTION : 0;
-        const settled = settlePet(s.pet, affection > 0 ? addAffection(s.pet, affection) : s.pet, r.now);
-        set({ field: { ...s.field, species, stats, seen }, pet: settled.pet, lastSeenAt: r.now });
-        return { newSpecies, affection, notices, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
+        let result!: WildResult;
+        // 읽고 쓰기를 한 번의 set 안에서 (그 사이 다른 저장이 끼어들지 않게)
+        set((s) => {
+          const known = speciesEntry(s.field, r.species);
+          // 모르는 종 id는 잡혀도 도감에 넣지 않는다 (기록은 도망으로)
+          const caught = r.end === 'caught' && SPECIES_IDS.includes(r.species);
+          const newSpecies = caught && !known;
+          let species = s.field.species;
+          if (newSpecies) {
+            species = { ...species, [r.species]: newSpeciesEntry(r.level, r.now) };
+          } else if (caught && known) {
+            species = { ...species, [r.species]: { ...known, caught: known.caught + 1 } };
+          }
+          // 경험치: 이미 있는 종을 또 잡으면 +40, 동행은 전투 참여 +10 (+맞힌 문제마다 +2), 둘 다 강함 배율(반올림).
+          // 같은 종이면 한 번에 합친다. 체력·상처는 맞을 때 damageCompanion이 이미 저장했으니 건드리지 않는다
+          const correct = Number.isFinite(r.correct) ? Math.max(0, r.correct) : 0;
+          const gains: [SpeciesId, number][] = [];
+          if (caught && known) gains.push([r.species, tierExp(DUPLICATE_EXP, r.tier)]);
+          // 싸운 구구몬은 화면이 넘겨 준 종 (저장의 동행이 비었거나 기록이 없어도 같은 종으로)
+          const companion = SPECIES_IDS.includes(r.companion) ? r.companion : null;
+          if (companion && species[companion]) gains.push([companion, tierExp(PARTICIPATION_EXP + correct * CORRECT_EXP, r.tier)]);
+          const total = new Map<SpeciesId, number>();
+          for (const [id, exp] of gains) total.set(id, (total.get(id) ?? 0) + exp);
+          const notices: FieldNotice[] = [];
+          for (const [id, exp] of total) {
+            const grown = addExp(species[id]!, exp, speciesDef(id).legend);
+            species = { ...species, [id]: grown.entry };
+            if (grown.levelsGained > 0) notices.push({ kind: 'levelUp', species: id, level: grown.entry.level });
+            if (grown.evolvedTo) notices.push({ kind: 'evolve', species: id, stage: grown.evolvedTo });
+          }
+          if (r.end === 'fainted' && companion) {
+            // 쓰러지는 순간 damageCompanion이 동행을 바꿔 두었으면, 대신 함께 다니는 종을 알림에 담는다
+            const current = s.field.companion;
+            const replacedBy = current && current !== companion && species[current] && !isFainted(species[current]!) ? current : null;
+            notices.unshift(replacedBy ? { kind: 'fainted', species: companion, replacedBy } : { kind: 'fainted', species: companion });
+          }
+          const stats = {
+            battles: s.field.stats.battles + 1,
+            catches: s.field.stats.catches + (caught ? 1 : 0),
+            fled: s.field.stats.fled + (caught ? 0 : 1),
+          };
+          const seen = !SPECIES_IDS.includes(r.species) || s.field.seen.includes(r.species) ? s.field.seen : [...s.field.seen, r.species];
+          // 펫 친밀도: 맞힌 문제마다 (알이면 없음)
+          const affection = s.pet.stage !== 'egg' && s.pet.species ? correct * ANSWER_AFFECTION : 0;
+          const settled = settlePet(s.pet, affection > 0 ? addAffection(s.pet, affection) : s.pet, r.now);
+          result = { newSpecies, affection, notices, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
+          return { field: { ...s.field, species, stats, seen }, pet: settled.pet, lastSeenAt: r.now };
+        });
+        return result;
       },
       setStairsChallenge: (include) => set((s) => ({ stairs: { ...s.stairs, includeChallenge: include } })),
       chooseEgg: (species) => set((s) => ({ pet: chooseEgg(s.pet, species) })),

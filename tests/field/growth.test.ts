@@ -11,7 +11,7 @@ import {
 } from '../../src/domain/field/growth';
 import type { SpeciesEntry } from '../../src/store/fieldData';
 
-const entry = (level: number, exp = 0, stage: 1 | 2 | 3 = 1): SpeciesEntry => ({ level, exp, stage, caught: 1, firstCaughtAt: 1 });
+const entry = (level: number, exp = 0, stage: 1 | 2 | 3 = 1): SpeciesEntry => ({ level, exp, stage, caught: 1, firstCaughtAt: 1, hp: 100, wounds: [] });
 
 describe('성장 수치', () => {
   it('상수 값이 고정돼 있다', () => {

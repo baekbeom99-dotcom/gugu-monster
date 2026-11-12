@@ -18,6 +18,17 @@ export function isBusyRoute(hash: string): boolean {
   return BUSY_ROUTES.some((r) => path === r || path.startsWith(`${r}/`));
 }
 
+/** 상점 연습 같은 팝업이 열려 있는 동안 켠다 (필드 화면 안이라 주소로는 알 수 없다) */
+let popupBusy = false;
+export function setUpdateBusy(on: boolean): void {
+  popupBusy = on;
+}
+
+/** 지금은 새로고침하지 않는 때인가 (바쁜 화면이거나 팝업 연습 중) */
+export function isUpdateBlocked(hash: string): boolean {
+  return popupBusy || isBusyRoute(hash);
+}
+
 function isTyping(): boolean {
   const el = document.activeElement;
   return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable);
@@ -29,7 +40,7 @@ export function startAutoUpdate(): void {
   let ready = false;
 
   const tryReload = () => {
-    if (!ready || isBusyRoute(location.hash) || isTyping()) return;
+    if (!ready || isUpdateBlocked(location.hash) || isTyping()) return;
     ready = false;
     location.reload();
   };

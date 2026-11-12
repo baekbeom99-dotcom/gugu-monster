@@ -134,6 +134,12 @@
   font-size: 11px;
   font-weight: 700;
 }
+.fdex__tag--down {
+  top: auto;
+  bottom: -8px;
+  background: #d3202f;
+  color: #fff;
+}
 .fdex__sheet {
   position: fixed;
   left: 0;
@@ -158,4 +164,12 @@
 .fdex__sheet-btn {
   min-height: 56px;
   font-size: 22px;
+}
+.fdex__sheet-note--down {
+  color: #b0101e;
+  font-weight: 800;
+}
+.fdex__sheet-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
