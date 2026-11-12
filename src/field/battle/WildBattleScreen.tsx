@@ -44,8 +44,7 @@ import { creatureSprite } from '../art/creatureSprite';
 import { CapsuleBall } from '../art/CapsuleBall';
 import { pickCompanion } from '../companion';
 import { debugFlags } from '../debugFlags';
-import { EFFECTS, type FxSpec } from '../fx/effects';
-import { FX_PIXEL, playFx, preloadFx } from '../fx/playFx';
+import { playFx, preloadFx } from '../fx/playFx';
 import { endWildBattle, useFieldSession } from '../useFieldSession';
 import { HpBar, TimerBar } from './BattleBars';
 import { battleText } from './battleText';
@@ -138,25 +137,25 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const companionElement = elementOf(companion);
   const wildElement = elementOf(encounter.species);
   useEffect(() => preloadFx('hit', 'catch', ...new Set([...ELEMENT_FX[companionElement], ...ELEMENT_FX[wildElement]])), [companionElement, wildElement]);
-  /** 두 구구몬(.wild__foe 야생·.wild__ally 내 구구몬) 중 `side` 쪽의 효과 자리 (캔버스 안 CSS px) */
-  const fxPoint = useCallback((side: 'foe' | 'ally', anchor: 'ground' | 'center') => {
+  /** 두 구구몬(.wild__foe 야생·.wild__ally 내 구구몬) 중 `side` 쪽 그림(이름 상자 말고 그림)의 한가운데 (캔버스 안 CSS px) — 효과 중심을 놓을 자리 */
+  const fxPoint = useCallback((side: 'foe' | 'ally') => {
     const stage = stageRef.current;
-    const el = stage?.querySelector(`.wild__${side}`);
-    if (!stage || !el) return null;
+    const box = stage?.querySelector(`.wild__${side}`);
+    const art = box?.firstElementChild ?? box;
+    if (!stage || !art) return null;
     const s = stage.getBoundingClientRect();
-    const f = el.getBoundingClientRect();
-    return { x: f.left - s.left + f.width / 2, y: f.top - s.top + f.height * (anchor === 'center' ? 0.45 : 0.6) };
+    const f = art.getBoundingClientRect();
+    return { x: f.left - s.left + f.width / 2, y: f.top - s.top + f.height / 2 };
   }, []);
   /** 캡슐로 잡았을 때 야생 구구몬 위에서 */
   const catchFx = useCallback(() => {
     const canvas = fxRef.current;
-    const at = fxPoint('foe', 'ground');
+    const at = fxPoint('foe');
     if (canvas && at) void playFx(canvas, 'catch', at);
   }, [fxPoint]);
   /**
-   * 기술 효과: 쏘는 쪽(`attacker`)의 속성에서 고른 기술 번호(0~2)의 효과를 맞는 쪽 위에서 튼다.
-   * 내 공격(왼→오)은 효과 기본 방향, 적 공격(오→왼)은 뒤집는다. 옆으로 뻗는 효과는 쏘는 쪽으로 물려 튼다.
-   * 내 공격이 효과를 못 틀면(불러오기 실패) 불꽃으로 대신한다.
+   * 기술 효과: 쏘는 쪽(`attacker`)의 속성에서 고른 기술 번호(0~2)의 효과를 맞는 쪽 구구몬 그림 한가운데에 효과 중심이 오게 튼다.
+   * 내 공격(왼→오)은 효과 기본 방향, 적 공격(오→왼)은 뒤집는다. 내 공격이 효과를 못 틀면(불러오기 실패) 불꽃으로 대신한다.
    */
   const moveFx = useCallback(
     (attacker: 'ally' | 'foe', moveIndex: number) => {
@@ -164,16 +163,12 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       if (!canvas) return;
       const ally = attacker === 'ally';
       const name = ELEMENT_FX[ally ? companionElement : wildElement][Math.min(2, Math.max(0, moveIndex))];
-      const spec: FxSpec = EFFECTS[name];
-      const anchor = spec.anchor ?? 'ground';
-      const at = fxPoint(ally ? 'foe' : 'ally', anchor);
+      const at = fxPoint(ally ? 'foe' : 'ally');
       if (!at) return;
-      // 옆으로 뻗는 효과: 쏘는 쪽에서 시작해 끝이 맞는 구구몬에 닿게 물려 튼다 (화면 안으로)
-      if (spec.reach) at.x = Math.min(canvas.getBoundingClientRect().width, Math.max(0, at.x + (ally ? -1 : 1) * spec.reach * FX_PIXEL));
       const gold = speciesDef(ally ? companion : encounter.species).legend;
       void playFx(canvas, name, at, { mirror: !ally, gold }).then((ok) => {
         if (ok || !ally) return;
-        const hitAt = fxPoint('foe', 'ground');
+        const hitAt = fxPoint('foe');
         if (hitAt) void playFx(canvas, 'hit', hitAt);
       });
     },

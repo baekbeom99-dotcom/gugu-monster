@@ -32,7 +32,15 @@ export interface PlayFxOptions {
   gold?: boolean;
 }
 
-/** 효과를 틀었으면 true (동작 줄이기는 틀 것이 없으니 true). 불러오기에 실패하면 false */
+/** 캔버스마다 지금 도는 실행 표식 하나 — 새 효과를 틀면 바뀌어 이전 루프가 다음 프레임에 스스로 멈춘다 */
+const runs = new WeakMap<HTMLCanvasElement, number>();
+let runCounter = 0;
+
+/**
+ * 효과를 틀었으면 true (동작 줄이기는 틀 것이 없으니 true, 다른 효과가 끼어들어 끊겼을 때도 true). 불러오기·틀기에 실패하면 false.
+ * `at`은 효과의 무게중심을 놓을 캔버스 안 CSS px 자리다: 원점 = at − center × FX_PIXEL (mirror면 dx를 뒤집음).
+ * 같은 캔버스에서 새 효과를 틀면 이전 효과는 바로 끊고 지운다.
+ */
 export async function playFx(
   canvas: HTMLCanvasElement,
   name: FxName,
@@ -40,6 +48,9 @@ export async function playFx(
   opts: PlayFxOptions = {},
 ): Promise<boolean> {
   if (prefersReducedMotion()) return true;
+  const run = ++runCounter;
+  runs.set(canvas, run);
+  canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height); // 이전 효과를 바로 지운다
   const spec: FxSpec = EFFECTS[name];
   let mod: FxModule;
   let core: typeof import('pixelfx');
@@ -48,45 +59,56 @@ export async function playFx(
   } catch {
     return false; // 못 받았으면 효과 없이
   }
-  if (!canvas.isConnected) return true;
-  const rect = canvas.getBoundingClientRect();
-  const w = spec.screen ? TRANSITION_W : Math.max(1, Math.round(rect.width / FX_PIXEL));
-  const h = spec.screen ? TRANSITION_H : Math.max(1, Math.round(rect.height / FX_PIXEL));
-  canvas.width = w;
-  canvas.height = h;
+  if (!canvas.isConnected || runs.get(canvas) !== run) return true;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return true;
-  const frame = core.createFrame(w, h);
-  const img = new ImageData(w, h);
-  const baseFlip = !!spec.options?.flip;
-  const palette = opts.gold ? goldPalette(paletteLength(mod)) : undefined;
-  const fx = core.createFx(mod, {
-    ...spec.options,
-    ...(palette ? { palette } : {}),
-    flip: opts.mirror ? !baseFlip : baseFlip,
-    x: spec.screen ? 0 : Math.round(at.x / FX_PIXEL),
-    y: spec.screen ? 0 : Math.round(at.y / FX_PIXEL),
-  });
-  const until = spec.until ?? Infinity;
+  try {
+    const rect = canvas.getBoundingClientRect();
+    const w = spec.screen ? TRANSITION_W : Math.max(1, Math.round(rect.width / FX_PIXEL));
+    const h = spec.screen ? TRANSITION_H : Math.max(1, Math.round(rect.height / FX_PIXEL));
+    canvas.width = w;
+    canvas.height = h;
+    if (!ctx) return true;
+    const frame = core.createFrame(w, h);
+    const img = new ImageData(w, h);
+    const baseFlip = !!spec.options?.flip;
+    const palette = opts.gold ? goldPalette(paletteLength(mod)) : undefined;
+    const cx = (spec.center?.dx ?? 0) * (opts.mirror ? -1 : 1);
+    const cy = spec.center?.dy ?? 0;
+    const fx = core.createFx(mod, {
+      ...spec.options,
+      ...(palette ? { palette } : {}),
+      flip: opts.mirror ? !baseFlip : baseFlip,
+      x: spec.screen ? 0 : Math.round(at.x / FX_PIXEL - cx),
+      y: spec.screen ? 0 : Math.round(at.y / FX_PIXEL - cy),
+    });
+    const until = spec.until ?? Infinity;
 
-  await new Promise<void>((resolve) => {
-    let last = performance.now();
-    const step = (now: number) => {
-      if (!canvas.isConnected) return resolve();
-      const dt = Math.min(0.05, (now - last) / 1000) * spec.speed;
-      last = now;
-      fx.update(dt);
-      core.clearFrame(frame);
-      fx.draw(frame);
-      core.composite(frame, img.data, null);
-      ctx.putImageData(img, 0, 0);
-      if (fx.t >= until || fx.done()) {
-        if (!spec.hold) ctx.clearRect(0, 0, w, h);
-        return resolve();
-      }
+    return await new Promise<boolean>((resolve) => {
+      let last = performance.now();
+      const step = (now: number) => {
+        if (!canvas.isConnected || runs.get(canvas) !== run) return resolve(true); // 끊겼다: 그림은 새 효과가 맡는다
+        try {
+          const dt = Math.min(0.05, (now - last) / 1000) * spec.speed;
+          last = now;
+          fx.update(dt);
+          core.clearFrame(frame);
+          fx.draw(frame);
+          core.composite(frame, img.data, null);
+          ctx.putImageData(img, 0, 0);
+          if (fx.t >= until || fx.done()) {
+            if (!spec.hold) ctx.clearRect(0, 0, w, h);
+            return resolve(true);
+          }
+        } catch {
+          ctx.clearRect(0, 0, w, h);
+          return resolve(false);
+        }
+        requestAnimationFrame(step);
+      };
       requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  });
-  return true;
+    });
+  } catch {
+    ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    return false;
+  }
 }

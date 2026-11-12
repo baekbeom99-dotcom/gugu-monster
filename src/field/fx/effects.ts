@@ -26,10 +26,12 @@ export interface FxSpec {
   screen: boolean;
   /** pixelfx 효과에 넘기는 옵션 (색·뒤집기 등) */
   options?: Record<string, unknown>;
-  /** 옆으로 뻗는 효과(원점에서 오른쪽으로)의 길이 (효과 그림 화소): 끝이 맞는 구구몬에 닿도록 쏘는 쪽으로 이만큼 물려 튼다 */
-  reach?: number;
-  /** 틀 높이: 'ground'(기본) 발치 · 'center' 몸 한가운데 */
-  anchor?: 'ground' | 'center';
+  /**
+   * 효과가 그려 낸 화소의 무게중심 (효과 원점 기준, 효과 화소 단위, 안 뒤집었을 때).
+   * playFx의 자리 `at`이 이 중심을 놓을 화면 좌표다 — 원점 = at − center × FX_PIXEL (mirror면 dx를 뒤집음). 없으면 원점이 곧 중심.
+   * 값은 tests/field/fxMeasure.ts로 잰다(효과를 바꾸면 다시 재서 적는다). 몬스터 밖에 걸리면 손으로 조정한다.
+   */
+  center?: { dx: number; dy: number };
   /** 개발 화면에 보이는 설명 */
   note: string;
 }
@@ -79,17 +81,18 @@ export const EFFECTS = {
   // ---- 속성별 기술 효과 21개 (설계서 11절, 속성·순서는 domain/field/elements.ts의 ELEMENT_FX) ----
   // 전부 캔버스 한 칸 크기 효과. 전투 연출 시간(내 공격 명중 0.6초·적 공격 0.7초 — 같은 효과를 양쪽에 쓰므로 짧은 0.6초에 맞춤) 안에 끝나도록
   // 긴 효과는 until로 앞부분만 자르고 speed로 빠르게 튼다 (실제로 트는 시간 = until ÷ speed ≤ 0.6초).
-  // 바닥에 붙는 효과는 at.y를 땅 높이로, 방향 있는 효과는 왼쪽에서 오른쪽으로 날아간다 (틀 곳은 Task 21).
+  // 자리 `at`은 효과의 무게중심(center)을 놓을 곳이라, 맞는 쪽 몬스터 그림 한가운데를 주면 효과 중심에 몬스터 몸이 온다. 방향 있는 효과는 왼쪽에서 오른쪽으로 날아간다.
   'vine-whip': {
+    center: { dx: 13.0, dy: -33.7 },
     load: () => import('pixelfx/fx/nature/vine-whip'),
     until: 0.9,
     speed: 1.6,
-    reach: 100,
     hold: false,
     screen: false,
     note: '풀 1번 — 덩굴 휘두르기 (왼쪽에서 오른쪽으로 뻗음, 1.4초 중 0.9초까지 빠르게)',
   },
   thorns: {
+    center: { dx: 72.5, dy: -14.9 },
     load: () => import('pixelfx/fx/nature/thorns'),
     until: 1.2,
     speed: 2,
@@ -98,6 +101,7 @@ export const EFFECTS = {
     note: '풀 2번 — 바닥에서 솟는 가시 (2.4초 중 1.2초까지 빠르게, 땅에 붙는 효과)',
   },
   'leaf-storm': {
+    center: { dx: -0.5, dy: -38.8 },
     load: () => import('pixelfx/fx/nature/leaf-storm'),
     until: 1.2,
     speed: 2,
@@ -106,6 +110,7 @@ export const EFFECTS = {
     note: '풀 3번 — 잎사귀 회오리 (반복 효과라 1.2초까지만 빠르게)',
   },
   'acid-splash': {
+    center: { dx: -1.6, dy: -10.9 },
     load: () => import('pixelfx/fx/nature/acid-splash'),
     until: 1.2,
     speed: 2,
@@ -114,6 +119,7 @@ export const EFFECTS = {
     note: '독 1번 — 산성 방울 튀김 (2.8초 중 1.2초까지 빠르게, 땅에 붙는 효과)',
   },
   'spore-burst': {
+    center: { dx: 0.4, dy: -38.5 },
     load: () => import('pixelfx/fx/nature/spore-burst'),
     until: 1.8,
     speed: 3,
@@ -122,6 +128,7 @@ export const EFFECTS = {
     note: '독 2번 — 버섯 포자 터짐 (3.2초 중 1.8초까지 3배속, 땅에 붙는 효과)',
   },
   'poison-cloud': {
+    center: { dx: -0.4, dy: -12.7 },
     load: () => import('pixelfx/fx/nature/poison-cloud'),
     until: 1.5,
     speed: 2.5,
@@ -130,6 +137,7 @@ export const EFFECTS = {
     note: '독 3번 — 독구름 (반복 효과라 1.5초까지 2.5배속, 땅에 붙는 효과)',
   },
   'feather-burst': {
+    center: { dx: -1.2, dy: 7.2 },
     load: () => import('pixelfx/fx/holy/feather-burst'),
     until: 1.5,
     speed: 2.5,
@@ -138,6 +146,7 @@ export const EFFECTS = {
     note: '빛 1번 — 깃털 터짐 (3초 중 1.5초까지 2.5배속)',
   },
   smite: {
+    center: { dx: -2.7, dy: -17.9 },
     load: () => import('pixelfx/fx/holy/smite'),
     until: 1.3,
     speed: 2.3,
@@ -146,6 +155,7 @@ export const EFFECTS = {
     note: '빛 2번 — 하늘에서 내리치는 빛 (2.8초 중 1.3초까지 빠르게, 땅에 붙는 효과)',
   },
   sunburst: {
+    center: { dx: -0.8, dy: -0.4 },
     load: () => import('pixelfx/fx/holy/sunburst'),
     until: 1.5,
     speed: 2.5,
@@ -154,6 +164,7 @@ export const EFFECTS = {
     note: '빛 3번 — 햇살 폭발 (반복 효과라 1.5초까지 2.5배속)',
   },
   splash: {
+    center: { dx: -3.9, dy: -14.1 },
     load: () => import('pixelfx/fx/water/splash'),
     until: 1.2,
     speed: 2,
@@ -162,15 +173,16 @@ export const EFFECTS = {
     note: '물 1번 — 물 튀김 (2.5초 중 1.2초까지 빠르게, 땅에 붙는 효과)',
   },
   'water-jet': {
+    center: { dx: 88.3, dy: 8.7 },
     load: () => import('pixelfx/fx/water/water-jet'),
     until: 0.6,
     speed: 1,
-    reach: 110,
     hold: false,
     screen: false,
     note: '물 2번 — 물줄기 쏘기 (왼쪽에서 오른쪽으로, 반복 효과라 0.6초까지만)',
   },
   'wave-crash': {
+    center: { dx: -10.5, dy: -17.2 },
     load: () => import('pixelfx/fx/water/wave-crash'),
     until: 1.5,
     speed: 2.5,
@@ -179,6 +191,7 @@ export const EFFECTS = {
     note: '물 3번 — 큰 파도 (3.2초 중 1.5초까지 2.5배속, 땅에 붙는 효과)',
   },
   'zap-hit': {
+    center: { dx: 18.7, dy: -5.6 },
     load: () => import('pixelfx/fx/lightning/zap-hit'),
     speed: 1.5,
     hold: false,
@@ -187,15 +200,16 @@ export const EFFECTS = {
     note: '번개 1번 — 찌릿 전기 (0.9초 전부 1.5배속, 맞는 쪽 방향으로 뒤집음)',
   },
   'chain-lightning': {
+    center: { dx: 92.5, dy: -21.7 },
     load: () => import('pixelfx/fx/lightning/chain-lightning'),
     until: 1.2,
     speed: 2,
-    reach: 70,
     hold: false,
     screen: false,
     note: '번개 2번 — 이어지는 번개 (1.8초 중 1.2초까지 빠르게, 왼쪽에서 오른쪽으로)',
   },
   'lightning-strike': {
+    center: { dx: 0.0, dy: -90.8 },
     load: () => import('pixelfx/fx/lightning/lightning-strike'),
     until: 1.5,
     speed: 2.5,
@@ -204,6 +218,7 @@ export const EFFECTS = {
     note: '번개 3번 — 벼락 (3초 중 1.5초까지 2.5배속, 땅에 붙는 효과)',
   },
   'earth-spike': {
+    center: { dx: -4.7, dy: -19.6 },
     load: () => import('pixelfx/fx/nature/earth-spike'),
     until: 1.5,
     speed: 2.6,
@@ -212,15 +227,16 @@ export const EFFECTS = {
     note: '땅 1번 — 솟는 바위 가시 (3.4초 중 1.5초까지 빠르게, 땅에 붙는 효과)',
   },
   boulder: {
+    center: { dx: 100.5, dy: -25.3 },
     load: () => import('pixelfx/fx/nature/boulder'),
     until: 1.5,
     speed: 2.5,
-    reach: 120,
     hold: false,
     screen: false,
     note: '땅 2번 — 굴러가는 큰 바위 (2.3초 중 1.5초까지 2.5배속, 왼쪽에서 오른쪽으로)',
   },
   quake: {
+    center: { dx: 0.3, dy: -18.7 },
     load: () => import('pixelfx/fx/nature/quake'),
     until: 1.5,
     speed: 2.6,
@@ -229,6 +245,7 @@ export const EFFECTS = {
     note: '땅 3번 — 땅 흔들림 (3.1초 중 1.5초까지 빠르게, 땅에 붙는 효과)',
   },
   fireball: {
+    center: { dx: -43.1, dy: -4.4 },
     load: () => import('pixelfx/fx/fire/fireball'),
     until: 0.6,
     speed: 1,
@@ -237,15 +254,16 @@ export const EFFECTS = {
     note: '불 1번 — 불덩이 (왼쪽에서 오른쪽으로, 반복 효과라 0.6초까지만)',
   },
   'fire-breath': {
+    center: { dx: 79.3, dy: -20.6 },
     load: () => import('pixelfx/fx/fire/fire-breath'),
     until: 0.7,
     speed: 1.2,
-    reach: 110,
     hold: false,
     screen: false,
     note: '불 2번 — 불 뿜기 (왼쪽에서 오른쪽으로, 반복 효과라 0.7초까지 1.2배속)',
   },
   'flame-pillar': {
+    center: { dx: -1.8, dy: -54.3 },
     load: () => import('pixelfx/fx/fire/flame-pillar'),
     until: 1.5,
     speed: 2.5,

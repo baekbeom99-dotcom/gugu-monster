@@ -17,7 +17,7 @@ import { HERO_DIRS, HERO_SPRITES } from './art/hero';
 import { PixelSprite } from './art/PixelSprite';
 import { debugFlags, setDebugFlag } from './debugFlags';
 import { ELEMENT_FX, ELEMENT_NAMES, type Element } from '../domain/field/elements';
-import { EFFECTS, type FxName, type FxSpec } from './fx/effects';
+import { EFFECTS, type FxName } from './fx/effects';
 import { playFx } from './fx/playFx';
 
 const MOODS: MonsterMood[] = ['idle', 'hit', 'happy', 'sleep'];
@@ -59,9 +59,8 @@ function EffectButtons() {
     if (!c) return;
     c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
     const r = c.getBoundingClientRect();
-    const spec: FxSpec = EFFECTS[name];
-    const anchor = spec.anchor ?? 'ground';
-    void playFx(c, name, { x: r.width / 2, y: r.height * (anchor === 'center' ? 0.45 : 0.6) }, { gold, mirror });
+    // 상자 한가운데가 곧 효과 중심 (전투와 같은 규칙)
+    void playFx(c, name, { x: r.width / 2, y: r.height / 2 }, { gold, mirror });
   };
   const button = (n: FxName) => (
     <button key={n} type="button" className="btn btn--ghost" onClick={() => play(n)} title={EFFECTS[n].note}>

@@ -77,7 +77,7 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 | 기술 이름·종 이름 | `src/domain/field/creatures.ts` (`MOVES`), 이름은 `src/domain/monsterNames.ts` | — |
 | 상점 글 | `src/field/shop/shopText.ts` | E2E가 글을 찾으면 `e2e/field.spec.ts`도 |
 | 캡슐·단 연습 수치 | `src/domain/field/tuning.ts` | `tests/field/tuning.test.ts` |
-| 속성·기술 효과 | `src/domain/field/elements.ts`(속성 표)와 `src/field/fx/effects.ts`(효과 옵션·`reach`·`anchor`) | `#/dev/field`에서 속성별 버튼으로 확인, 효과 시간 ≤ 0.6초(`tests/field/elements.test.ts`) |
+| 속성·기술 효과 | `src/domain/field/elements.ts`(속성 표)와 `src/field/fx/effects.ts`(효과 옵션·`center`: 그린 화소의 무게중심, 잴 때는 `tests/field/fxMeasure.ts`) | `#/dev/field`에서 속성별 버튼으로 확인, 효과 시간 ≤ 0.6초(`tests/field/elements.test.ts`) |
 | 전투 화면 글 | `src/field/battle/battleText.ts` | E2E가 글을 찾으면 `e2e/field.spec.ts`도 |
 | 구구몬 그림 교체 | 파일을 `src/field/art/creatures/`에 넣고 `src/field/art/creatureArt.ts`의 `IMAGE_ART`에 한 줄 | `#/dev/field`에서 앞·뒤·동행 크기 확인 (퀴즈 모험 몬스터 그림은 그대로) |
 | 주인공 그림 | `src/field/art/hero.ts` (32×32 글자 배열) | `tests/field/pixelArt.test.ts`가 크기 확인 |
