@@ -100,8 +100,8 @@ export interface AnswerInput {
   firstAttemptInBattle: boolean;
   battleStartedAt: number;
   now: number;
-  /** trial: 단 도전(단 골라 탐험), normal: 추천·진단 탐험, field: 필드 모험(상자 3까지, 빠르기 별 없음) */
-  source?: 'trial' | 'normal' | 'field';
+  /** trial: 단 도전(단 골라 탐험), normal: 추천·진단 탐험, field: 필드 모험(상자 3까지, 빠르기 별 없음), shop: 마을 상점 연습(field와 같은 학습 기록, 별·성장 점수 없음) */
+  source?: 'trial' | 'normal' | 'field' | 'shop';
   /** 추천 탐험: 정답 별을 푼 시간에 반비례해서 준다 */
   speedBonus?: boolean;
 }
@@ -146,7 +146,7 @@ export function recordAnswer(learning: LearningData, economy: EconomyData, input
         isRetry: input.isRetry,
         now: input.now,
         today,
-        maxBox: input.source === 'field' ? FIELD_MAX_BOX : undefined,
+        maxBox: input.source === 'field' || input.source === 'shop' ? FIELD_MAX_BOX : undefined,
       }),
     },
     danRecent: { ...learning.danRecent, [fact.a]: pushDanRecent(learning.danRecent[fact.a] ?? [], input.correct) },
@@ -164,9 +164,11 @@ export function recordAnswer(learning: LearningData, economy: EconomyData, input
     boosted: updateBoost(learning.boosted ?? {}, fact.id, input),
   };
 
-  const baseStars = input.correct ? (input.speedBonus && input.source !== 'field' ? speedStars(input.ms) : STAR_REWARDS.correct) : 0;
-  const stars = baseStars + (overcome ? STAR_REWARDS.overcome : 0);
-  const xp = GROWTH_XP.attempt + (input.correct ? GROWTH_XP.correctBonus : 0) + (overcome ? GROWTH_XP.overcome : 0);
+  // 상점 연습은 배우기만 하고 별·성장 점수는 주지 않는다
+  const noReward = input.source === 'shop';
+  const baseStars = noReward ? 0 : input.correct ? (input.speedBonus && input.source !== 'field' ? speedStars(input.ms) : STAR_REWARDS.correct) : 0;
+  const stars = noReward ? 0 : baseStars + (overcome ? STAR_REWARDS.overcome : 0);
+  const xp = noReward ? 0 : GROWTH_XP.attempt + (input.correct ? GROWTH_XP.correctBonus : 0) + (overcome ? GROWTH_XP.overcome : 0);
   return { learning: nextLearning, economy: addStars(economy, stars), overcome, stars, baseStars, xp };
 }
 

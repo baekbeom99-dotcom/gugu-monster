@@ -185,6 +185,19 @@ describe('구구몬 체력·상처 저장', () => {
     expect(useGameStore.getState().field.species.cloud!.wounds).toEqual([wound]);
   });
 
+  it("recordAnswer({source:'shop'}): 별과 성장 점수는 그대로, 학습 기록만 늘어난다", () => {
+    const before = useGameStore.getState();
+    const r = useGameStore.getState().recordAnswer({
+      factId: '7x8', type: 'product', correct: true, ms: 2000, inputMode: 'choice', isRetry: false,
+      firstAttemptInBattle: true, battleStartedAt: NOW - 1000, now: NOW, source: 'shop',
+    });
+    const after = useGameStore.getState();
+    expect(r).toMatchObject({ stars: 0, baseStars: 0, xp: 0 });
+    expect(after.economy.stars).toBe(before.economy.stars);
+    expect(after.pet.growthXp).toBe(before.pet.growthXp);
+    expect(after.learning.totalAttempts).toBe(before.learning.totalAttempts + 1);
+  });
+
   it('setCompanion: 쓰러진 종은 false', () => {
     useGameStore.getState().finishWildBattle(batch({ species: 'jelly' }));
     setHp('jelly', 0);

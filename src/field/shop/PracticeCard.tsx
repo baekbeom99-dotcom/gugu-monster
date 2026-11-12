@@ -61,7 +61,7 @@ export function PracticeCard({ factId, type, qkey, hint, onAnswer, onHintPick }:
       firstAttemptInBattle: !seen.current.has(factId),
       battleStartedAt: startedAt.current,
       now: Date.now(),
-      source: 'field',
+      source: 'shop',
     });
     seen.current.add(factId);
     if (!correct) missed.current.add(factId);

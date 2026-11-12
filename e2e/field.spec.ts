@@ -296,6 +296,14 @@ function moveButton(page: Page, answer: number) {
   return page.locator('.wild-move').filter({ has: page.locator(`.wild-move__num:text-is("${answer}")`) });
 }
 
+/** 별 개수와 펫 성장 점수 (상점 연습은 둘 다 안 바뀐다) */
+async function starsAndGrowth(page: Page): Promise<{ stars: number; growthXp: number }> {
+  return page.evaluate(() => {
+    const st = JSON.parse(localStorage.getItem('gugu-monster:save') ?? '{}').state ?? {};
+    return { stars: st.economy?.stars ?? 0, growthXp: st.pet?.growthXp ?? 0 };
+  });
+}
+
 async function totalAttempts(page: Page): Promise<number> {
   return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save') ?? '{}').state?.learning?.totalAttempts ?? 0);
 }
@@ -816,6 +824,7 @@ test('초원 캡슐 얻기: 2단 9문제 (첫 문제는 틀려 힌트 → 같은
   await openShop(page);
   const shop = page.getByRole('dialog', { name: '상점' });
   const before = await totalAttempts(page);
+  const rewardBefore = await starsAndGrowth(page);
   await shop.getByRole('button', { name: '초원 캡슐 얻기' }).click();
   await shop.getByRole('button', { name: '2단' }).click();
   // 첫 문제 2 × 1: 일부러 틀린다
@@ -838,6 +847,8 @@ test('초원 캡슐 얻기: 2단 9문제 (첫 문제는 틀려 힌트 → 같은
   await expect(shop.getByText('초원 캡슐 3개를 받았어요!')).toBeVisible();
   expect((await savedField(page)).capsules.meadow).toBe(6);
   expect(await totalAttempts(page)).toBe(before + 10);
+  // 상점 연습은 별도 성장 점수도 주지 않는다
+  expect(await starsAndGrowth(page)).toEqual(rewardBefore);
   // 틀린 적 없는 사실을 맞히면 지금처럼 상자가 오른다 (다음 복습은 미래)
   const ok = await savedFact(page, '2x5');
   expect(ok.box).toBe(1);
