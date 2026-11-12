@@ -50,6 +50,8 @@ import { type Tier, tierExp } from '../domain/field/strength';
 import { COMPANION_MAX_HP } from '../domain/field/tuning';
 import { addCapsules, type CapsuleType, takeCapsule } from '../domain/field/capsules';
 import { addWound, applyDamage, isFainted, type Wound } from '../domain/field/wounds';
+import { pickReplacement } from '../domain/field/companion';
+import { pickCompanion } from '../field/companion';
 import { type FieldData, type FieldNotice, newSpeciesEntry, SPECIES_IDS, type SpeciesEntry, type SpeciesId, townStart } from './fieldData';
 import { createInitialSave, mergeSave, migrateSave, SAVE_KEY, type SaveData, SCHEMA_VERSION, type Settings } from './saveData';
 
@@ -162,8 +164,11 @@ interface GameActions {
   chooseStarter: (id: SpeciesId, now: number) => void;
   /** 필드 모험: 함께 다닐 구구몬 (잡은 종, 쓰러지지 않은 종만) */
   setCompanion: (id: SpeciesId) => boolean;
-  /** 필드 모험: 전투에서 맞은 순간 체력·상처를 저장. 체력 0이면 같은 순간 태초마을 시작 칸으로 */
-  damageCompanion: (id: SpeciesId, dmg: number, wound: Wound) => { hp: number; fainted: boolean };
+  /**
+   * 필드 모험: 전투에서 맞은 순간 체력·상처를 저장. 체력 0이면 같은 저장에서 태초마을 시작 칸으로 옮기고,
+   * 함께 다니던 종이면 도감의 다른 건강한 종으로 동행을 바꾼다(replacedBy). 이미 쓰러진 종은 아무것도 안 바뀐다
+   */
+  damageCompanion: (id: SpeciesId, dmg: number, wound: Wound) => { hp: number; fainted: boolean; replacedBy: SpeciesId | null };
   /** 필드 모험: 체력 가득, 상처 비움 */
   healSpecies: (id: SpeciesId) => void;
   /** 필드 모험: 캡슐 n개 받기 (n은 0 이상 정수만) */
@@ -340,18 +345,27 @@ export const useGameStore = create<GameStore>()(
         return ok;
       },
       damageCompanion: (id, dmg, wound) => {
-        let result = { hp: 0, fainted: false };
+        let result: { hp: number; fainted: boolean; replacedBy: SpeciesId | null } = { hp: 0, fainted: false, replacedBy: null };
         set((s) => {
           const e = speciesEntry(s.field, id);
           if (!e) return {};
+          // 이미 쓰러진 종은 더 맞지 않는다 (위치·상처·동행 모두 그대로)
+          if (isFainted(e)) {
+            result = { hp: 0, fainted: true, replacedBy: null };
+            return {};
+          }
           const hp = applyDamage(e.hp, dmg);
           const fainted = isFainted({ hp });
-          result = { hp, fainted };
-          // 쓰러지면 자리 옮기기도 같은 저장에서 (전투 끝 글을 보다 앱을 닫아도 다시 열면 마을)
+          const species = { ...s.field.species, [id]: { ...e, hp, wounds: addWound(e.wounds, wound) } };
+          // 함께 다니던 구구몬(동행이 비었으면 화면이 고른 종)이 쓰러지면 도감의 다른 건강한 구구몬이 대신 함께 다닌다
+          const replacedBy = fainted && pickCompanion(s) === id ? pickReplacement(species, id) : null;
+          result = { hp, fainted, replacedBy };
+          // 쓰러지면 자리 옮기기·동행 바꾸기도 같은 저장에서 (전투 끝 글을 보다 앱을 닫아도 다시 열면 마을, 새 동행)
           return {
             field: {
               ...s.field,
-              species: { ...s.field.species, [id]: { ...e, hp, wounds: addWound(e.wounds, wound) } },
+              species,
+              companion: replacedBy ?? s.field.companion,
               position: fainted ? { map: 'town', ...townStart(), facing: 'down' } : s.field.position,
             },
           };
@@ -410,7 +424,12 @@ export const useGameStore = create<GameStore>()(
             if (grown.levelsGained > 0) notices.push({ kind: 'levelUp', species: id, level: grown.entry.level });
             if (grown.evolvedTo) notices.push({ kind: 'evolve', species: id, stage: grown.evolvedTo });
           }
-          if (r.end === 'fainted' && companion) notices.unshift({ kind: 'fainted', species: companion });
+          if (r.end === 'fainted' && companion) {
+            // 쓰러지는 순간 damageCompanion이 동행을 바꿔 두었으면, 대신 함께 다니는 종을 알림에 담는다
+            const current = s.field.companion;
+            const replacedBy = current && current !== companion && species[current] && !isFainted(species[current]!) ? current : null;
+            notices.unshift(replacedBy ? { kind: 'fainted', species: companion, replacedBy } : { kind: 'fainted', species: companion });
+          }
           const stats = {
             battles: s.field.stats.battles + 1,
             catches: s.field.stats.catches + (caught ? 1 : 0),

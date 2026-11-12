@@ -28,4 +28,6 @@ export const battleText = {
   quit: '무사히 도망쳤다!',
   /** 필드: 동행이 쓰러져 있을 때 */
   faintedField: '구구몬이 쓰러졌어요. 상점에서 회복시켜요',
+  /** 필드 알림: 쓰러지면서 도감의 다른 구구몬이 대신 함께 다니게 됐을 때 */
+  replacedField: (name: string) => `${josa(name, '이', '가')} 대신 함께 다녀요`,
 } as const;

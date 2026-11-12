@@ -48,7 +48,8 @@ export interface FieldData {
 export type FieldNotice =
   | { kind: 'levelUp'; species: SpeciesId; level: number }
   | { kind: 'evolve'; species: SpeciesId; stage: 2 | 3 }
-  | { kind: 'fainted'; species: SpeciesId };
+  /** replacedBy: 쓰러지면서 대신 함께 다니게 된 종 (없으면 동행 그대로) */
+  | { kind: 'fainted'; species: SpeciesId; replacedBy?: SpeciesId };
 
 const DIRS: readonly Dir[] = ['up', 'down', 'left', 'right'];
 

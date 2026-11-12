@@ -215,6 +215,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   const notice0 = useSessionStore((s) => s.pendingFieldNotices[0] ?? null);
   st.current.noticeOpen = notice0 !== null;
   const noticeStage = useGameStore((s) => (notice0 ? s.field.species[notice0.species]?.stage ?? 1 : 1));
+  const replacedId = notice0?.kind === 'fainted' ? notice0.replacedBy : undefined;
+  const replacedStage = useGameStore((s) => (replacedId ? s.field.species[replacedId]?.stage ?? 1 : 1));
   const bubbleStage = useGameStore((s) => (bubble ? s.field.species[bubble]?.stage ?? 1 : 1));
   const bubbleLevel = useGameStore((s) => (bubble ? s.field.species[bubble]?.level ?? 1 : 1));
   const bubbleHp = useGameStore((s) => (bubble ? s.field.species[bubble]?.hp ?? COMPANION_MAX_HP : COMPANION_MAX_HP));
@@ -602,7 +604,9 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
                 ? `${displayName(notice0.species, noticeStage)} Lv${notice0.level}`
                 : notice0.kind === 'evolve'
                   ? displayName(notice0.species, notice0.stage)
-                  : `${displayName(notice0.species, noticeStage)} — ${battleText.faintedField}`}
+                  : notice0.replacedBy
+                    ? battleText.replacedField(displayName(notice0.replacedBy, replacedStage))
+                    : `${displayName(notice0.species, noticeStage)} — ${battleText.faintedField}`}
             </span>
             <span className="fieldmode__growth-hint">탭하면 닫혀요</span>
           </button>

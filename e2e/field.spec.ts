@@ -228,6 +228,8 @@ interface GrassOptions {
   tier?: string;
   /** 저장본의 캡슐 개수 (없으면 기본 3·3·3·0) */
   capsules?: Record<string, number>;
+  /** 구름몬 말고 더 잡아 둔 종 (예: { jelly: { level: 4, ... } }) */
+  others?: Record<string, Record<string, unknown>>;
 }
 
 /** 풀숲(6,8) 바로 왼쪽 (5,8)에 오른쪽을 보고 선 저장본 + 만남 100% 스위치 */
@@ -245,18 +247,18 @@ async function standBesideGrass(page: Page, opts: GrassOptions = {}) {
   await page.goto('/#/field');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
   await page.evaluate(
-    ([starter, cloud, capsules]) => {
+    ([starter, cloud, capsules, others]) => {
       localStorage.clear();
       const s = starter as typeof STARTER_FIELD;
       const field = {
         ...s,
-        species: { cloud: { ...s.species.cloud, ...(cloud as object) } },
+        species: { cloud: { ...s.species.cloud, ...(cloud as object) }, ...(others as object) },
         position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
         ...(capsules ? { capsules } : {}),
       };
       localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
     },
-    [STARTER_FIELD, opts.cloud ?? {}, opts.capsules ?? null] as const,
+    [STARTER_FIELD, opts.cloud ?? {}, opts.capsules ?? null, opts.others ?? {}] as const,
   );
   await page.reload();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,8');
@@ -487,10 +489,61 @@ test('시간이 다 되면 적이 공격하고, 쓰러지면 태초마을로 돌
   const seen = await page.evaluate(() => (window as unknown as { __loadingSeen: string[] }).__loadingSeen);
   expect(seen.some((t) => t.includes('태초마을'))).toBe(true);
   await expect(page.getByRole('dialog', { name: '쓰러짐 알림' })).toContainText('쓰러졌어…');
+  // 대신 다닐 건강한 구구몬이 없으면 동행은 그대로, 알림은 예전 글
+  await expect(page.getByRole('dialog', { name: '쓰러짐 알림' })).toContainText('구구몬이 쓰러졌어요. 상점에서 회복시켜요');
+  await expect(page.getByRole('dialog', { name: '쓰러짐 알림' })).not.toContainText('대신 함께 다녀요');
   const field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
   expect(field.position.map).toBe('town');
+  expect(field.companion).toBe('cloud');
   expect(field.species.cloud.hp).toBe(0);
   expect(field.species.cloud.wounds[0]).toEqual({ factId: '7x8', type: 'product' });
+});
+
+test('쓰러지면 도감의 건강한 다른 구구몬이 대신 함께 다닌다 (알림·저장본·도감·마을)', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { __GUGU_E2E_QUESTION__: unknown }).__GUGU_E2E_QUESTION__ = { factId: '7x8', type: 'product' };
+  });
+  // 젤리몬(Lv4, 건강)이 대신 다닐 후보. 뿔뿔몬(Lv9)은 쓰러져 있어 후보가 아니다. 단계는 보통(7초)으로 고정
+  await standBesideGrass(page, {
+    timer: true,
+    tier: 'normal',
+    cloud: { hp: 20 },
+    others: {
+      jelly: { level: 4, exp: 0, stage: 1, caught: 1, firstCaughtAt: 2 },
+      horn: { level: 9, exp: 0, stage: 1, caught: 1, firstCaughtAt: 3, hp: 0 },
+    },
+  });
+  await stepIntoGrass(page);
+  await expect(page.locator('.wild__bubble')).toHaveAttribute('data-fact', '7x8');
+  // 시간이 다 되어 맞고 쓰러지기를 기다린다 (자지 않고 글을 기다림)
+  await expect(page.getByRole('status').filter({ hasText: '쓰러졌다' })).toBeVisible({ timeout: 10000 });
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
+  const canvas = page.getByTestId('field-canvas');
+  await expect(canvas).toHaveAttribute('data-pos', '10,31');
+  const notice = page.getByRole('dialog', { name: '쓰러짐 알림' });
+  await expect(notice).toContainText('쓰러졌어…');
+  await expect(notice).toContainText('젤리몬이 대신 함께 다녀요');
+  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  expect(field.companion).toBe('jelly');
+  expect(field.species.cloud.hp).toBe(0);
+  expect(field.position.map).toBe('town');
+  // 마을: 쓰러진 구름몬은 돌아다니는 목록에 누워 있고, 젤리몬은 목록에서 빠져 주인공을 따라온다
+  await expect(canvas).toHaveAttribute('data-roamers', /cloud:/);
+  await expect(canvas).not.toHaveAttribute('data-roamers', /jelly:/);
+  await expect(canvas).toHaveAttribute('data-sleeping', /cloud/);
+  await page.screenshot({ path: '.superpowers/sdd/2026-11-12-field-adventure-2-followup/task-1-shots/replaced-notice-375.png' });
+  await notice.click();
+  await expect(notice).toHaveCount(0);
+  // 아래를 보고 서 있으므로 짧게 한 번은 오른쪽으로 돌기만 하고, 한 번 더 누르면 한 칸 걷는다
+  await tap(page, 'ArrowRight');
+  await tap(page, 'ArrowRight');
+  await expect(canvas).toHaveAttribute('data-pos', '11,31');
+  await expect.poll(() => companionPos(page)).toBe('10,31');
+  // 도감: 젤리몬이 "함께 다니는 중", 쓰러진 구름몬은 함께 다니기 버튼이 꺼져 있다
+  await page.goto('/#/field/dex');
+  await expect(page.locator('.fdex__cell--caught').filter({ hasText: '함께 다니는 중' })).toContainText('젤리몬');
+  await page.getByRole('button', { name: '새싹몬 잡음' }).click(); // cloud의 이름
+  await expect(page.getByRole('button', { name: /함께 다니기/ })).toBeDisabled();
 });
 
 test('쓰러진 동행이면 풀숲에서 만나지 않고 "구구몬이 쓰러졌어요" 알림이 보인다', async ({ page }) => {
@@ -966,6 +1019,21 @@ test('12·13단이 열렸으면 레전드가 나타나 13단 문제를 낸다', 
     await moveButton(page, answer).click();
     await page.waitForTimeout(800);
   }
+});
+
+test('황금 캡슐이 0개여도 레전드를 만나고, 어지러워지면 캡슐이 없어 돌려보낸다', async ({ page }) => {
+  await standBesideGrassWith(page, true);
+  await expect(page.getByRole('group', { name: '필드 정보' }).getByLabel('황금 캡슐 0개')).toBeVisible();
+  await stepIntoGrass(page);
+  await expect(page.locator('.wild__stage')).toHaveAttribute('data-species', /^legend-/);
+  await answerUntilDizzy(page);
+  await expect(page.getByRole('status')).toHaveText('캡슐이 없어서 돌려보냈어! 상점에서 캡슐을 구해 오자');
+  await expect(page.getByRole('button', { name: '캡슐 던지기' })).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
+  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  expect(field.capsules.legend).toBe(0);
+  expect(Object.keys(field.species).some((id) => id.startsWith('legend-'))).toBe(false);
+  expect(field.stats).toMatchObject({ battles: 1, catches: 0, fled: 1 });
 });
 
 test('13단이 잠긴 저장본에서는 레전드 스위치가 있어도 보통 만남', async ({ page }) => {
